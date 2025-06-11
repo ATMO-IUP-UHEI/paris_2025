@@ -3,4 +3,6 @@ Search for the config file "config.yaml" in the current directory and load it as
 global variable `CONFIG`. If the file does not exist, it raises a `FileNotFoundError`.
 """
 
-import paris_2025.tracers  # noqa: F401
+from paris_2025 import tracers
+
+__all__ = ["tracers"]
