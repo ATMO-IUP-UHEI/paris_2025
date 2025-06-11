@@ -1,0 +1,6 @@
+data_path: /Users/rmaiwald/Levante/A_raw_data/
+domain:
+  crs: EPSG:2154
+  bbox: [640490. 6854570.  659700. 6869760.]
+  dx: 10
+  dy: 10
