@@ -1,0 +1,97 @@
+import geopandas as gpd
+import shapely
+import contextily as ctx
+import matplotlib.pyplot as plt
+from paris_2025.config import load_config
+
+CONFIG = load_config()
+
+
+def get_domain_as_geopandas():
+    """
+    Returns the domain as a GeoDataFrame with GRAL and GRAMM bounding boxes.
+    """
+    gramm_bbox = CONFIG["domain"]["gramm"]["bbox"]
+    gral_bbox = CONFIG["domain"]["gral"]["bbox"]
+    print(*gral_bbox.values())
+    gramm_width = gramm_bbox["x1"] - gramm_bbox["x0"]
+    gramm_height = gramm_bbox["y1"] - gramm_bbox["y0"]
+    gral_width = gral_bbox["x1"] - gral_bbox["x0"]
+    gral_height = gral_bbox["y1"] - gral_bbox["y0"]
+    gdf = gpd.GeoDataFrame(
+        {
+            "label": [
+                f"GRAL ({gral_width*1e-3:.0f}x{gral_height*1e-3:.0f} km)",
+                f"GRAMM ({gramm_width*1e-3:.0f}x{gramm_height*1e-3:.0f} km)",
+            ],
+            "geometry": [
+                shapely.geometry.box(*gral_bbox.values()),
+                shapely.geometry.box(*gramm_bbox.values()),
+            ],
+        },
+        crs=CONFIG["domain"]["crs"],
+    )
+    return gdf
+
+
+def add_basemap(ax, zoom=12):
+    """
+    Adds a basemap to the given axes using contextily.
+    """
+    ctx.add_basemap(
+        ax,
+        crs=CONFIG["domain"]["crs"],
+        source=ctx.providers.Esri.WorldImagery,  # type: ignore
+        zoom=zoom,  # type: ignore
+    )
+    ax.set_axis_off()
+    ax.set_aspect("equal", adjustable="box")
+    return ax
+
+
+def add_domain(ax: plt.Axes) -> None:  # type: ignore
+    """
+    Adds the domain bounding boxes and labels to the given axes.
+    """
+    gdf = get_domain_as_geopandas()
+    colors = ["midnightblue", "royalblue"]
+    textbuffer = 500
+    # Get the fontsize for the axes labels
+    fontsize = ax.xaxis.get_ticklabels()[0].get_fontsize()
+    # Plot GRAL and GRAMM boxes separately for different colors
+    for idx, color in zip([0, 1], colors):
+        gdf.iloc[[idx]].plot(
+            column="label",
+            legend=False,
+            facecolor="none",
+            linestyle="-",
+            linewidth=3,
+            edgecolor=color,
+            ax=ax,
+            categorical=True,
+        )
+        # Add label to geometries in same color
+        row = gdf.iloc[idx]
+        ax.text(
+            row.geometry.bounds[0] + textbuffer,
+            row.geometry.bounds[1] + textbuffer,
+            row.label,
+            fontsize=fontsize,
+            ha="left",
+            va="bottom",
+            color=color,
+            bbox=dict(
+                facecolor="white",
+                edgecolor="none",
+                alpha=0.8,
+                pad=0.5,
+                boxstyle="round,pad=0.1",
+            ),
+        )
+    # Add buffer to axes limits for better visualization
+    xlim = ax.get_xlim()
+    ylim = ax.get_ylim()
+    xbuffer = 5000
+    ybuffer = 2000
+    ax.set_xlim(xlim[0] - xbuffer, xlim[1] + xbuffer)
+    ax.set_ylim(ylim[0] - ybuffer, ylim[1] + ybuffer)
