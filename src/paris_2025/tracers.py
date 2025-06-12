@@ -23,27 +23,26 @@ print(f"Using tracer path: {TRACER_PATH}")
 TRACER_CO2_FILE = TRACER_PATH / "co2.nc"
 
 
-def get_co2_measurement() -> xr.Dataset | None:
+def get_co2_measurement() -> xr.Dataset:
     """
     Load the CO2 measurement dataset from file, if it exists and is not empty.
+
     Returns
     -------
-    xr.Dataset or None
-        The CO2 measurement dataset, or None if not found or empty.
+    xr.Dataset
+        The CO2 measurement dataset.
     """
     if not TRACER_CO2_FILE.exists():
-        print(
+        raise FileNotFoundError(
             "CO2 measurement file not found. Please run the script to create it "
             "tracers.create_co2_measurement()"
         )
-        return None
     co2 = xr.open_dataset(TRACER_CO2_FILE)
     if co2.station.size == 0:
-        print(
+        raise ValueError(
             "CO2 measurement file is empty. Please run the script to create it. "
             "tracers.create_co2_measurement()"
         )
-        return None
     return co2
 
 
