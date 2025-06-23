@@ -3,6 +3,6 @@ Search for the config file "config.yaml" in the current directory and load it as
 global variable `CONFIG`. If the file does not exist, it raises a `FileNotFoundError`.
 """
 
-from paris_2025 import tracers, domain
+from paris_2025 import tracers, domain, meteo
 
-__all__ = ["tracers", "domain"]
+__all__ = ["tracers", "domain", "meteo"]
