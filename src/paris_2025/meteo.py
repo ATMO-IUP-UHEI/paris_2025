@@ -49,6 +49,10 @@ def get_meteo_measurements() -> xr.Dataset:
 
 
 def create_meteo_measurements() -> None:
+    if METEO_FILE.exists():
+        print("CO2 measurement file already exists. Please delete it to recreate it.")
+        return
+    METEO_FILE.parent.mkdir(parents=True, exist_ok=True)
     meteo = xr.concat(
         [process_meteo_measurements(source) for source in METEO_SUBPATHS], dim="station"
     )
