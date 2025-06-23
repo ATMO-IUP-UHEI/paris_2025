@@ -13,7 +13,6 @@ def get_domain_as_geopandas():
     """
     gramm_bbox = CONFIG["domain"]["gramm"]["bbox"]
     gral_bbox = CONFIG["domain"]["gral"]["bbox"]
-    print(*gral_bbox.values())
     gramm_width = gramm_bbox["x1"] - gramm_bbox["x0"]
     gramm_height = gramm_bbox["y1"] - gramm_bbox["y0"]
     gral_width = gral_bbox["x1"] - gral_bbox["x0"]

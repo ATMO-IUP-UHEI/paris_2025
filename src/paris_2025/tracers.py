@@ -23,7 +23,7 @@ print(f"Using tracer path: {TRACER_PATH}")
 TRACER_CO2_FILE = TRACER_PATH / "co2.nc"
 
 
-def get_co2_measurement() -> xr.Dataset:
+def get_co2_measurements() -> xr.Dataset:
     """
     Load the CO2 measurement dataset from file, if it exists and is not empty.
 
@@ -46,7 +46,7 @@ def get_co2_measurement() -> xr.Dataset:
     return co2
 
 
-def create_co2_measurement() -> None:
+def create_co2_measurements() -> None:
     """
     Create and save a CO2 measurement dataset from high-cost and mid-cost measurements.
     """
@@ -112,16 +112,34 @@ def create_co2_measurement() -> None:
     }
     co2["box_id"].attrs = {
         "long_name": "Box ID",
-        "description": "Identifier for the box containing the CO2 measurement instrument",
+        "description": (
+            "Identifier for the box containing the CO2 measurement instrument",
+        ),
     }
     # Set coordinates
     co2 = co2.set_coords(
-        ["x", "y", "latitude", "longitude", "code", "type", "height", "altitude", "name", "instrument", "HPP_ID|K96_ID", "box_id",]
+        [
+            "x",
+            "y",
+            "latitude",
+            "longitude",
+            "code",
+            "type",
+            "height",
+            "altitude",
+            "name",
+            "instrument",
+            "HPP_ID|K96_ID",
+            "box_id",
+        ]
     )
     # Add global attributes
     co2.attrs = {
         "title": "CO2 Measurements for Paris",
-        "description": "This dataset contains CO2 measurements from high-cost and mid-cost stations in Paris.",
+        "description": (
+            "This dataset contains CO2 measurements from high-cost and mid-cost "
+            "stations in Paris."
+        ),
         "source": "High-cost and mid-cost CO2 measurement stations",
         "date_created": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S"),
         "creator": "Robert Maiwald",
@@ -163,9 +181,12 @@ def process_mid_cost() -> xr.Dataset:
     mid_cost = update_metadata(data_path, mid_cost)
     return mid_cost
 
+
 def update_metadata(data_path, mid_cost):
     df = pd.read_csv(
-        data_path.parent / "co2_metadata.csv", index_col=0, comment="#",
+        data_path.parent / "co2_metadata.csv",
+        index_col=0,
+        comment="#",
     )
     df["Name"] = df["Name"].astype(str)
     # print(df)
@@ -184,9 +205,10 @@ def update_metadata(data_path, mid_cost):
                 found = True
                 indexes.append(index)
                 break
-        if not found: raise ValueError(
-            f"Code {code} not found in metadata. Please check the metadata file."
-        )
+        if not found:
+            raise ValueError(
+                f"Code {code} not found in metadata. Please check the metadata file."
+            )
     df = df.drop("Name", axis=1)
     for column in df.columns:
         mid_cost[column] = (
@@ -236,7 +258,6 @@ def process_files(data_path: Path, measurement_type: str, read_function) -> xr.D
                     "altitude": (["station"], [alt]),
                     "latitude": (["station"], [lat]),
                     "longitude": (["station"], [lon]),
-                    
                     "code": (["station"], [code]),
                     "name": (["station"], [name]),
                     "type": (["station"], [measurement_type]),
@@ -294,7 +315,14 @@ def read_location(path: Path, measurement_type: str) -> pd.Series:
         raise ValueError(f"Unknown measurement type: {measurement_type}")
     alt = elevation + height  # type: ignore
     return pd.Series(
-        {"code": code, "name": name, "lat": lat, "lon": lon, "alt": alt, "height": height}
+        {
+            "code": code,
+            "name": name,
+            "lat": lat,
+            "lon": lon,
+            "alt": alt,
+            "height": height,
+        }
     )
 
 
