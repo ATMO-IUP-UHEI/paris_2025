@@ -33,14 +33,38 @@ def get_domain_as_geopandas():
     return gdf
 
 
-def add_basemap(ax, zoom=12):
+def add_basemap(ax, zoom=12, provider=None):
     """
     Adds a basemap to the given axes using contextily.
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+        The axes to which the basemap will be added.
+    zoom : int, optional
+        The zoom level for the basemap, by default 12.
+    provider : str
+        The provider for the basemap, by default None. If None, uses Esri WorldImagery.
+        If "CartoDB", uses CartoDB PositronNoLabels. If "OpenStreetMap", uses
+        OpenStreetMap Mapnik.
+
+    Returns
+    -------
+    ax : matplotlib.axes.Axes
+        The axes with the added basemap.
     """
+    if provider is None:
+        provider = ctx.providers.Esri.WorldImagery  # type: ignore
+    elif provider == "CartoDB":
+        provider = ctx.providers.CartoDB.PositronNoLabels  # type: ignore
+    elif provider == "OpenStreetMap":
+        provider = ctx.providers.OpenStreetMap.Mapnik  # type: ignore
+    else:
+        raise ValueError(f"Unsupported provider: {provider}")
     ctx.add_basemap(
         ax,
         crs=CONFIG["domain"]["crs"],
-        source=ctx.providers.Esri.WorldImagery,  # type: ignore
+        source=provider,
         zoom=zoom,  # type: ignore
     )
     ax.set_axis_off()
