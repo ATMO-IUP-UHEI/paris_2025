@@ -1,4 +1,6 @@
 data_path: /Users/rmaiwald/Levante/A_raw_data/
+gral_meteo_path: /Users/rmaiwald/Levante/E_processed_output/gral_11/data_at_stations/meteo.nc
+gral_co2_path: /Users/rmaiwald/Levante/E_processed_output/gral_13_origins_earth/data_at_stations/co2.nc
 domain:
   crs: EPSG:2154
   gral:
