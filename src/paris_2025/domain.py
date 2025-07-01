@@ -83,15 +83,22 @@ def add_domain(ax: plt.Axes) -> None:  # type: ignore
     fontsize = ax.xaxis.get_ticklabels()[0].get_fontsize()
     # Plot GRAL and GRAMM boxes separately for different colors
     for idx, color in zip([0, 1], colors):
-        gdf.iloc[[idx]].plot(
-            column="label",
-            legend=False,
-            facecolor="none",
-            linestyle="-",
-            linewidth=3,
-            edgecolor=color,
-            ax=ax,
-            categorical=True,
+        # gdf.iloc[[idx]].plot(
+        #     column="label",
+        #     legend=False,
+        #     facecolor="none",
+        #     linestyle="-",
+        #     linewidth=3,
+        #     edgecolor=color,
+        #     ax=ax,
+        #     categorical=True,
+        # )
+        x0, y0, x1, y1 = gdf.geometry.iloc[idx].bounds  # type: ignore
+        plt.plot(
+            [x0, x1, x1, x0, x0],
+            [y0, y0, y1, y1, y0],
+            color=color,
+            linewidth=2,
         )
         # Add label to geometries in same color
         row = gdf.iloc[idx]
