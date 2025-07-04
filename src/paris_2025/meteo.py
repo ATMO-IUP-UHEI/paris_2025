@@ -1,4 +1,5 @@
 from pathlib import Path
+
 import ggpymanager as ggpy
 import numpy as np
 import pandas as pd
@@ -6,6 +7,7 @@ import pyproj
 import xarray as xr
 from tqdm import tqdm
 
+import paris_2025 as p
 from paris_2025.config import load_config
 
 CONFIG = load_config()
@@ -61,6 +63,13 @@ def create_meteo_measurements() -> None:
         meteo.longitude.values, meteo.latitude.values
     )
     meteo = meteo.assign_coords(x=("station", x), y=("station", y))
+
+    # Add flag for GRAMM and GRAL domains
+    meteo = meteo.assign_coords(
+        in_gramm_domain=("station", p.domain.checking_domain("gramm", x, y)),
+        in_gral_domain=("station", p.domain.checking_domain("gral", x, y))
+    )
+
     # Add wind as vector
     meteo["u_wind"], meteo["v_wind"] = ggpy.utils.vector_from_direction_and_speed(
         meteo["wind_direction"], meteo["wind_speed"]
@@ -70,7 +79,7 @@ def create_meteo_measurements() -> None:
     attrs = {
         "time": [
             "UTC",
-            "Time of measurement",
+            "Time",
             "time",
             "Time of measurement in UTC",
         ],
@@ -112,7 +121,16 @@ def create_meteo_measurements() -> None:
         "y": [
             "m",
             f"Y coordinate in GRAL projection: {CONFIG['domain']['crs']}",
-            "y",
+        ],
+        "in_gramm_domain": [
+            "boolean",
+            "Station in gramm domain",
+            "True if the station is in the gramm domain, False otherwise",
+        ],
+        "in_gral_domain": [
+            "boolean",
+            "Station in gral domain",
+            "True if the station is in the gral domain, False otherwise",
         ],
         "temperature": [
             "K",

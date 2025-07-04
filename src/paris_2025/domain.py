@@ -7,6 +7,30 @@ from paris_2025.config import load_config
 CONFIG = load_config()
 
 
+def checking_domain(domain_name: str, x, y):
+    """
+    Checks if the given coordinates (x, y) are within the specified domain.
+    Parameters
+    ----------
+    domain_name : str
+        The name of the domain to check against, e.g., "gramm" or "gral".
+    x : array-like
+        The x-coordinates to check.
+    y : array-like
+        The y-coordinates to check.
+
+    Returns
+    -------
+    array-like
+        A boolean array indicating whether each coordinate pair (x, y) is within the
+        domain.
+    """
+    bbox = CONFIG["domain"][domain_name]["bbox"]
+    in_domain_x = (bbox["x0"] <= x) & (x <= bbox["x1"])
+    in_domain_y = (bbox["y0"] <= y) & (y <= bbox["y1"])
+    return in_domain_x & in_domain_y
+
+
 def get_domain_as_geopandas():
     """
     Returns the domain as a GeoDataFrame with GRAL and GRAMM bounding boxes.

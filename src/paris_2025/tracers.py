@@ -2,19 +2,21 @@
 from pathlib import Path
 
 import numpy as np
-
-# import matplotlib.pyplot as plt
-# import matplotlib as mpl
-import xarray as xr
 import pandas as pd
 
 # import geopandas as gpd
 import pyproj
 
+# import matplotlib.pyplot as plt
+# import matplotlib as mpl
+import xarray as xr
+
+import paris_2025 as p
+from paris_2025.config import load_config
+
 # import shapely
 # from tqdm import tqdm
 
-from paris_2025.config import load_config
 
 CONFIG = load_config()
 
@@ -63,64 +65,25 @@ def create_co2_measurements() -> None:
     )
     co2["x"] = (["station"], x)
     co2["y"] = (["station"], y)
+
+    # Add flag for GRAMM and GRAL domains
+    co2 = co2.assign_coords(
+        in_gramm_domain=("station", p.domain.checking_domain("gramm", x, y)),
+        in_gral_domain=("station", p.domain.checking_domain("gral", x, y)),
+    )
+
     # Add labels to the station dimension
     co2["station"] = [
         "{}_{:.0f}".format(code[:3], type_)
         for code, type_ in zip(co2.code.values, co2.height.values)
     ]
-    # Add attributes
-    co2["station"].attrs = {
-        "long_name": "Station code and height",
-        "description": "Unique identifier for each CO2 measurement station, "
-        "combining station code and sampling height.",
-    }
-    co2["co2"].attrs = {"units": "ppm", "long_name": "CO2 concentration"}
-    co2["stdev"].attrs = {"units": "ppm", "long_name": "Standard deviation"}
-    co2["nbpoints"].attrs = {"units": "1", "long_name": "Number of points"}
-    co2["flag"].attrs = {"long_name": "Flag"}
-    co2["altitude"].attrs = {"units": "m asl", "long_name": "Altitude"}
-    co2["height"].attrs = {"units": "m agl", "long_name": "Height"}
-    co2["x"].attrs = {"units": "m", "long_name": "x coordinate"}
-    co2["y"].attrs = {"units": "m", "long_name": "y coordinate"}
-    co2["latitude"].attrs = {"units": "degrees", "long_name": "latitude"}
-    co2["longitude"].attrs = {"units": "degrees", "long_name": "longitude"}
-    co2["station"].attrs = {"long_name": "Station code"}
-    co2["code"].attrs = {
-        "long_name": "Station code",
-        "description": "Short code for the CO2 measurement station",
-    }
-    co2["name"].attrs = {
-        "long_name": "Station name",
-        "description": "Name of the CO2 measurement station",
-    }
-    co2["type"].attrs = {
-        "long_name": "Measurement type",
-        "description": "Type of CO2 measurement (high-cost or mid-cost)",
-    }
-    co2["time"].attrs = {
-        "long_name": "Time of measurement (UTC)",
-        "description": "Time when the CO2 measurement was taken",
-        "standard_name": "time",
-    }
-    co2["instrument"].attrs = {
-        "long_name": "Instrument used for measurement",
-        "description": "Identifier for the instrument used to measure CO2",
-    }
-    co2["HPP_ID|K96_ID"].attrs = {
-        "long_name": "HPP_ID or K96_ID",
-        "description": "Identifier for the HPP or K96 station",
-    }
-    co2["box_id"].attrs = {
-        "long_name": "Box ID",
-        "description": (
-            "Identifier for the box containing the CO2 measurement instrument",
-        ),
-    }
+
     # Set coordinates
     co2 = co2.set_coords(
         [
             "x",
             "y",
+            "time",
             "latitude",
             "longitude",
             "code",
@@ -133,6 +96,137 @@ def create_co2_measurements() -> None:
             "box_id",
         ]
     )
+
+    # Add attributes [unit, long_name, standard_name, description]
+    attrs = {
+        "station": [
+            np.nan,
+            "Station code and height",
+            "station",
+            "Unique identifier for each CO2 measurement station, combining station "
+            "code and sampling height.",
+        ],
+        "co2": [
+            "ppm",
+            "CO2 concentration",
+            "co2",
+            np.nan,
+        ],
+        "stdev": [
+            "ppm",
+            "Standard deviation",
+            "stdev",
+            np.nan,
+        ],
+        "nbpoints": [
+            "1",
+            "Number of points",
+            "nbpoints",
+            np.nan,
+        ],
+        "flag": [
+            np.nan,
+            "Flag",
+            "flag",
+            "Flag indicating the quality of the measurement. 'O' for valid, 'U' "
+            "for uncertain, other values indicate invalid measurements.",
+        ],
+        "altitude": [
+            "m asl",
+            "Altitude",
+            "altitude",
+            "Altitude of the station above sea level in meters.",
+        ],
+        "height": [
+            "m agl",
+            "Height",
+            "height",
+            "Height of the station above ground level in meters.",
+        ],
+        "x": [
+            "m",
+            f"X coordinate in GRAL projection: {CONFIG['domain']['crs']}",
+            "x",
+        ],
+        "y": [
+            "m",
+            f"Y coordinate in GRAL projection: {CONFIG['domain']['crs']}",
+            "y",
+        ],
+        "in_gramm_domain": [
+            "boolean",
+            "Station in gramm domain",
+            "in_gramm_domain",
+            "True if the station is in the gramm domain, False otherwise",
+        ],
+        "in_gral_domain": [
+            "boolean",
+            "Station in gral domain",
+            "in_gral_domain",
+            "True if the station is in the gral domain, False otherwise",
+        ],
+        "latitude": [
+            "degrees_north",
+            "Latitude of the station",
+            "latitude",
+            "Latitude of the meteorological station in degrees north",
+        ],
+        "longitude": [
+            "degrees_east",
+            "Longitude of the station",
+            "longitude",
+            "Longitude of the meteorological station in degrees east",
+        ],
+        "code": [
+            np.nan,
+            "Station code",
+            "code",
+            "Short code for the CO2 measurement station",
+        ],
+        "name": [
+            np.nan,
+            "Station name",
+            "name",
+            "Name of the CO2 measurement station",
+        ],
+        "type": [
+            np.nan,
+            "Measurement type",
+            "type",
+            "Type of CO2 measurement (high-cost or mid-cost)",
+        ],
+        "time": [
+            "UTC",
+            "Time",
+            "time",
+            "Time of measurement in UTC",
+        ],
+        "instrument": [
+            np.nan,
+            "Instrument used for measurement",
+            "instrument",
+            "Identifier for the instrument used to measure CO2",
+        ],
+        "HPP_ID|K96_ID": [
+            np.nan,
+            "HPP_ID or K96_ID",
+            "HPP_ID|K96_ID",
+            "Identifier for the HPP or K96 station",
+        ],
+        "box_id": [
+            np.nan,
+            "Box ID",
+            "box_id",
+            "Identifier for the box containing the CO2 measurement instrument",
+        ],
+    }
+    for var in attrs.keys():
+        co2[var].attrs.update(
+            dict(
+                zip(["unit", "long_name", "standard_name", "description"], attrs[var])
+            )
+        )
+
     # Add global attributes
     co2.attrs = {
         "title": "CO2 Measurements for Paris",
@@ -232,7 +326,7 @@ def process_files(data_path: Path, measurement_type: str, read_function) -> xr.D
     file_list = sorted(file_list)
     print(f"Processing {len(file_list)} {measurement_type} files...")
     for file in file_list:
-        code, name, lat, lon, alt, height = read_location(file, measurement_type)
+        code, name, lat, lon, alt, height = read_header(file, measurement_type)
         print(code, height)
         co2_measured = read_function(file)
         xds_list.append(
@@ -268,7 +362,7 @@ def process_files(data_path: Path, measurement_type: str, read_function) -> xr.D
     return xr.concat(xds_list, dim="station")
 
 
-def read_location(path: Path, measurement_type: str) -> pd.Series:
+def read_header(path: Path, measurement_type: str) -> pd.Series:
     """
     Read the location and metadata from the header of a measurement file.
 
@@ -280,7 +374,7 @@ def read_location(path: Path, measurement_type: str) -> pd.Series:
     Returns
     -------
     pd.Series
-        Series with code, lat, lon, alt, height.
+        Series with code, name, lat, lon, alt, height.
     """
     with open(path) as file:
         lines = file.readlines()[:20]
