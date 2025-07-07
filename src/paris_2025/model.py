@@ -7,8 +7,10 @@ from paris_2025.config import load_config
 
 CONFIG = load_config()
 
-MODEL_CO2_FILE = Path(CONFIG["gral_co2_path"])
-MODEL_METEO_FILE = Path(CONFIG["gral_meteo_path"])
+CO2_DATA_PATH = Path(CONFIG["gral_co2_path"])
+MODEL_CO2_FILE = CO2_DATA_PATH / "co2.nc"
+MODEL_CO2_TIMESERIES_FILE = CO2_DATA_PATH / "compound_co2_timeseries.nc"
+MODEL_METEO_FILE = Path(CONFIG["gral_meteo_path"]) / "meteo.nc"
 
 
 def get_meteo_data():
@@ -41,3 +43,14 @@ def get_co2_data():
 
     co2_model = xr.open_dataset(MODEL_CO2_FILE)
     return co2_model
+
+
+def get_co2_time_series():
+    """Load CO2 time series data from the model."""
+    if not MODEL_CO2_TIMESERIES_FILE.exists():
+        raise FileNotFoundError(
+            f"CO2 time series file not found: {MODEL_CO2_TIMESERIES_FILE}"
+        )
+
+    co2_timeseries = xr.open_dataset(MODEL_CO2_TIMESERIES_FILE)
+    return co2_timeseries
