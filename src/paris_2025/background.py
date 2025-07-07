@@ -47,11 +47,7 @@ def get_background_co2(year: str):
     normalized_mean_v_wind = normalized_mean_v_wind.sel(time=year)
 
     # Get GRAL domain centroid
-    gdf = p.domain.get_domain_as_geopandas()
-    gral_domain = gdf.loc[0].geometry
-    gral_domain_centroid_x, gral_domain_centroid_y = np.array(
-        gral_domain.centroid.xy
-    ).astype(float)
+    centroid_x, centroid_y = p.domain.get_centroid_of_domain("gral")
 
     # Get background CO2 measurements
     co2 = p.tracers.get_co2_measurements()
@@ -66,8 +62,8 @@ def get_background_co2(year: str):
         station=~background_co2.station.isin(["OVS_20", "GNS_36"])
     )
 
-    x = background_co2.x - gral_domain_centroid_x
-    y = background_co2.y - gral_domain_centroid_y
+    x = background_co2.x - centroid_x
+    y = background_co2.y - centroid_y
     length = np.sqrt(x**2 + y**2)
     background_co2["normalized_distance_x"] = x / length
     background_co2["normalized_distance_y"] = y / length

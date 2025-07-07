@@ -57,6 +57,27 @@ def get_domain_as_geopandas():
     return gdf
 
 
+def get_centroid_of_domain(domain_name: str):
+    """
+    Returns the centroid coordinates of the specified domain.
+
+    Parameters
+    ----------
+    domain_name : str
+        The name of the domain, e.g., "gramm" or "gral".
+
+    Returns
+    -------
+    centroid_x, centroid_y : tuple
+        The centroid coordinates (x, y) of the specified domain.
+    """
+
+    bbox = CONFIG["domain"][domain_name]["bbox"]
+    centroid_x = (bbox["x0"] + bbox["x1"]) / 2
+    centroid_y = (bbox["y0"] + bbox["y1"]) / 2
+    return centroid_x, centroid_y
+
+
 def add_basemap(ax, zoom=12, provider=None):
     """
     Adds a basemap to the given axes using contextily.
