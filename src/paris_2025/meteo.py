@@ -50,6 +50,30 @@ def get_meteo_measurements() -> xr.Dataset:
     return meteo
 
 
+def get_mean_wind_vars():
+    """
+    Get the mean wind speed from the meteorological measurements.
+
+    Returns
+    -------
+    mean_u_wind : xarray.DataArray
+        Mean u-wind component across all stations.
+    mean_v_wind : xarray.DataArray
+        Mean v-wind component across all stations.
+    mean_wind_speed : xarray.DataArray
+        Mean wind speed across all stations.
+    mean_wind_direction : xarray.DataArray
+        Mean wind direction across all stations.
+    """
+    meteo = p.meteo.get_meteo_measurements()
+    mean_u_wind = meteo.u_wind.mean("station")
+    mean_v_wind = meteo.v_wind.mean("station")
+    mean_wind_speed = ggpy.utils.wind_speed_from_vector(mean_u_wind, mean_v_wind)
+    mean_wind_direction = ggpy.utils.direction_from_vector(
+        mean_u_wind, mean_v_wind)
+    return mean_u_wind, mean_v_wind, mean_wind_speed, mean_wind_direction
+
+
 def create_meteo_measurements() -> None:
     if METEO_FILE.exists():
         print("CO2 measurement file already exists. Please delete it to recreate it.")
@@ -67,7 +91,7 @@ def create_meteo_measurements() -> None:
     # Add flag for GRAMM and GRAL domains
     meteo = meteo.assign_coords(
         in_gramm_domain=("station", p.domain.checking_domain("gramm", x, y)),
-        in_gral_domain=("station", p.domain.checking_domain("gral", x, y))
+        in_gral_domain=("station", p.domain.checking_domain("gral", x, y)),
     )
 
     # Add wind as vector
