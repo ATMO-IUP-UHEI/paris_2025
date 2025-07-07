@@ -40,7 +40,7 @@ def get_meteo_measurements() -> xr.Dataset:
             "Please run the script to create it "
             "tracers.create_meteo_measurements()"
         )
-    meteo = xr.open_dataset(METEO_FILE)
+    meteo = xr.load_dataset(METEO_FILE)
     if meteo.station.size == 0:
         raise ValueError(
             "Meteorological measurement file is empty. "
