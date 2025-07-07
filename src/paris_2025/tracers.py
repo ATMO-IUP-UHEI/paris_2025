@@ -73,10 +73,15 @@ def create_co2_measurements() -> None:
     )
 
     # Add labels to the station dimension
-    co2["station"] = [
-        "{}_{:.0f}".format(code[:3], type_)
-        for code, type_ in zip(co2.code.values, co2.height.values)
-    ]
+    station_indices = []
+    for code, height, instrument in zip(
+        co2.code.values, co2.height.values, co2.instrument.values
+    ):
+        station_index = "{}_{:.0f}".format(code[:3], height)
+        if station_index in station_indices:
+            station_index = f"{station_index}_{instrument}"
+        station_indices.append(station_index)
+    co2["station"] = station_indices
 
     # Set coordinates
     co2 = co2.set_coords(
@@ -222,9 +227,7 @@ def create_co2_measurements() -> None:
     }
     for var in attrs.keys():
         co2[var].attrs.update(
-            dict(
-                zip(["unit", "long_name", "standard_name", "description"], attrs[var])
-            )
+            dict(zip(["unit", "long_name", "standard_name", "description"], attrs[var]))
         )
 
     # Add global attributes
