@@ -117,7 +117,7 @@ def add_basemap(ax, zoom=12, provider=None):
     return ax
 
 
-def add_domain(ax: plt.Axes) -> None:  # type: ignore
+def add_domain(ax: plt.Axes, legend=False) -> None:  # type: ignore
     """
     Adds the domain bounding boxes and labels to the given axes.
     """
@@ -145,23 +145,37 @@ def add_domain(ax: plt.Axes) -> None:  # type: ignore
             color=color,
             linewidth=2,
         )
-        # Add label to geometries in same color
-        row = gdf.iloc[idx]
-        ax.text(
-            row.geometry.bounds[0] + textbuffer,
-            row.geometry.bounds[1] + textbuffer,
-            row.label,
+        if not legend:
+            # Add label to geometries in same color
+            row = gdf.iloc[idx]
+            ax.text(
+                row.geometry.bounds[0] + textbuffer,
+                row.geometry.bounds[1] + textbuffer,
+                row.label,
+                fontsize=fontsize,
+                ha="left",
+                va="bottom",
+                color=color,
+                bbox=dict(
+                    facecolor="white",
+                    edgecolor="none",
+                    alpha=0.8,
+                    pad=0.5,
+                    boxstyle="round,pad=0.1",
+                ),
+            )
+    if legend:
+        # Create a legend for the domain boxes
+        handles = [
+            plt.Line2D([0], [0], color=colors[1], lw=2, label="GRAMM"),  # type: ignore
+            plt.Line2D([0], [0], color=colors[0], lw=2, label="GRAL"),  # type: ignore
+        ]
+        ax.legend(
+            handles=handles,
+            loc="upper left",
             fontsize=fontsize,
-            ha="left",
-            va="bottom",
-            color=color,
-            bbox=dict(
-                facecolor="white",
-                edgecolor="none",
-                alpha=0.8,
-                pad=0.5,
-                boxstyle="round,pad=0.1",
-            ),
+            frameon=False,
+            ncol=2,
         )
     # Add buffer to axes limits for better visualization
     xlim = ax.get_xlim()
@@ -170,3 +184,22 @@ def add_domain(ax: plt.Axes) -> None:  # type: ignore
     ybuffer = 2000
     ax.set_xlim(xlim[0] - xbuffer, xlim[1] + xbuffer)
     ax.set_ylim(ylim[0] - ybuffer, ylim[1] + ybuffer)
+
+
+def add_size_bar(ax: plt.Axes) -> None:  # type: ignore
+    """
+    Adds a scale bar to the given axes.
+    """
+    from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
+
+    scalebar = AnchoredSizeBar(
+        ax.transData,
+        5000,  # length in meters
+        "5 km",
+        loc="lower right",
+        pad=0.1,
+        color="black",
+        frameon=False,
+        size_vertical=100,
+    )
+    ax.add_artist(scalebar)
