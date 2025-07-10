@@ -20,6 +20,7 @@ METEO_SUBPATHS = {
     "NCAR": "6_1_2_NCAR/",
     "QUALAIR": "6_1_3_Qualair/",
     "mid-cost": "6_1_4_mid-cost/",
+    "lidar": "6_1_5_Lidar/",
     "high-cost": "6_1_6_crds_co-located/",
 }
 
@@ -69,8 +70,7 @@ def get_mean_wind_vars():
     mean_u_wind = meteo.u_wind.mean("station")
     mean_v_wind = meteo.v_wind.mean("station")
     mean_wind_speed = ggpy.utils.wind_speed_from_vector(mean_u_wind, mean_v_wind)
-    mean_wind_direction = ggpy.utils.direction_from_vector(
-        mean_u_wind, mean_v_wind)
+    mean_wind_direction = ggpy.utils.direction_from_vector(mean_u_wind, mean_v_wind)
     return mean_u_wind, mean_v_wind, mean_wind_speed, mean_wind_direction
 
 
@@ -234,6 +234,7 @@ def process_meteo_measurements(source: str) -> xr.Dataset:
         "NCAR": process_ncar,
         "QUALAIR": process_qualair,
         "mid-cost": process_mid_cost,
+        "lidar": process_lidar,
         "high-cost": process_high_cost,
     }
     return funcs[source]()
@@ -695,6 +696,57 @@ def process_mid_cost() -> xr.Dataset:
     }
     xds = refine_dataset(xds, variable_names, operator="mid-cost")
 
+    return xds
+
+
+def process_lidar() -> xr.Dataset:
+    """
+    Processes meteorological measurements from lidar.
+    Returns:
+        xr.Dataset: Processed meteorological measurements from mid-cost.
+    """
+    path = Path(
+        "/Users/rmaiwald/Levante/A_raw_data/6_measurements/6_1_meteo/6_1_5_Lidar/"
+    )
+    path_list = sorted(list(path.glob("paris_dwl_L3V1.39_2023_*/*.nc")))
+    data_path = METEO_PATH / METEO_SUBPATHS["lidar"]
+    path_list = sorted(list(path.glob("paris_dwl_L3V1.39_202*/*.nc")))
+    # Open the files and combine them for faster access
+    file_name = data_path / "paris_dwl_L3V1.39_all.nc"
+    if not file_name.exists():
+        xds = xr.open_mfdataset(
+            path_list,
+            # parallel=True,
+        )
+        xds.to_netcdf(file_name)
+    else:
+        xds = xr.open_dataset(file_name)
+    # Drop measurement locations above 1000 m altitude
+    xds = xds.sel(altitude=slice(None, 1000))
+    xds_stacked = xds.stack(measurement_location=("station", "altitude"))
+    # Drop all measurement locations which are below the measurement altitude and are
+    # always NaN
+    xds_stacked = xds_stacked.where(
+        xds_stacked.station_altitude.mean("time") <= xds_stacked.altitude, drop=True
+    )
+    stations = xds_stacked.station.values
+    altitudes = xds_stacked.altitude.values
+    xds_stacked = xds_stacked.drop_vars(["measurement_location", "station", "altitude"])
+    xds_stacked = xds_stacked.assign_coords(
+        measurement_location=[
+            f"{station}_{altitude}m" for station, altitude in zip(stations, altitudes)
+        ]
+    )
+    xds_stacked["altitude"] = ("station"), altitudes
+    xds = xds_stacked.rename(measurement_location="station")
+    variable_names = {
+        "station_lat": "latitude",
+        "station_lon": "longitude",
+        "altitude": "altitude",
+        "wd": "wind_direction",
+        "ws": "wind_speed",
+    }
+    xds = refine_dataset(xds, variable_names, operator="lidar")
     return xds
 
 
