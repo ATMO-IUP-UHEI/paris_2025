@@ -105,7 +105,7 @@ def create_co2_measurements() -> None:
     # Add attributes [unit, long_name, standard_name, description]
     attrs = {
         "station": [
-            np.nan,
+            None,
             "Station code and height",
             "station",
             "Unique identifier for each CO2 measurement station, combining station "
@@ -130,7 +130,7 @@ def create_co2_measurements() -> None:
             np.nan,
         ],
         "flag": [
-            np.nan,
+            None,
             "Flag",
             "flag",
             "Flag indicating the quality of the measurement. 'O' for valid, 'U' "
@@ -183,19 +183,19 @@ def create_co2_measurements() -> None:
             "Longitude of the meteorological station in degrees east",
         ],
         "code": [
-            np.nan,
+            None,
             "Station code",
             "code",
             "Short code for the CO2 measurement station",
         ],
         "name": [
-            np.nan,
+            None,
             "Station name",
             "name",
             "Name of the CO2 measurement station",
         ],
         "type": [
-            np.nan,
+            None,
             "Measurement type",
             "type",
             "Type of CO2 measurement (high-cost or mid-cost)",
@@ -207,19 +207,19 @@ def create_co2_measurements() -> None:
             "Time of measurement in UTC",
         ],
         "instrument": [
-            np.nan,
+            None,
             "Instrument used for measurement",
             "instrument",
             "Identifier for the instrument used to measure CO2",
         ],
         "HPP_ID|K96_ID": [
-            np.nan,
+            None,
             "HPP_ID or K96_ID",
             "HPP_ID|K96_ID",
             "Identifier for the HPP or K96 station",
         ],
         "box_id": [
-            np.nan,
+            None,
             "Box ID",
             "box_id",
             "Identifier for the box containing the CO2 measurement instrument",

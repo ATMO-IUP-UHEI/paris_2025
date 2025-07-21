@@ -108,7 +108,7 @@ def create_meteo_measurements() -> None:
             "Time of measurement in UTC",
         ],
         "station": [
-            "N/A",
+            None,
             "Station name",
             "station",
             "Name of the meteorological station",
@@ -132,7 +132,7 @@ def create_meteo_measurements() -> None:
             "Altitude of the meteorological station in meters above sea level",
         ],
         "operator": [
-            "N/A",
+            None,
             "Operator of the meteorological station",
             "operator",
             "Operator of the meteorological station",
