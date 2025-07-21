@@ -139,7 +139,7 @@ def add_domain(ax: plt.Axes, legend=False) -> None:  # type: ignore
         #     categorical=True,
         # )
         x0, y0, x1, y1 = gdf.geometry.iloc[idx].bounds  # type: ignore
-        plt.plot(
+        ax.plot(
             [x0, x1, x1, x0, x0],
             [y0, y0, y1, y1, y0],
             color=color,
@@ -184,6 +184,7 @@ def add_domain(ax: plt.Axes, legend=False) -> None:  # type: ignore
     ybuffer = 2000
     ax.set_xlim(xlim[0] - xbuffer, xlim[1] + xbuffer)
     ax.set_ylim(ylim[0] - ybuffer, ylim[1] + ybuffer)
+    ax.set_aspect("equal")
 
 
 def add_size_bar(ax: plt.Axes) -> None:  # type: ignore
