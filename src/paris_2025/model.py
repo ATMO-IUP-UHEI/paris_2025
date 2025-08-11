@@ -30,6 +30,8 @@ def get_gramm_meteo_data():
     meteo_gramm["wind_direction"] = ggpy.utils.direction_from_vector(
         meteo_gramm.ux, meteo_gramm.vy
     )
+    # Reorder dimensions
+    meteo_gramm = meteo_gramm.transpose("sim_id", "station")
     return meteo_gramm
 
 
