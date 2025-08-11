@@ -1,7 +1,7 @@
-data_path: /Users/rmaiwald/Levante/A_raw_data/
-gramm_meteo_path: /Users/rmaiwald/Levante/E_processed_output/gramm_0/data_at_stations/
-gral_meteo_path: /Users/rmaiwald/Levante/E_processed_output/gral_11/data_at_stations/
-gral_co2_path: /Users/rmaiwald/Levante/E_processed_output/gral_13_origins_earth/data_at_stations/
+data_path: /Users/rmaiwald/Levante/Paris/Input/
+gramm_meteo_path: /Users/rmaiwald/Levante/Paris/Output/gramm_0/data_at_stations/
+gral_meteo_path: /Users/rmaiwald/Levante/Paris/Output/gral_11/data_at_stations/
+gral_co2_path: /Users/rmaiwald/Levante/Paris/Output/gral_13_origins_earth/data_at_stations/
 domain:
   crs: EPSG:2154
   gral:
