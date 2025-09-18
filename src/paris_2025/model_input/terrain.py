@@ -168,54 +168,23 @@ def plot_terrain_tiles(
     logging.info(f"Created figure of terrain tiles {figure_path}")
 
 
-def create_gramm_terrain_netcdf(
-    gramm_grid: xr.Dataset, terrain: xr.Dataset, GRAMM_TERRAIN_PATH: Path
+def create_terrain_netcdf(
+    grid: xr.Dataset, terrain: xr.Dataset, OUTPUT_TERRAIN_NETCDF_PATH: Path
 ) -> xr.Dataset:
-    """
-    Create reprojected terrain NetCDF file for GRAMM simulations.
-
-    This function reprojects terrain data to match the GRAMM grid resolution and extent,
-    adds proper metadata attributes, and saves the result to a NetCDF file.
-
-    Parameters
-    ----------
-    gramm_grid : xr.Dataset
-        Target GRAMM grid dataset containing the desired spatial resolution and extent.
-    terrain : xr.Dataset
-        Source terrain dataset to be reprojected.
-    GRAMM_TERRAIN_PATH : Path
-        Path where the reprojected terrain NetCDF file will be saved.
-
-    Returns
-    -------
-    xr.Dataset
-        Reprojected terrain dataset with elevation data matching the GRAMM grid,
-        including proper metadata attributes.
-
-    Raises
-    ------
-    AssertionError
-        If the CRS of terrain data doesn't match the GRAMM grid CRS.
-
-    Notes
-    -----
-    Uses average resampling method and adds comprehensive metadata attributes
-    including creation timestamp and CF-compliant variable descriptions.
-    """
     assert (
-        terrain.rio.crs == gramm_grid.rio.crs
+        terrain.rio.crs == grid.rio.crs
     ), "CRS of the terrain data does not match the domain CRS"
 
     with ProgressBar():
-        logging.info("Reprojecting terrain data to gramm grid")
+        logging.info("Reprojecting terrain data to grid")
         reprojected_elevation = terrain.elevation.rio.reproject_match(
-            gramm_grid.grid_placeholder, resampling=Resampling.average
+            grid.grid_placeholder, resampling=Resampling.average
         )
 
     reprojected_terrain = reprojected_elevation.to_dataset()
 
-    reprojected_terrain["x"] = gramm_grid["x"]
-    reprojected_terrain["y"] = gramm_grid["y"]
+    reprojected_terrain["x"] = grid["x"]
+    reprojected_terrain["y"] = grid["y"]
 
     # Add attrs
     timestamp = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
@@ -236,69 +205,7 @@ def create_gramm_terrain_netcdf(
         "units": "m",
         "standard_name": "projection_y_coordinate",
     }
-    reprojected_terrain.to_netcdf(GRAMM_TERRAIN_PATH)
-    return reprojected_terrain
-
-
-def create_gral_terrain_netcdf(
-    gral_grid: xr.Dataset, terrain: xr.Dataset, GRAL_TERRAIN_PATH: Path
-) -> xr.Dataset:
-    """
-    Create reprojected terrain NetCDF file for GRAL simulations.
-
-    This function reprojects terrain data to match the GRAL grid resolution and extent,
-    adds proper metadata attributes, and saves the result to a NetCDF file.
-
-    Parameters
-    ----------
-    gral_grid : xr.Dataset
-        Target GRAL grid dataset containing the desired spatial resolution and extent.
-    terrain : xr.Dataset
-        Source terrain dataset to be reprojected.
-    GRAL_TERRAIN_PATH : Path
-        Path where the reprojected terrain NetCDF file will be saved.
-
-    Returns
-    -------
-    xr.Dataset
-        Reprojected terrain dataset with elevation data matching the GRAL grid,
-        including proper metadata attributes.
-    """
-    assert (
-        terrain.rio.crs == gral_grid.rio.crs
-    ), "CRS of the terrain data does not match the domain CRS"
-
-    with ProgressBar():
-        logging.info("Reprojecting terrain data to gral grid")
-        reprojected_elevation = terrain.elevation.rio.reproject_match(
-            gral_grid.grid_placeholder, resampling=Resampling.average
-        )
-
-    reprojected_terrain = reprojected_elevation.to_dataset()
-
-    reprojected_terrain["x"] = gral_grid["x"]
-    reprojected_terrain["y"] = gral_grid["y"]
-
-    # Add attrs
-    timestamp = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
-    reprojected_terrain.attrs["description"] = f"Dataset compiled {timestamp} EDT"
-
-    reprojected_terrain["elevation"].attrs = {
-        "long_name": "Elevation",
-        "units": "m",
-        "standard_name": "surface_altitude",
-    }
-    reprojected_terrain["x"].attrs = {
-        "long_name": "Easting",
-        "units": "m",
-        "standard_name": "projection_x_coordinate",
-    }
-    reprojected_terrain["y"].attrs = {
-        "long_name": "Northing",
-        "units": "m",
-        "standard_name": "projection_y_coordinate",
-    }
-    reprojected_terrain.to_netcdf(GRAL_TERRAIN_PATH)
+    reprojected_terrain.to_netcdf(OUTPUT_TERRAIN_NETCDF_PATH)
     return reprojected_terrain
 
 
@@ -370,13 +277,13 @@ def process_terrain(
         if name == "gramm":
             gramm_grid = ggp.utils.create_domain_grid("gramm", CONFIG)
             if not GRAMM_TERRAIN_PATH.exists():
-                create_gramm_terrain_netcdf(gramm_grid, terrain, GRAMM_TERRAIN_PATH)
+                create_terrain_netcdf(gramm_grid, terrain, GRAMM_TERRAIN_PATH)
             else:
                 logging.info(f"File {GRAMM_TERRAIN_PATH} is already created")
         if name == "gral":
             gral_grid = ggp.utils.create_domain_grid("gral", CONFIG)
             if not GRAL_TERRAIN_PATH.exists():
-                create_gral_terrain_netcdf(gral_grid, terrain, GRAL_TERRAIN_PATH)
+                create_terrain_netcdf(gral_grid, terrain, GRAL_TERRAIN_PATH)
             else:
                 logging.info(f"File {GRAL_TERRAIN_PATH} is already created")
 
