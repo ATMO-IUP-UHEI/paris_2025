@@ -59,6 +59,16 @@ def prepare_landcover():
 
 def prepare_buildings():
     logging.info("Preparing buildings...")
+    buildings_file = Path(CONFIG["domain"]["gral"]["conf_path"]) / "buildings.dat"
+    if buildings_file.exists():
+        logging.info(
+            f"Buildings file {buildings_file} already exists. Skipping buildings."
+        )
+        return
+    gral_buildings_path = p.model_input.buildings.process_buildings()
+    buildings = xr.open_dataset(gral_buildings_path)
+    logging.info(f"Writing buildings file to {buildings_file}...")
+    ggp.utils.write_buildings_file(buildings_file, buildings["building_height"])
 
 
 def prepare_fluxes():
@@ -73,4 +83,5 @@ if __name__ == "__main__":
     prepare_domain()
     prepare_terrain()
     prepare_landcover()
+    prepare_buildings()
     prepare_fluxes()

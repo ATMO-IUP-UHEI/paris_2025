@@ -59,7 +59,7 @@ def create_tmp_netcdf(
     tiles as a side effect.
     """
     logging.info(f"Converting terrain data to netcdf file {tmp_file}")
-    terrain_data_path = Path("/Users/rmaiwald/Levante/Paris/Input/Terrain/RGEALTI/")
+    terrain_data_path = Path(CONFIG["data_path"]) / "Terrain/RGEALTI/"
     shape_files = sorted(list(terrain_data_path.glob("**/*.shp")))
     tile_gdf = gpd.GeoDataFrame(
         pd.concat([gpd.read_file(f) for f in shape_files], ignore_index=True)
@@ -243,7 +243,7 @@ def process_terrain(
     and metadata enhancement.
     """
     TMP_FILE = Path(CONFIG["data_path"]) / "Terrain/terrain.nc"
-    FIGURE_PATH = Path(CONFIG["figure_path"]) / "Input/terrain_tile_map.png"
+    FIGURE_PATH = Path(CONFIG["figures_path"]) / "Input/terrain_tile_map.png"
     GRAMM_TERRAIN_PATH = Path(CONFIG["data_path"]) / "Terrain/gramm_terrain.nc"
     GRAL_TERRAIN_PATH = Path(CONFIG["data_path"]) / "Terrain/gral_terrain.nc"
 

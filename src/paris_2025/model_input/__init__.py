@@ -1,3 +1,3 @@
-from . import terrain, landcover
+from . import terrain, landcover, buildings
 
-__all__ = ["terrain", "landcover"]
+__all__ = ["terrain", "landcover", "buildings"]

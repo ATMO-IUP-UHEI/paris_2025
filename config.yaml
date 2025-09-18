@@ -1,5 +1,5 @@
 data_path: /Users/rmaiwald/Levante/Paris/Input/
-figure_path: /Users/rmaiwald/Levante/Paris/Figures/
+figures_path: /Users/rmaiwald/Levante/Paris/Figures/
 gramm_gral_conf_path: /Users/rmaiwald/Paris/GRAMM-GRAL-data/conf/
 gramm_meteo_path: /Users/rmaiwald/Levante/Paris/Output/gramm_0/data_at_stations/
 gral_meteo_path: /Users/rmaiwald/Levante/Paris/Output/gral_11/data_at_stations/
