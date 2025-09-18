@@ -177,11 +177,9 @@ def create_terrain_netcdf(
 
     with ProgressBar():
         logging.info("Reprojecting terrain data to grid")
-        reprojected_elevation = terrain.elevation.rio.reproject_match(
+        reprojected_terrain = terrain.elevation.rio.reproject_match(
             grid.grid_placeholder, resampling=Resampling.average
-        )
-
-    reprojected_terrain = reprojected_elevation.to_dataset()
+        ).to_dataset(name="elevation")
 
     reprojected_terrain["x"] = grid["x"]
     reprojected_terrain["y"] = grid["y"]
