@@ -15,22 +15,35 @@ def prepare_domain(
 
 
 def prepare_terrain():
-    logging.info("Preparing terrain...")
+    # TODO: Load processed files and check if the coordinates are correct
+    logging.info("Preparing terrain for GRAMM...")
     gramm_conf = CONFIG["domain"]["gramm"]
     geometry_file = Path(gramm_conf["conf_path"]) / "ggeom.asc"
     if geometry_file.exists():
         logging.info(f"Geometry file {geometry_file} already exists. Skipping terrain.")
-        return
-    gramm_terrain_path = p.model_input.terrain.process_terrain(only_check_status=False)
-    elevation = xr.open_dataset(gramm_terrain_path)["elevation"]
-    elevation = ggp.gramm_geometry.smooth_elevation(elevation)
-    geom = ggp.gramm_geometry.create_ggeom_dataset(
-        elevation=elevation,
-        nz=gramm_conf["nz"],
-        z0=gramm_conf["z0"],
-        vert_stretching=gramm_conf["vert_stretching"],
-    )
-    ggp.gramm_geometry.write_ggeom_file(geom, file_path=geometry_file)
+    else:
+        path = p.model_input.terrain.process_terrain("gramm", only_check_status=False)
+        elevation = xr.open_dataset(path)["elevation"]
+        elevation = ggp.gramm_geometry.smooth_elevation(elevation)
+        geom = ggp.gramm_geometry.create_ggeom_dataset(
+            elevation=elevation,
+            nz=gramm_conf["nz"],
+            z0=gramm_conf["z0"],
+            vert_stretching=gramm_conf["vert_stretching"],
+        )
+        logging.info(f"Writing geometry file to {geometry_file}...")
+        ggp.gramm_geometry.write_ggeom_file(geom, file_path=geometry_file)
+
+    logging.info("Preparing terrain for GRAL...")
+    gral_conf = CONFIG["domain"]["gral"]
+    geometry_file = Path(gral_conf["conf_path"]) / "GRAL_topofile.txt"
+    if geometry_file.exists():
+        logging.info(f"Geometry file {geometry_file} already exists. Skipping terrain.")
+    else:
+        path = p.model_input.terrain.process_terrain("gral", only_check_status=False)
+        elevation = xr.open_dataset(path)["elevation"]
+        logging.info(f"Writing geometry file to {geometry_file}...")
+        ggp.utils.write_esri_ascii(geometry_file, elevation)
 
 
 def prepare_landcover():

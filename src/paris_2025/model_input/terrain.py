@@ -12,7 +12,7 @@ appropriate grid resolution and projection for GRAMM simulations.
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Literal
 
 import geopandas as gpd
 import ggpymanager as ggp
@@ -240,7 +240,71 @@ def create_gramm_terrain_netcdf(
     return reprojected_terrain
 
 
-def process_terrain(only_check_status: bool = False) -> Path:
+def create_gral_terrain_netcdf(
+    gral_grid: xr.Dataset, terrain: xr.Dataset, GRAL_TERRAIN_PATH: Path
+) -> xr.Dataset:
+    """
+    Create reprojected terrain NetCDF file for GRAL simulations.
+
+    This function reprojects terrain data to match the GRAL grid resolution and extent,
+    adds proper metadata attributes, and saves the result to a NetCDF file.
+
+    Parameters
+    ----------
+    gral_grid : xr.Dataset
+        Target GRAL grid dataset containing the desired spatial resolution and extent.
+    terrain : xr.Dataset
+        Source terrain dataset to be reprojected.
+    GRAL_TERRAIN_PATH : Path
+        Path where the reprojected terrain NetCDF file will be saved.
+
+    Returns
+    -------
+    xr.Dataset
+        Reprojected terrain dataset with elevation data matching the GRAL grid,
+        including proper metadata attributes.
+    """
+    assert (
+        terrain.rio.crs == gral_grid.rio.crs
+    ), "CRS of the terrain data does not match the domain CRS"
+
+    with ProgressBar():
+        logging.info("Reprojecting terrain data to gral grid")
+        reprojected_elevation = terrain.elevation.rio.reproject_match(
+            gral_grid.grid_placeholder, resampling=Resampling.average
+        )
+
+    reprojected_terrain = reprojected_elevation.to_dataset()
+
+    reprojected_terrain["x"] = gral_grid["x"]
+    reprojected_terrain["y"] = gral_grid["y"]
+
+    # Add attrs
+    timestamp = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
+    reprojected_terrain.attrs["description"] = f"Dataset compiled {timestamp} EDT"
+
+    reprojected_terrain["elevation"].attrs = {
+        "long_name": "Elevation",
+        "units": "m",
+        "standard_name": "surface_altitude",
+    }
+    reprojected_terrain["x"].attrs = {
+        "long_name": "Easting",
+        "units": "m",
+        "standard_name": "projection_x_coordinate",
+    }
+    reprojected_terrain["y"].attrs = {
+        "long_name": "Northing",
+        "units": "m",
+        "standard_name": "projection_y_coordinate",
+    }
+    reprojected_terrain.to_netcdf(GRAL_TERRAIN_PATH)
+    return reprojected_terrain
+
+
+def process_terrain(
+    name: Literal["gramm", "gral"], only_check_status: bool = False
+) -> Path:
     """
     Main function to process terrain data for GRAMM simulations.
 
@@ -250,14 +314,18 @@ def process_terrain(only_check_status: bool = False) -> Path:
 
     Parameters
     ----------
+    for_gramm : bool, optional
+        If True, process terrain data for GRAMM simulations. Default is True.
+    for_gral : bool, optional
+        If True, process terrain data for GRAL simulations. Default is True.
     only_check_status : bool, optional
         If True, only check and report the existence of terrain data files without
         processing. Default is False.
 
     Returns
     -------
-    Optional[None]
-        Always returns None.
+    Dict[str, Path | None]
+        Dictionary with paths to the processed terrain files for GRAMM and GRAL.
 
     Notes
     -----
@@ -272,7 +340,7 @@ def process_terrain(only_check_status: bool = False) -> Path:
     TMP_FILE = Path(CONFIG["data_path"]) / "Terrain/terrain.nc"
     FIGURE_PATH = Path(CONFIG["figure_path"]) / "Input/terrain_tile_map.png"
     GRAMM_TERRAIN_PATH = Path(CONFIG["data_path"]) / "Terrain/gramm_terrain.nc"
-    # TODO: Implement functions to prepare the terrain input for GRAL
+    GRAL_TERRAIN_PATH = Path(CONFIG["data_path"]) / "Terrain/gral_terrain.nc"
 
     if only_check_status:
         logging.info("Checking status of terrain data files...")
@@ -280,23 +348,36 @@ def process_terrain(only_check_status: bool = False) -> Path:
             logging.info(f"Intermediate terrain data exists at {TMP_FILE}")
         else:
             logging.info(f"Intermediate terrain data does not exist at {TMP_FILE}")
-        if GRAMM_TERRAIN_PATH.exists():
-            logging.info(f"Reprojected terrain data exists at {GRAMM_TERRAIN_PATH}")
-        else:
-            logging.info(
-                f"Reprojected terrain data does not exist at {GRAMM_TERRAIN_PATH}"
-            )
-        return GRAMM_TERRAIN_PATH
-
-    domain_area = ggp.utils.create_domain_area(CONFIG)
-    gramm_grid = ggp.utils.create_gramm_grid(CONFIG)
-
-    if (not TMP_FILE.exists()) or (not FIGURE_PATH.exists()):
-        create_tmp_netcdf(CONFIG, domain_area, TMP_FILE, FIGURE_PATH)
-    terrain = load_terrain(TMP_FILE)
-
-    if not GRAMM_TERRAIN_PATH.exists():
-        create_gramm_terrain_netcdf(gramm_grid, terrain, GRAMM_TERRAIN_PATH)
+        if name == "gramm":
+            if GRAMM_TERRAIN_PATH.exists():
+                logging.info(f"Reprojected terrain data exists at {GRAMM_TERRAIN_PATH}")
+            else:
+                logging.info(
+                    f"Reprojected terrain data does not exist at {GRAMM_TERRAIN_PATH}"
+                )
+        if name == "gral":
+            if GRAL_TERRAIN_PATH.exists():
+                logging.info(f"GRAL terrain data exists at {GRAL_TERRAIN_PATH}")
+            else:
+                logging.info(f"GRAL terrain data does not exist at {GRAL_TERRAIN_PATH}")
     else:
-        logging.info(f"File {GRAMM_TERRAIN_PATH} is already created")
-    return GRAMM_TERRAIN_PATH
+        domain_area = ggp.utils.create_domain_geometry("gramm", CONFIG)
+
+        if (not TMP_FILE.exists()) or (not FIGURE_PATH.exists()):
+            create_tmp_netcdf(CONFIG, domain_area, TMP_FILE, FIGURE_PATH)
+        terrain = load_terrain(TMP_FILE)
+
+        if name == "gramm":
+            gramm_grid = ggp.utils.create_domain_grid("gramm", CONFIG)
+            if not GRAMM_TERRAIN_PATH.exists():
+                create_gramm_terrain_netcdf(gramm_grid, terrain, GRAMM_TERRAIN_PATH)
+            else:
+                logging.info(f"File {GRAMM_TERRAIN_PATH} is already created")
+        if name == "gral":
+            gral_grid = ggp.utils.create_domain_grid("gral", CONFIG)
+            if not GRAL_TERRAIN_PATH.exists():
+                create_gral_terrain_netcdf(gral_grid, terrain, GRAL_TERRAIN_PATH)
+            else:
+                logging.info(f"File {GRAL_TERRAIN_PATH} is already created")
+
+    return GRAMM_TERRAIN_PATH if name == "gramm" else GRAL_TERRAIN_PATH

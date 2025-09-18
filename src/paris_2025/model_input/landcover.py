@@ -278,8 +278,8 @@ def process_landcover(only_check_status: bool = False) -> Path:
             )
         return GRAMM_LANDCOVER_PATH
 
-    domain_area = ggp.utils.create_domain_area(CONFIG)
-    gramm_grid = ggp.utils.create_gramm_grid(CONFIG)
+    domain_area = ggp.utils.create_domain_geometry("gramm", CONFIG)
+    gramm_grid = ggp.utils.create_domain_grid("gramm", CONFIG)
 
     if not TMP_FILE.exists():
         logging.info(f"Temporary file {TMP_FILE} does not exist and will be created.")

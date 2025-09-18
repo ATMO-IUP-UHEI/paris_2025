@@ -7,11 +7,12 @@ gral_co2_path: /Users/rmaiwald/Levante/Paris/Output/gral_13_origins_earth/data_a
 domain:
   crs: EPSG:2154
   gral:
+    conf_path: /Users/rmaiwald/Levante/Paris/GRAMM-GRAL-data/gral_16_paper/
     bbox:
-      x0: 640490.
-      y0: 6854570.
-      x1: 659700.
-      y1: 6869760.
+      x0: 640485.
+      y0: 6854565.
+      x1: 659705.
+      y1: 6869765.
     dx: 10.
     dy: 10.
   gramm:
