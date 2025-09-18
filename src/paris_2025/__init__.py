@@ -3,8 +3,15 @@ Search for the config file "config.yaml" in the current directory and load it as
 global variable `CONFIG`. If the file does not exist, it raises a `FileNotFoundError`.
 """
 
-from paris_2025 import tracers, domain, meteo, model, background, config
+from paris_2025 import config
 
-__all__ = ["tracers", "domain", "meteo", "model", "background", "config"]
+try:
+    CONFIG = config.load_config()
+except FileNotFoundError as e:
+    raise FileNotFoundError(
+        "Configuration file 'config.yaml' not found in the current directory."
+    ) from e
 
-CONFIG = config.load_config()
+from paris_2025 import tracers, domain, meteo, model, background, model_input
+
+__all__ = ["tracers", "domain", "meteo", "model", "background", "CONFIG", "model_input"]
