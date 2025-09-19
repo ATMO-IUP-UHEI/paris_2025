@@ -15,6 +15,20 @@ import xarray as xr
 from paris_2025 import CONFIG
 
 N_PROCESSES = 4
+TMP_FILE = Path(CONFIG["data_path"]) / "Landcover/gramm_UrbanAtlas_landcover_classes.nc"
+FIGURE_PATHS = {
+    "landcover_classes": Path(CONFIG["figures_path"]) / "Input/landcover_classes.png",
+    "soil_density": Path(CONFIG["figures_path"]) / "Input/landcover_soil_density.png",
+    "heat_conductivity": Path(CONFIG["figures_path"])
+    / "Input/landcover_heat_conductivity.png",
+    "surface_roughness": Path(CONFIG["figures_path"])
+    / "Input/landcover_landcosurface_roughnessver_map.png",
+    "specific_soil_moisture": Path(CONFIG["figures_path"])
+    / "Input/landcover_specific_soil_moisture.png",
+}
+GRAMM_LANDCOVER_PATH = (
+    Path(CONFIG["data_path"]) / "Landcover/gramm_UrbanAtlas_landcover.nc"
+)
 
 
 def load_landcover_file(domain_area: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
@@ -253,24 +267,6 @@ def process_landcover(only_check_status: bool = False) -> Path:
     Path
         Path to the final GRAMM landcover NetCDF file
     """
-    TMP_FILE = (
-        Path(CONFIG["data_path"]) / "Landcover/gramm_UrbanAtlas_landcover_classes.nc"
-    )
-    FIGURE_PATHS = {
-        "landcover_classes": Path(CONFIG["figures_path"])
-        / "Input/landcover_classes.png",
-        "soil_density": Path(CONFIG["figures_path"])
-        / "Input/landcover_soil_density.png",
-        "heat_conductivity": Path(CONFIG["figures_path"])
-        / "Input/landcover_heat_conductivity.png",
-        "surface_roughness": Path(CONFIG["figures_path"])
-        / "Input/landcover_landcosurface_roughnessver_map.png",
-        "specific_soil_moisture": Path(CONFIG["figures_path"])
-        / "Input/landcover_specific_soil_moisture.png",
-    }
-    GRAMM_LANDCOVER_PATH = (
-        Path(CONFIG["data_path"]) / "Landcover/gramm_UrbanAtlas_landcover.nc"
-    )
 
     if only_check_status:
         logging.info("Checking status of landcover data files...")

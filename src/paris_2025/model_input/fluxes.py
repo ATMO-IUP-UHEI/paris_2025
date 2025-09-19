@@ -8,13 +8,15 @@ import xarray as xr
 
 from paris_2025 import CONFIG
 
+AREA_ID_NETCDF_PATH = Path(CONFIG["data_path"]) / "Fluxes/area_id.nc"
+FIGURE_PATH = Path(CONFIG["figures_path"]) / "Input/area_id_overview.png"
+
 
 def create_area_partitioning():
     """
     Create a partitioning of the model domain into areas and save it as a NetCDF file.
     """
-    AREA_ID_NETCDF_PATH = Path(CONFIG["data_path"]) / "Fluxes/area_id.nc"
-    FIGURE_PATH = Path(CONFIG["figures_path"]) / "Input/area_id_overview.png"
+
     nx = CONFIG["fluxes"]["nx_areas"]
     ny = CONFIG["fluxes"]["ny_areas"]
 

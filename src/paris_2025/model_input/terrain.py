@@ -25,6 +25,11 @@ from rasterio.enums import Resampling
 
 from paris_2025 import CONFIG
 
+TMP_FILE = Path(CONFIG["data_path"]) / "Terrain/terrain.nc"
+FIGURE_PATH = Path(CONFIG["figures_path"]) / "Input/terrain_tile_map.png"
+GRAMM_TERRAIN_PATH = Path(CONFIG["data_path"]) / "Terrain/gramm_terrain.nc"
+GRAL_TERRAIN_PATH = Path(CONFIG["data_path"]) / "Terrain/gral_terrain.nc"
+
 
 def create_tmp_netcdf(
     config: Dict[str, Any],
@@ -242,10 +247,6 @@ def process_terrain(
     Processing includes terrain tile discovery, clipping to domain, reprojection,
     and metadata enhancement.
     """
-    TMP_FILE = Path(CONFIG["data_path"]) / "Terrain/terrain.nc"
-    FIGURE_PATH = Path(CONFIG["figures_path"]) / "Input/terrain_tile_map.png"
-    GRAMM_TERRAIN_PATH = Path(CONFIG["data_path"]) / "Terrain/gramm_terrain.nc"
-    GRAL_TERRAIN_PATH = Path(CONFIG["data_path"]) / "Terrain/gral_terrain.nc"
 
     if only_check_status:
         logging.info("Checking status of terrain data files...")

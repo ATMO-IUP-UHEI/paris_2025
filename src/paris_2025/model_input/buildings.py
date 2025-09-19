@@ -11,6 +11,10 @@ from rasterio.enums import Resampling
 from paris_2025 import CONFIG
 
 
+FIGURE_PATH = Path(CONFIG["figures_path"]) / "Input/buildings.png"
+GRAL_BUILDINGS_PATH = Path(CONFIG["data_path"]) / "Buildings/buildings.nc"
+
+
 def create_buildings_netcdf(gral_grid, GRAL_BUILDINGS_PATH) -> None:
     buildings = xr.open_dataset(
         Path(CONFIG["data_path"]) / "Buildings/FR001_PARIS_UA2012_DHM_V020/Dataset/"
@@ -58,8 +62,6 @@ def create_plot(raster: xr.DataArray, figure_path, title) -> None:
 
 
 def process_buildings(only_check_status: bool = False) -> Path:
-    FIGURE_PATH = Path(CONFIG["figures_path"]) / "Input/buildings.png"
-    GRAL_BUILDINGS_PATH = Path(CONFIG["data_path"]) / "Buildings/buildings.nc"
 
     if only_check_status:
         if GRAL_BUILDINGS_PATH.exists():
