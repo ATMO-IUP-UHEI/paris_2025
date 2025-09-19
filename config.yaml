@@ -27,3 +27,6 @@ domain:
     nz: 22
     z0: 10.0
     vert_stretching: 1.2
+fluxes:
+  nx_areas: 9
+  ny_areas: 7
