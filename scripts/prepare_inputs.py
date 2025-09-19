@@ -73,6 +73,7 @@ def prepare_buildings():
 
 def prepare_fluxes():
     logging.info("Preparing fluxes...")
+    p.model_input.fluxes.create_area_partitioning()
 
 
 if __name__ == "__main__":
