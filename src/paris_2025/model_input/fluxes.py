@@ -5,10 +5,11 @@ from pathlib import Path
 import ggpymanager as ggp
 import matplotlib.pyplot as plt
 import numpy as np
+import pyproj
 import xarray as xr
 from rasterio.enums import Resampling
 
-from paris_2025 import CONFIG
+from paris_2025 import CONFIG, model_input
 
 d_path = Path(CONFIG["data_path"])
 AREA_ID_NETCDF_PATH = d_path / "Fluxes/area_id.nc"
@@ -16,6 +17,7 @@ f_path = Path(CONFIG["figures_path"])
 FIGURE_PATHS = {
     "area_id": f_path / "Input/area_id_overview.png",
     "area_fluxes": f_path / "Input/area_fluxes.png",
+    "tno_point_fluxes": f_path / "Input/tno_point_fluxes.png",
 }
 
 VPRM_2023_R_NETCDF_PATH = d_path / "Fluxes/area_flux_vprm_2023_R.nc"
@@ -160,7 +162,7 @@ def create_vprm_area_fluxes():
                 logging.info(f"{path} exists, skipping.")
 
 
-def convert_oe_units(oe):
+def convert_oe_area_units(oe):
     """Convert Origins.earth units from kg CO2 / km2 / h to kg CO2 / m2 / h"""
     oe["emissions"] = oe["emissions"] / 1e6
     oe["emissions"].attrs = {
@@ -170,7 +172,7 @@ def convert_oe_units(oe):
     return oe
 
 
-def create_oe_fluxes():
+def create_oe_area_fluxes():
     gral_grid = ggp.utils.create_domain_grid("gral", CONFIG)
 
     logging.info("Loading Origins.earth data...")
@@ -191,9 +193,9 @@ def create_oe_fluxes():
     oe["emissions"] = (mean_emissions / new_mean_emissions) * oe.emissions
     assert np.allclose(mean_emissions, oe.emissions.mean(dim=["x", "y"]).values)
 
-    oe = convert_oe_units(oe)
+    oe = convert_oe_area_units(oe)
     oe = oe.rename({"emissions": "flux", "sector": "type"})
-    oe["type"] = [f"Origins.earth 2023 {t}" for t in oe.type.values]
+    oe["type"] = [f"Origins.earth 2023 {t}" for t in oe["type"].values]
 
     oe["type"].attrs["long_name"] = "Flux type"
     timestamp = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
@@ -206,7 +208,116 @@ def create_oe_fluxes():
         logging.info(f"File {OE_AREA_NETCDF_PATH} exists, skipping save.")
 
 
-def convert_tno_units(tno):
+def convert_oe_point_units(oe_points):
+    """Convert from kg CO2 / km2 / h to kg CO2 / h"""
+    flux_attrs = oe_points["flux"].attrs
+    assert flux_attrs["units"] == "kg CO2 / km^2 / h"
+    # Cell size is 10 x 10 m
+    oe_points["flux"] = oe_points["flux"] * 1e-6 * 10 * 10
+    flux_attrs["units"] = "kg CO2 / h"
+    oe_points["flux"].attrs = flux_attrs
+    return oe_points
+
+
+def create_oe_point_fluxes():
+    logging.info("Loading Origins.earth point source emissions")
+    oe_points = xr.open_dataset(
+        Path(CONFIG["data_path"])
+        / "Fluxes/Origins.earth/processed/point_sources/"
+        / "point_sources_elevations_from_Google_Earth.nc"
+    ).load()
+    oe_points = oe_points.rename({"emissions": "flux", "sector": "type"})
+    oe_points["type"] = (
+        "index",
+        [f"Origins.earth 2023 {t}" for t in oe_points["type"].values],
+    )
+
+    oe_points["type"].attrs["long_name"] = "Flux type"
+
+    logging.info(f"Assiginging CRS to point source emissions: {oe_points.attrs['crs']}")
+    assert oe_points.attrs["crs"] == CONFIG["domain"]["crs"]
+    oe_points = oe_points.rio.write_crs(CONFIG["domain"]["crs"])
+
+    logging.info("Calculating point source heights above ground level")
+    terrain = xr.open_dataset(model_input.terrain.GRAL_TERRAIN_PATH)
+    gral_elevation = terrain.elevation.sel(
+        x=oe_points.x, y=oe_points.y, method="nearest"
+    )
+    oe_points["z"] = oe_points["elevation"] - gral_elevation.values
+    oe_points = oe_points.set_coords(["z", "type"])
+
+    logging.info("Converting Origins.earth point source emissions to kg CO2 / h")
+    oe_points = convert_oe_point_units(oe_points)
+
+    oe_points = oe_points.drop_vars(
+        [
+            "x",
+            "y",
+            "lat",
+            "lon",
+            "new_lat",
+            "new_lon",
+            "relative_emissions",
+            "elevation",
+        ]
+    )
+    oe_points = oe_points.rename({"new_x": "x", "new_y": "y"})
+
+    logging.info("Assign default exit velocity, stack diameter, and exit temperature")
+    logging.info("based on Pregger and Friedrich 2009.")
+    oe_points["exit_velocity"] = ("index", np.full(oe_points.sizes["index"], 5))
+    oe_points["stack_diameter"] = ("index", np.full(oe_points.sizes["index"], 1))
+    oe_points["exit_temperature"] = (
+        "index",
+        np.full(oe_points.sizes["index"], 150 + 273.15),
+    )
+
+    # Add metadata
+    timestamp = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
+    oe_points.attrs["description"] = f"Dataset compiled {timestamp} EDT"
+    oe_points["x"].attrs = {
+        "long_name": "X coordinate of projection",
+        "standard_name": "projection_x_coordinate",
+        "units": "m",
+    }
+    oe_points["y"].attrs = {
+        "long_name": "Y coordinate of projection",
+        "standard_name": "projection_y_coordinate",
+        "units": "m",
+    }
+    oe_points["z"].attrs = {
+        "long_name": "Height above ground level",
+        "standard_name": "height_above_ground",
+        "units": "m",
+    }
+    oe_points["index"].attrs = {
+        "long_name": "Point source index",
+        "description": "Unique index for each point source",
+        "units": "1",
+    }
+    oe_points["exit_velocity"].attrs = {
+        "long_name": "Exit velocity",
+        "description": "Exit velocity of the point source plume",
+        "units": "m/s",
+    }
+    oe_points["stack_diameter"].attrs = {
+        "long_name": "Stack diameter",
+        "description": "Diameter of the point source stack",
+        "units": "m",
+    }
+    oe_points["exit_temperature"].attrs = {
+        "long_name": "Exit temperature",
+        "description": "Exit temperature of the point source plume",
+        "units": "K",
+    }
+    if not OE_POINT_NETCDF_PATH.exists():
+        logging.info(f"Saving Origins.earth data to {OE_POINT_NETCDF_PATH}")
+        oe_points.to_netcdf(OE_POINT_NETCDF_PATH)
+    else:
+        logging.info(f"File {OE_POINT_NETCDF_PATH} exists, skipping save.")
+
+
+def convert_tno_area_units(tno):
     """Convert kg CO2 / year to kq CO2 / m2 / h"""
     days_in_2018 = 365
     area = tno["area"].isel(
@@ -225,7 +336,7 @@ def convert_tno_units(tno):
     return tno
 
 
-def create_tno_fluxes():
+def create_tno_area_fluxes():
     gral_grid = ggp.utils.create_domain_grid("gral", CONFIG)
 
     logging.info("Loading TNO data...")
@@ -279,7 +390,7 @@ def create_tno_fluxes():
         ]
     )
 
-    tno = convert_tno_units(tno)
+    tno = convert_tno_area_units(tno)
 
     logging.info("Converting TNO list of sources to gridded fluxes...")
     sector_grids = []
@@ -372,6 +483,245 @@ def create_tno_fluxes():
         logging.info(f"File {TNO_AREA_NETCDF_PATH} exists, skipping save.")
 
 
+def create_tno_point_fluxes():
+    logging.info("Loading TNO data...")
+    tno = xr.open_mfdataset(
+        Path(CONFIG["data_path"]) / "Fluxes/TNO/TNO_GHGco_v4_1_highres_year2018.nc"
+    )
+    logging.info(f"Number of sources in TNO: {tno.source.size}")
+
+    france_index = np.where(tno.country_name == b"France")[0] + 1
+    france_mask = (tno.country_index == france_index).compute()
+    logging.info(f"Number of sources in France: {france_mask.sum().item()}")
+
+    tno = tno.sel(source=france_mask).load()
+    point_index = np.where(tno.source_type_name == b"point")[0] + 1
+    point_mask = (tno.source_type_index == point_index).compute()
+    tno = tno.sel(source=point_mask)
+    logging.info(f"Number of point sources in France: {tno.source.size}")
+    transformer = pyproj.Transformer.from_crs(
+        "EPSG:4326", CONFIG["domain"]["crs"], always_xy=True
+    )
+    x, y = transformer.transform(tno.longitude_source, tno.latitude_source)
+
+    tno["x"] = ("source", x)
+    tno["y"] = ("source", y)
+
+    tno = tno.sel(
+        source=(
+            (tno.x >= CONFIG["domain"]["gral"]["bbox"]["x0"])
+            & (tno.x <= CONFIG["domain"]["gral"]["bbox"]["x1"])
+            & (tno.y >= CONFIG["domain"]["gral"]["bbox"]["y0"])
+            & (tno.y <= CONFIG["domain"]["gral"]["bbox"]["y1"])
+        )
+    )
+    logging.info(f"Number of point sources in domain: {tno.source.size}")
+
+    def convert_tno_point_units(tno):
+        flux_attrs = tno["flux"].attrs
+        assert flux_attrs["units"] == "kg CO2 / year"
+        days_in_2018 = 365
+        tno["flux"] = tno["flux"] / (days_in_2018 * 24)
+        flux_attrs["units"] = "kg CO2 h-1"
+        tno["flux"].attrs = flux_attrs
+        return tno
+
+    logging.info("Converting TNO units from kg CO2 / year to kg CO2 / h...")
+    tno["flux"] = tno["co2_ff"] + tno["co2_bf"]
+    tno["flux"].attrs = {
+        "long_name": "CO2 emissions from fossil fuel and biofuel combustion",
+        "units": "kg CO2 / year",
+    }
+    tno = convert_tno_point_units(tno)
+    tno["type"] = (
+        "source",
+        tno["emis_cat_name"]
+        .isel(emis_cat=tno["emission_category_index"] - 1)
+        .astype(str)
+        .values,
+    )
+
+    tno["type"] = ("source", [f"TNO 2018 {type_}" for type_ in tno["type"].values])
+    tno = tno.rename({"source": "index"})
+    tno["index"] = np.arange(tno.sizes["index"])
+    tno = tno[["x", "y", "flux", "type"]]
+    tno = tno.rio.write_crs(CONFIG["domain"]["crs"])
+    # Heights and new positions from Google Earth#
+    new_coords = {
+        0: (48.832178, 2.263969),
+        1: ((48.822014, 2.388833), (48.822888, 2.388003)),
+        2: ((48.791998, 2.416504), (48.791153, 2.416794)),
+        3: (48.903622, 2.452672),
+        4: None,  # Correct
+        5: None,  # Correct
+        6: (48.897583, 2.232488),
+        7: None,  # Correct
+        8: ((48.842797, 2.373920), (48.842392, 2.373184)),
+        9: (48.816014, 2.407023),
+        10: (48.866384, 2.420180),
+        11: None,  # Correct
+        12: None,  # Correct
+        13: (48.834659, 2.310637),
+    }
+
+    # m asl
+    heights = {
+        0: 60,
+        1: (114, 114),
+        2: (195, 195),
+        3: 90,
+        4: 130,
+        5: 75,
+        6: 101,
+        7: 70,
+        8: (113, 113),
+        9: 150,
+        10: 137,
+        11: 165,
+        12: 90,
+        13: 150,
+    }
+
+    logging.info("Creating figure to check new coordinates...")
+    create_tno_point_figure(tno, transformer, new_coords)
+
+    logging.info("Updating TNO coordinates and heights based on Google Earth data...")
+    tno["elevation"] = ("index", np.full(tno.sizes["index"], np.nan))
+    for idx, new_coord in new_coords.items():
+        if new_coord is None:
+            pass
+        elif isinstance(new_coord[0], float):
+            lat = new_coord[0]
+            lon = new_coord[1]
+            x, y = transformer.transform(lon, lat)
+            tno["x"].loc[idx] = x
+            tno["y"].loc[idx] = y
+            tno["elevation"].loc[idx] = heights[idx]  # in m asl
+        elif isinstance(new_coord[0], tuple):
+            tno["flux"].loc[idx] /= 2
+            lat1 = new_coord[0][0]
+            lon1 = new_coord[0][1]
+            x1, y1 = transformer.transform(lon1, lat1)
+            lat2 = new_coord[1][0]
+            lon2 = new_coord[1][1]
+            x2, y2 = transformer.transform(lon2, lat2)
+            tno["x"].loc[idx] = x1
+            tno["y"].loc[idx] = y1
+            tno["elevation"].loc[idx] = heights[idx][0]  # in m asl
+
+            new_point_source = tno.isel(index=idx).copy()
+            new_point_source["x"] = x2
+            new_point_source["y"] = y2
+            new_point_source["elevation"] = heights[idx][1]
+            new_point_source["index"] = tno.index.max().item() + 1
+            tno = xr.concat([tno, new_point_source], dim="index")
+        else:
+            raise ValueError("Unexpected type in new_coords")
+    tno = tno.sel(
+        index=(
+            (tno.x >= CONFIG["domain"]["gral"]["bbox"]["x0"])
+            & (tno.x <= CONFIG["domain"]["gral"]["bbox"]["x1"])
+            & (tno.y >= CONFIG["domain"]["gral"]["bbox"]["y0"])
+            & (tno.y <= CONFIG["domain"]["gral"]["bbox"]["y1"])
+        )
+    )
+    logging.info(f"Number of point sources in domain: {tno.index.size}")
+
+    terrain = xr.open_dataset(model_input.terrain.GRAL_TERRAIN_PATH)
+    gral_elevation = terrain.elevation.sel(x=tno.x, y=tno.y, method="nearest")
+    tno["z"] = tno["elevation"] - gral_elevation.values
+    tno = tno.set_coords(["x", "y", "z", "type"]).drop_vars("elevation")
+    logging.info("Assign default exit velocity, stack diameter, and exit temperature")
+    logging.info("based on Pregger and Friedrich 2009.")
+    tno["exit_velocity"] = ("index", np.full(tno.sizes["index"], 5))
+    tno["stack_diameter"] = ("index", np.full(tno.sizes["index"], 1))
+    tno["exit_temperature"] = (
+        "index",
+        np.full(tno.sizes["index"], 150 + 273.15),
+    )
+
+    # Add metadata
+    timestamp = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
+    tno.attrs = {"description": f"Dataset compiled {timestamp} EDT"}
+    tno["x"].attrs = {
+        "long_name": "X coordinate of projection",
+        "standard_name": "projection_x_coordinate",
+        "units": "m",
+    }
+    tno["y"].attrs = {
+        "long_name": "Y coordinate of projection",
+        "standard_name": "projection_y_coordinate",
+        "units": "m",
+    }
+    tno["z"].attrs = {
+        "long_name": "Height above ground level",
+        "standard_name": "height_above_ground",
+        "units": "m",
+    }
+    tno["index"].attrs = {
+        "long_name": "Point source index",
+        "description": "Unique index for each point source",
+        "units": "1",
+    }
+    tno["exit_velocity"].attrs = {
+        "long_name": "Exit velocity",
+        "description": "Exit velocity of the point source plume",
+        "units": "m/s",
+    }
+    tno["stack_diameter"].attrs = {
+        "long_name": "Stack diameter",
+        "description": "Diameter of the point source stack",
+        "units": "m",
+    }
+    tno["exit_temperature"].attrs = {
+        "long_name": "Exit temperature",
+        "description": "Exit temperature of the point source plume",
+        "units": "K",
+    }
+    if not TNO_POINT_NETCDF_PATH.exists():
+        logging.info(f"Saving Origins.earth data to {TNO_POINT_NETCDF_PATH}")
+        tno.to_netcdf(TNO_POINT_NETCDF_PATH)
+    else:
+        logging.info(f"File {TNO_POINT_NETCDF_PATH} exists, skipping save.")
+
+
+def create_tno_point_figure(tno, transformer, new_coords):
+    for idx, new_coord in new_coords.items():
+        plt.plot(tno.x[idx].values, tno.y[idx].values, "go")
+        if new_coord is None:
+            continue
+        elif isinstance(new_coord[0], tuple):
+            lat = [new_coord[0][0]]
+            lon = [new_coord[0][1]]
+            x, y = transformer.transform(lon, lat)
+            plt.plot(
+                [tno.x[idx].values] + x,
+                [tno.y[idx].values] + y,
+                "ro-",
+            )
+            lat = [new_coord[1][0]]
+            lon = [new_coord[1][1]]
+        else:
+            lat = [new_coord[0]]
+            lon = [new_coord[1]]
+
+        x, y = transformer.transform(lon, lat)
+        plt.plot(
+            [tno.x[idx].values] + x,
+            [tno.y[idx].values] + y,
+            "ro-",
+        )
+        plt.plot(tno.x[idx].values, tno.y[idx].values, "go")
+    plt.legend(["Old position", "New position"])
+    plt.title("TNO point sources showing old and new positions")
+    if not FIGURE_PATHS["tno_point_fluxes"].exists():
+        logging.info(
+            f"Saving TNO point source figure to {FIGURE_PATHS['tno_point_fluxes']}"
+        )
+        plt.savefig(FIGURE_PATHS["tno_point_fluxes"])
+    plt.close()
+
+
 def plot_area_fluxes():
     if not FIGURE_PATHS["area_fluxes"].exists():
         logging.info(f"Plotting area fluxes to {FIGURE_PATHS['area_fluxes']}")
@@ -388,7 +738,9 @@ def process_fluxes():
     create_area_partitioning()
 
     create_vprm_area_fluxes()
-    create_oe_fluxes()
-    create_tno_fluxes()
+    create_oe_area_fluxes()
+    create_oe_point_fluxes()
+    create_tno_area_fluxes()
+    create_tno_point_fluxes()
 
     plot_area_fluxes()
