@@ -265,8 +265,8 @@ def create_oe_point_fluxes():
 
     logging.info("Assign default exit velocity, stack diameter, and exit temperature")
     logging.info("based on Pregger and Friedrich 2009.")
-    oe_points["exit_velocity"] = ("index", np.full(oe_points.sizes["index"], 5))
-    oe_points["stack_diameter"] = ("index", np.full(oe_points.sizes["index"], 1))
+    oe_points["exit_velocity"] = ("index", np.full(oe_points.sizes["index"], 5.0))
+    oe_points["stack_diameter"] = ("index", np.full(oe_points.sizes["index"], 1.0))
     oe_points["exit_temperature"] = (
         "index",
         np.full(oe_points.sizes["index"], 150 + 273.15),
@@ -483,6 +483,16 @@ def create_tno_area_fluxes():
         logging.info(f"File {TNO_AREA_NETCDF_PATH} exists, skipping save.")
 
 
+def convert_tno_point_units(tno):
+    flux_attrs = tno["flux"].attrs
+    assert flux_attrs["units"] == "kg CO2 / year"
+    days_in_2018 = 365
+    tno["flux"] = tno["flux"] / (days_in_2018 * 24)
+    flux_attrs["units"] = "kg CO2 h-1"
+    tno["flux"].attrs = flux_attrs
+    return tno
+
+
 def create_tno_point_fluxes():
     logging.info("Loading TNO data...")
     tno = xr.open_mfdataset(
@@ -516,15 +526,6 @@ def create_tno_point_fluxes():
         )
     )
     logging.info(f"Number of point sources in domain: {tno.source.size}")
-
-    def convert_tno_point_units(tno):
-        flux_attrs = tno["flux"].attrs
-        assert flux_attrs["units"] == "kg CO2 / year"
-        days_in_2018 = 365
-        tno["flux"] = tno["flux"] / (days_in_2018 * 24)
-        flux_attrs["units"] = "kg CO2 h-1"
-        tno["flux"].attrs = flux_attrs
-        return tno
 
     logging.info("Converting TNO units from kg CO2 / year to kg CO2 / h...")
     tno["flux"] = tno["co2_ff"] + tno["co2_bf"]
@@ -633,8 +634,8 @@ def create_tno_point_fluxes():
     tno = tno.set_coords(["x", "y", "z", "type"]).drop_vars("elevation")
     logging.info("Assign default exit velocity, stack diameter, and exit temperature")
     logging.info("based on Pregger and Friedrich 2009.")
-    tno["exit_velocity"] = ("index", np.full(tno.sizes["index"], 5))
-    tno["stack_diameter"] = ("index", np.full(tno.sizes["index"], 1))
+    tno["exit_velocity"] = ("index", np.full(tno.sizes["index"], 5.0))
+    tno["stack_diameter"] = ("index", np.full(tno.sizes["index"], 1.0))
     tno["exit_temperature"] = (
         "index",
         np.full(tno.sizes["index"], 150 + 273.15),
