@@ -577,7 +577,8 @@ def create_tno_point_fluxes():
     tno["index"] = np.arange(tno.sizes["index"])
     tno = tno[["x", "y", "flux", "type"]]
     tno = tno.rio.write_crs(CONFIG["domain"]["crs"])
-    # Heights and new positions from Google Earth#
+    # Heights and new positions from Google Earth
+    # For some sources, there are two chimneys, so we split the flux
     new_coords = {
         0: (48.832178, 2.263969),
         1: ((48.822014, 2.388833), (48.822888, 2.388003)),
