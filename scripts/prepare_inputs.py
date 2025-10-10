@@ -73,7 +73,29 @@ def prepare_buildings():
 
 def prepare_fluxes():
     logging.info("Preparing fluxes...")
-    p.model_input.fluxes.process_fluxes()
+    source_group_path = p.model_input.fluxes.process_fluxes()
+    source_group_ds = xr.open_dataset(source_group_path)
+
+    logging.info("Preparing point sources for GRAL...")
+    point_file = Path(CONFIG["domain"]["gral"]["conf_path"]) / "point.dat"
+    points = source_group_ds.sel(source_group=source_group_ds.geometry == "point")
+    if not point_file.exists():
+        logging.info(f"Writing point file to {point_file}...")
+        ggp.utils.write_point_dat(
+            path=point_file,
+            x=points.x_point.values,
+            y=points.y_point.values,
+            z=points.z_point.values,
+            flux=points.source_flux.values,
+            exit_velocity=points.exit_velocity.values,
+            stack_diameter=points.stack_diameter.values,
+            exit_temperature=points.exit_temperature.values,
+            source_group=points.source_group.values,
+        )
+
+    logging.info("Preparing area sources for GRAL...")
+    cadastre_file = Path(CONFIG["domain"]["gral"]["conf_path"]) / "cadastre.dat"
+    p.model_input.fluxes.create_cadastre_dat_from_area(path=cadastre_file)
 
 
 if __name__ == "__main__":

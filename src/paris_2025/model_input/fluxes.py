@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pyproj
 import xarray as xr
+from dask.diagnostics.progress import ProgressBar
 from rasterio.enums import Resampling
 
 from paris_2025 import CONFIG, model_input
@@ -18,6 +19,9 @@ FIGURE_PATHS = {
     "area_id": f_path / "Input/area_id_overview.png",
     "area_fluxes": f_path / "Input/area_fluxes.png",
     "tno_point_fluxes": f_path / "Input/tno_point_fluxes.png",
+    "cumulative_fluxes": f_path / "Input/cumulative_fluxes.png",
+    "missing_flux": f_path / "Input/missing_flux.png",
+    "missing_flux_percentage": f_path / "Input/missing_flux_percentage.png",
 }
 
 VPRM_2023_R_NETCDF_PATH = d_path / "Fluxes/area_flux_vprm_2023_R.nc"
@@ -30,6 +34,8 @@ OE_POINT_NETCDF_PATH = d_path / "Fluxes/point_flux_oe_2023.nc"
 
 TNO_AREA_NETCDF_PATH = d_path / "Fluxes/area_flux_tno_2018.nc"
 TNO_POINT_NETCDF_PATH = d_path / "Fluxes/point_flux_tno_2018.nc"
+
+SOURCE_GROUP_NETCDF_PATH = d_path / "Fluxes/source_groups.nc"
 
 
 def create_area_partitioning():
@@ -129,6 +135,18 @@ def convert_vprm_units(vprm):
 
 
 def create_vprm_area_fluxes():
+    if all(
+        path.exists()
+        for path in [
+            VPRM_2023_R_NETCDF_PATH,
+            VPRM_2023_GEE_NETCDF_PATH,
+            VPRM_2024_R_NETCDF_PATH,
+            VPRM_2024_GEE_NETCDF_PATH,
+        ]
+    ):
+        logging.info("All VPRM area flux files exist, skipping creation.")
+        return
+
     area_id = xr.open_dataset(AREA_ID_NETCDF_PATH)
     vprm_crs = "EPSG:32631"
     vprm = {}
@@ -173,6 +191,9 @@ def convert_oe_area_units(oe):
 
 
 def create_oe_area_fluxes():
+    if OE_AREA_NETCDF_PATH.exists():
+        logging.info(f"{OE_AREA_NETCDF_PATH} exists, skipping creation.")
+        return
     gral_grid = ggp.utils.create_domain_grid("gral", CONFIG)
 
     logging.info("Loading Origins.earth data...")
@@ -220,6 +241,9 @@ def convert_oe_point_units(oe_points):
 
 
 def create_oe_point_fluxes():
+    if OE_POINT_NETCDF_PATH.exists():
+        logging.info(f"{OE_POINT_NETCDF_PATH} exists, skipping creation.")
+        return
     logging.info("Loading Origins.earth point source emissions")
     oe_points = xr.open_dataset(
         Path(CONFIG["data_path"])
@@ -337,6 +361,9 @@ def convert_tno_area_units(tno):
 
 
 def create_tno_area_fluxes():
+    if TNO_AREA_NETCDF_PATH.exists():
+        logging.info(f"{TNO_AREA_NETCDF_PATH} exists, skipping creation.")
+        return
     gral_grid = ggp.utils.create_domain_grid("gral", CONFIG)
 
     logging.info("Loading TNO data...")
@@ -494,6 +521,9 @@ def convert_tno_point_units(tno):
 
 
 def create_tno_point_fluxes():
+    if TNO_POINT_NETCDF_PATH.exists():
+        logging.info(f"{TNO_POINT_NETCDF_PATH} exists, skipping creation.")
+        return
     logging.info("Loading TNO data...")
     tno = xr.open_mfdataset(
         Path(CONFIG["data_path"]) / "Fluxes/TNO/TNO_GHGco_v4_1_highres_year2018.nc"
@@ -735,7 +765,272 @@ def plot_area_fluxes():
         logging.info(f"File {FIGURE_PATHS['area_fluxes']} exists, skipping plot.")
 
 
-def process_fluxes():
+def create_source_group_dataset():
+    if SOURCE_GROUP_NETCDF_PATH.exists():
+        logging.info(f"{SOURCE_GROUP_NETCDF_PATH} exists, skipping creation.")
+        return
+    areas = (
+        xr.open_mfdataset(
+            [
+                VPRM_2023_R_NETCDF_PATH,
+                VPRM_2023_GEE_NETCDF_PATH,
+                VPRM_2024_R_NETCDF_PATH,
+                VPRM_2024_GEE_NETCDF_PATH,
+                OE_AREA_NETCDF_PATH,
+                TNO_AREA_NETCDF_PATH,
+            ],
+            decode_coords="all",
+        )
+        .astype(np.float32)
+        .load()
+        .chunk({"type": 15})
+    )
+    points = xr.open_mfdataset(
+        [
+            OE_POINT_NETCDF_PATH,
+            TNO_POINT_NETCDF_PATH,
+        ],
+        concat_dim="index",
+        combine="nested",
+    )
+    flux_grid = xr.open_dataset(AREA_ID_NETCDF_PATH)
+
+    logging.info("Combining point and area sources into one dataset...")
+    cadastre = (
+        xr.concat(
+            [areas.where(flux_grid.area_id == i) for i in np.unique(flux_grid.area_id)],
+            dim="area_id",
+        )
+        .assign_coords(area_id=np.unique(flux_grid.area_id))
+        .compute()
+    )
+    cadastre = cadastre.stack(
+        source_group=("area_id", "type"),
+    )
+    cadastre = cadastre.reset_index("source_group")
+    cadastre["source_group"] = (
+        np.arange(len(cadastre["source_group"])) + 1 + len(points.index)
+    )  # continue index from points and start with 1
+    cadastre["source_flux"] = cadastre["flux"].sum(["x", "y"]) * 100
+    cadastre = cadastre.rename({"flux": "area_flux"})
+    cadastre["geometry"] = ("source_group", ["area"] * len(cadastre.source_group))
+
+    points = points.rename(
+        {
+            "flux": "source_flux",
+            "x": "x_point",
+            "y": "y_point",
+            "z": "z_point",
+            "index": "source_group",
+        }
+    )
+    points["source_group"] = np.arange(len(points["source_group"])) + 1  # start with 1
+    points["geometry"] = ("source_group", ["point"] * len(points.source_group))
+
+    source_group_ds = xr.merge([points, cadastre])
+    source_group_ds["source_flux"].attrs = {
+        "long_name": "Source flux",
+        "units": "kg CO2 h-1",
+        "description": "Flux from point and area sources combined",
+    }
+    source_group_ds["source_group"].attrs = {
+        "long_name": "Source group index",
+        "description": "Index for point and area sources combined, starting with 1",
+    }
+    source_group_ds["geometry"].attrs = {
+        "long_name": "Geometry type",
+        "description": "Geometry type of the source, either point or area",
+    }
+    timestamp = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
+    source_group_ds.attrs = {
+        "title": "Combined point and area sources from TNO, OE, and VPRM",
+        "description": f"Dataset compiled {timestamp} EDT",
+        "source": "TNO 2018, Origins.earth 2021, VPRM 2023/2024",
+    }
+    if not Path(SOURCE_GROUP_NETCDF_PATH).exists():
+        logging.info(f"Saving combined source groups to {SOURCE_GROUP_NETCDF_PATH}...")
+        with ProgressBar():
+            source_group_ds.to_netcdf(SOURCE_GROUP_NETCDF_PATH)
+    else:
+        logging.info(f"File {SOURCE_GROUP_NETCDF_PATH} exists, skipping save.")
+
+
+def convert_area_flux_to_absolute_units(ds):
+    attrs = ds["area_flux"].attrs
+    assert attrs["units"] == "kg CO2 m-2 h-1", f"Unexpected units: {attrs['units']}"
+    ds["area_flux"] = ds["area_flux"] * 10 * 10
+    attrs["units"] = "kg CO2 h-1"
+    ds["area_flux"].attrs = attrs
+    return ds
+
+
+def create_cadastre_dat_from_area(path):
+    if Path(path).exists():
+        logging.info(f"{path} exists, skipping creation.")
+        return
+    logging.info("Loading source group dataset...")
+    source_group_ds = xr.open_mfdataset(
+        SOURCE_GROUP_NETCDF_PATH, chunks={"source_group": 200}
+    )
+    flux_grid = xr.open_dataset(AREA_ID_NETCDF_PATH)
+
+    logging.info("Combining area fluxes...")
+    ds_list = []
+    for area_id in np.unique(flux_grid["area_id"]):
+        ds_list.append(
+            source_group_ds.drop_vars(
+                ["type", "x_point", "y_point", "z_point", "spatial_ref"]
+            )
+            .where((source_group_ds["area_id"] == area_id).compute(), drop=True)
+            .where(flux_grid["area_id"] == area_id, drop=True)[
+                ["x", "y", "source_group", "area_flux"]
+            ]
+            .stack(index=["y", "x", "source_group"], create_index=False)
+        )
+    with ProgressBar():
+        area_fluxes = xr.concat(ds_list, dim="index").compute()
+
+    logging.info("Converting area fluxes to absolute fluxes...")
+    area_fluxes = convert_area_flux_to_absolute_units(area_fluxes)
+    total_area_flux = (
+        source_group_ds["source_flux"]
+        .sel(source_group=source_group_ds["geometry"] == "area")
+        .sum()
+        .compute()
+    )
+    processed_total_area_flux = area_fluxes["area_flux"].sum().compute()
+    logging.info(
+        "Total area flux in processed area_fluxes: "
+        f"{processed_total_area_flux.values:.2f} "
+        f"{area_fluxes["area_flux"].attrs['units']}"
+    )
+    assert np.isclose(
+        total_area_flux.values,
+        processed_total_area_flux.values,
+    ), "Total area flux does not match!"
+
+    logging.info("Filter out small area fluxes...")
+    logging.info("Drop zero area fluxes...")
+    area_fluxes_filtered = area_fluxes.where(area_fluxes["area_flux"] > 0, drop=True)
+    logging.info("Drop small area fluxes...")
+    ascending = area_fluxes_filtered.sortby("area_flux", ascending=True)["area_flux"]
+    cumsum = np.cumsum(ascending)
+    cumsum_ratio = 0.02
+    cut_off = ascending[cumsum < cumsum_ratio * cumsum[-1]].max()
+    logging.info(
+        "Cut-off for area fluxes: "
+        f"{cut_off.values:.2f} {area_fluxes['area_flux'].attrs['units']}"
+    )
+    logging.info(
+        f"Number of area fluxes before filtering: {len(area_fluxes['area_flux'])}"
+    )
+    cut_off_mask = area_fluxes_filtered["area_flux"] >= cut_off
+    area_fluxes_filtered_cut_off = area_fluxes_filtered.where(cut_off_mask, drop=True)
+    logging.info(
+        "Number of area fluxes after filtering: "
+        f"{len(area_fluxes_filtered_cut_off['area_flux'])}"
+    )
+
+    missing_fluxes = (
+        area_fluxes_filtered.sel(index=~cut_off_mask).groupby("source_group").sum()
+    )
+    missing_fluxes["type"] = (
+        source_group_ds["type"].sel(source_group=missing_fluxes["source_group"]).load()
+    )
+    missing_fluxes = missing_fluxes.groupby("type").sum()
+
+    logging.info("Creating plots...")
+    plot_cumulative_fluxes(cumsum, cumsum_ratio)
+    plot_missing_flux_percentage(source_group_ds, cumsum_ratio, missing_fluxes)
+    plot_missing_flux(cumsum_ratio, missing_fluxes)
+
+    df = area_fluxes_filtered_cut_off.to_dataframe()
+    df["z"] = 0
+    df["dx"] = 10
+    df["dy"] = 10
+    df["dz"] = 0
+    ggp.utils.write_cadastre_dat(
+        path=path,
+        x=df["x"],
+        y=df["y"],
+        z=df["z"],
+        dx=df["dx"],
+        dy=df["dy"],
+        dz=df["dz"],
+        flux=df["area_flux"].round(4),
+        source_group=df["source_group"],
+    )
+
+
+def plot_missing_flux(cumsum_ratio, missing_fluxes):
+    plt.figure()
+    missing_fluxes.load()["area_flux"].to_dataframe()["area_flux"].plot.bar()
+    plt.ylabel("Missing flux [kg CO2 h-1]")
+    plt.title(
+        f"Missing fluxes by type after cut-off of small area fluxes by "
+        f"{cumsum_ratio*100:.1f}%"
+    )
+    if not FIGURE_PATHS["missing_flux"].exists():
+        logging.info(f"Saving missing flux figure to {FIGURE_PATHS['missing_flux']}")
+        plt.savefig(FIGURE_PATHS["missing_flux"])
+    else:
+        logging.info(f"File {FIGURE_PATHS['missing_flux']} exists, skipping save.")
+    plt.close()
+
+
+def plot_missing_flux_percentage(source_group_ds, cumsum_ratio, missing_fluxes):
+    plt.figure()
+    (
+        (missing_fluxes / source_group_ds["source_flux"].load().groupby("type").sum())
+        * 100
+    ).load()["area_flux"].to_dataframe()["area_flux"].plot.bar()
+    plt.ylabel("% of total flux missing")
+    plt.title(
+        "Missing fluxes by type after cut-off of small area fluxes by "
+        f"{cumsum_ratio*100:.1f}%"
+    )
+    if not FIGURE_PATHS["missing_flux_percentage"].exists():
+        logging.info(
+            f"Saving missing flux percentage figure to "
+            f"{FIGURE_PATHS['missing_flux_percentage']}"
+        )
+        plt.savefig(FIGURE_PATHS["missing_flux_percentage"])
+    else:
+        logging.info(
+            f"File {FIGURE_PATHS['missing_flux_percentage']} exists, skipping save."
+        )
+    plt.close()
+
+
+def plot_cumulative_fluxes(cumsum, cumsum_ratio):
+    plt.figure()
+    plt.plot(cumsum / cumsum[-1], label="Cumulative sum")
+    plt.hlines(
+        cumsum_ratio,
+        0,
+        len(cumsum),
+        colors="r",
+        linestyles="dashed",
+        label=f"Cut-off ratio at {cumsum_ratio*100:.0f}%",
+    )
+    plt.xlabel("Number of area fluxes (sorted ascending)")
+    plt.ylabel("Cumulative sum of area fluxes (normalized)")
+    plt.yscale("log")
+    plt.grid()
+    plt.legend(loc="lower right")
+    plt.title("Cumulative sum of area fluxes")
+    if not FIGURE_PATHS["cumulative_fluxes"].exists():
+        logging.info(
+            f"Saving cumulative area fluxes figure to "
+            f"{FIGURE_PATHS['cumulative_fluxes']}"
+        )
+        plt.savefig(FIGURE_PATHS["cumulative_fluxes"])
+    else:
+        logging.info(f"File {FIGURE_PATHS['cumulative_fluxes']} exists, skipping save.")
+    plt.close()
+
+
+def process_fluxes() -> Path:
     create_area_partitioning()
 
     create_vprm_area_fluxes()
@@ -745,3 +1040,6 @@ def process_fluxes():
     create_tno_point_fluxes()
 
     plot_area_fluxes()
+
+    create_source_group_dataset()
+    return SOURCE_GROUP_NETCDF_PATH
