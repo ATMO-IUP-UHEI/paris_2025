@@ -22,7 +22,7 @@ def create_buildings_netcdf(gral_grid, GRAL_BUILDINGS_PATH) -> None:
     )
     reprojected_buildings = (
         buildings.band_data.isel(band=0)
-        .rio.reproject_match(gral_grid, resampling=Resampling.max)
+        .rio.reproject_match(gral_grid, resampling=Resampling.nearest)
         .to_dataset(name="building_height")
     )
     assert (
