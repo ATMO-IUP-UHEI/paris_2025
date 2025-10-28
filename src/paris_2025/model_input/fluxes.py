@@ -5,6 +5,7 @@ from pathlib import Path
 import ggpymanager as ggp
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import pyproj
 import xarray as xr
 from dask.diagnostics.progress import ProgressBar
@@ -14,6 +15,7 @@ from paris_2025 import CONFIG, model_input
 
 d_path = Path(CONFIG["data_path"])
 AREA_ID_NETCDF_PATH = d_path / "Fluxes/area_id.nc"
+TEMPORAL_PROFILES_NETCDF_PATH = d_path / "Fluxes/temporal_profiles.nc"
 f_path = Path(CONFIG["figures_path"])
 FIGURE_PATHS = {
     "area_id": f_path / "Input/area_id_overview.png",
@@ -22,6 +24,8 @@ FIGURE_PATHS = {
     "cumulative_fluxes": f_path / "Input/cumulative_fluxes.png",
     "missing_flux": f_path / "Input/missing_flux.png",
     "missing_flux_percentage": f_path / "Input/missing_flux_percentage.png",
+    "temporal_profiles": f_path / "Input/temporal_profiles.png",
+    "temporal_profiles_breakdown": f_path / "Input/temporal_profiles_breakdown.png",
 }
 
 VPRM_2023_R_NETCDF_PATH = d_path / "Fluxes/area_flux_vprm_2023_R.nc"
@@ -1031,6 +1035,229 @@ def plot_cumulative_fluxes(cumsum, cumsum_ratio):
     plt.close()
 
 
+def create_tno_temporal_scaling(time_index):
+    """Create temporal scaling factors from TNO data."""
+    logging.info("Loading TNO temporal profiles...")
+    tno_timefactors = xr.open_dataset(
+        Path(CONFIG["data_path"]) / "Fluxes/TNO/timeprofiles.nc"
+    )
+    local_time_index = time_index.tz_localize("UTC").tz_convert("Europe/Paris")
+    tno_scaling = (
+        tno_timefactors["hourly"]
+        .sel(hour=local_time_index.hour + 1)
+        .rename(hour="time")
+        .assign_coords(time=time_index)
+        * tno_timefactors["daily"]
+        .sel(day=local_time_index.day_name())
+        .rename(day="time")
+        .assign_coords(time=time_index)
+        * tno_timefactors["monthly"]
+        .sel(month=local_time_index.month_name())
+        .rename(month="time")
+        .assign_coords(time=time_index)
+    )
+    tno_scaling = tno_scaling.rename({"GNFR_category": "sector"})
+
+    SECTOR_REPRESENTATIVES = {
+        "Power": "A",
+        "Industry": "B",
+        "Combustion": "C",
+        "Solvents": "E",
+        "Traffic": "F1",
+    }
+    tno_scaling = tno_scaling.sel(sector=list(SECTOR_REPRESENTATIVES.values())).rename(
+        sector="type"
+    )
+    tno_scaling["type"] = [f"TNO 2018 {s}" for s in SECTOR_REPRESENTATIVES.keys()]
+
+    return tno_scaling
+
+
+def create_oe_temporal_scaling(time_index):
+    """Create temporal scaling factors from Origins.earth data."""
+    logging.info("Loading Origins.earth temporal profiles...")
+    oe_scaling = xr.open_dataset(
+        Path(CONFIG["data_path"])
+        / "Fluxes/Origins.earth/processed/total_emissions_per_sector_2023.nc"
+    )
+    oe_scaling = oe_scaling / oe_scaling.mean("time")
+    oe_scaling = (
+        oe_scaling["total_emissions_per_sector"]
+        .dropna(dim="sector")
+        .rename({"sector": "type"})
+    )
+    oe_scaling["type"] = [f"Origins.earth 2023 {s}" for s in oe_scaling["type"].values]
+
+    logging.info("Computing hourly, daily, and monthly averages for 2024...")
+    oe_scaling["time_local"] = (
+        ("time",),
+        oe_scaling["time"].to_pandas().tz_localize("UTC").tz_convert("Europe/Paris"),
+    )
+
+    hourly = oe_scaling.groupby(oe_scaling["time_local"].dt.hour).mean()
+    daily = oe_scaling.groupby(oe_scaling["time_local"].dt.dayofweek).mean()
+    monthly = oe_scaling.groupby(oe_scaling["time_local"].dt.month).mean()
+
+    time_index_2024 = time_index[time_index.year == 2024]
+    local_time_index_2024 = time_index_2024.tz_localize("UTC").tz_convert(
+        "Europe/Paris"
+    )
+    oe_scaling_2024 = (
+        hourly.sel(hour=local_time_index_2024.hour)
+        .rename(hour="time")
+        .drop_vars("time")
+        * daily.sel(dayofweek=local_time_index_2024.dayofweek)
+        .rename(dayofweek="time")
+        .drop_vars("time")
+        * monthly.sel(month=local_time_index_2024.month)
+        .rename(month="time")
+        .drop_vars("time")
+    )
+    oe_scaling_2024 = oe_scaling_2024.assign_coords(time=time_index_2024)
+    oe_scaling = oe_scaling.drop_vars("time_local")
+    oe_scaling = xr.concat([oe_scaling, oe_scaling_2024], dim="time").assign_coords(
+        time=time_index
+    )
+
+    return oe_scaling, hourly, daily, monthly
+
+
+def create_vprm_temporal_scaling(time_index):
+    """Create temporal scaling factors from VPRM data."""
+    logging.info("Loading VPRM temporal profiles...")
+    vprm_base_path = Path(CONFIG["data_path"]) / "Fluxes/VPRM"
+
+    vprm_scaling = {}
+    for year in [2023, 2024]:
+        vprm_scaling[year] = xr.open_mfdataset(
+            vprm_base_path / f"vprm_temporal_scaling_{year}.nc"
+        )
+        vprm_scaling[year] = vprm_scaling[year] / vprm_scaling[year].mean("time")
+        vprm_scaling[year] = xr.concat(
+            [-vprm_scaling[year]["R"], vprm_scaling[year]["GEE"]], dim="type"
+        ).assign_coords(type=[f"VPRM {year} R", f"VPRM {year} GEE"])
+        assert (vprm_scaling[year].sel(type=f"VPRM {year} R") <= 0).all()
+
+    return vprm_scaling
+
+
+def plot_temporal_profiles(scaling):
+    """Create figures showing temporal scaling profiles."""
+    if not FIGURE_PATHS["temporal_profiles"].exists():
+        logging.info(
+            f"Saving temporal profiles figure to {FIGURE_PATHS['temporal_profiles']}"
+        )
+        plt.figure(figsize=(12, 6))
+        for type_val in scaling["type"].values:
+            plt.plot(
+                scaling["time"],
+                scaling["temporal"].sel(type=type_val),
+                label=type_val,
+                alpha=0.7,
+            )
+        plt.xlabel("Time")
+        plt.ylabel("Scaling factor")
+        plt.title("Temporal scaling factors for all emission types")
+        plt.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
+        plt.tight_layout()
+        plt.savefig(FIGURE_PATHS["temporal_profiles"])
+        plt.close()
+    else:
+        logging.info(f"File {FIGURE_PATHS['temporal_profiles']} exists, skipping plot.")
+
+
+def plot_temporal_breakdown(hourly, daily, monthly):
+    """Create figure showing hourly, daily, and monthly breakdown."""
+    if not FIGURE_PATHS["temporal_profiles_breakdown"].exists():
+        logging.info(
+            "Saving temporal profiles breakdown figure to "
+            f"{FIGURE_PATHS['temporal_profiles_breakdown']}"
+        )
+        fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+
+        for temporal_factor, ax, title in [
+            (hourly, axes[0], "Hourly"),
+            (daily, axes[1], "Daily"),
+            (monthly, axes[2], "Monthly"),
+        ]:
+            for type_val in temporal_factor["type"].values:
+                ax.plot(
+                    temporal_factor.sel(type=type_val),
+                    label=type_val,
+                    marker="o",
+                )
+            time_var = list(temporal_factor.coords.keys())[1]
+            ax.set_xlabel(time_var)
+            ax.set_ylabel("Scaling factor")
+            ax.set_title(f"{title} scaling (Origins.earth 2023)")
+            ax.legend(bbox_to_anchor=(1.05, 1), loc="upper left", fontsize=8)
+            ax.grid(True, alpha=0.3)
+
+        plt.tight_layout()
+        plt.savefig(FIGURE_PATHS["temporal_profiles_breakdown"])
+        plt.close()
+    else:
+        logging.info(
+            f"File {FIGURE_PATHS['temporal_profiles_breakdown']} exists, skipping plot."
+        )
+
+
+def create_temporal_profiles():
+    """Create temporal scaling profiles for all emission types and save as NetCDF."""
+    if TEMPORAL_PROFILES_NETCDF_PATH.exists():
+        logging.info(f"{TEMPORAL_PROFILES_NETCDF_PATH} exists, skipping creation.")
+        return
+
+    logging.info("Creating temporal scaling profiles...")
+    time_index = pd.date_range(
+        start="2023-01-01 00:00",
+        end="2024-12-31 23:00",
+        freq="h",
+    )
+    time_index = time_index
+
+    # Create scaling factors from different sources
+    tno_scaling = create_tno_temporal_scaling(time_index)
+    oe_scaling, hourly, daily, monthly = create_oe_temporal_scaling(time_index)
+    vprm_scaling = create_vprm_temporal_scaling(time_index)
+
+    # Combine all scaling factors
+    logging.info("Combining all temporal scaling factors...")
+    scaling_da = xr.concat(
+        [tno_scaling, oe_scaling, vprm_scaling[2023], vprm_scaling[2024]], dim="type"
+    ).compute()
+
+    # Convert to dataset with metadata
+    scaling = scaling_da.to_dataset(name="temporal")
+    scaling["time"].attrs = {
+        "long_name": "Time",
+    }
+    scaling["type"].attrs = {
+        "long_name": "Type of temporal scaling",
+    }
+    scaling["temporal"].attrs = {
+        "long_name": "Temporal scaling factor",
+        "units": "1",
+        "description": "Dimensionless scaling factor to be multiplied with the annual "
+        "total emissions to get the emissions at a specific time step.",
+    }
+    timestamp = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
+    scaling.attrs = {
+        "title": "Temporal scaling factors for emissions in Paris",
+        "description": "Temporal scaling factors for emissions in Paris from "
+        "TNO (2018), Origins.earth (2023) and VPRM (2023-2024).\n"
+        f"Created on {timestamp}.",
+    }
+
+    # Save to NetCDF
+    logging.info(f"Saving temporal profiles to {TEMPORAL_PROFILES_NETCDF_PATH}")
+    scaling.to_netcdf(TEMPORAL_PROFILES_NETCDF_PATH)
+
+    # Create figures
+    plot_temporal_profiles(scaling)
+    plot_temporal_breakdown(hourly, daily, monthly)
+
+
 def process_fluxes() -> Path:
     create_area_partitioning()
 
@@ -1043,4 +1270,5 @@ def process_fluxes() -> Path:
     plot_area_fluxes()
 
     create_source_group_dataset()
+    create_temporal_profiles()
     return SOURCE_GROUP_NETCDF_PATH
