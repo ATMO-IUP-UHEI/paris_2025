@@ -42,6 +42,24 @@ TNO_POINT_NETCDF_PATH = d_path / "Fluxes/point_flux_tno_2018.nc"
 SOURCE_GROUP_NETCDF_PATH = d_path / "Fluxes/source_groups.nc"
 
 
+TNO_SECTOR_GROUPS = {
+    "Public Power": "Power",
+    "Industry": "Industry",
+    "Other Stationary Combustion": "Combustion",
+    "Fugitives": "Industry",
+    "Solvents": "Solvents",
+    "RoadTransport exhaust gasoline": "Traffic",
+    "RoadTransport exhaust diesel": "Traffic",
+    "RoadTransport exhaust LPG gas": "Traffic",
+    "RoadTransport non-exhaust": "Traffic",
+    "Shipping": "Traffic",
+    "OffRoad": "Traffic",
+    "Waste": None,
+    "Agricultural Livestock": None,
+    "Agricultural Other": None,
+}
+
+
 def create_area_partitioning():
     """
     Create a partitioning of the model domain into areas and save it as a NetCDF file.
@@ -456,23 +474,6 @@ def create_tno_area_fluxes():
     ).rio.write_crs("EPSG:4326")
     tno_for_domain = tno_for_domain.transpose("sector", "lat", "lon", ...)
 
-    SECTOR_GROUPS = {
-        "Public Power": "Power",
-        "Industry": "Industry",
-        "Other Stationary Combustion": "Combustion",
-        "Fugitives": "Industry",
-        "Solvents": "Solvents",
-        "RoadTransport exhaust gasoline": "Traffic",
-        "RoadTransport exhaust diesel": "Traffic",
-        "RoadTransport exhaust LPG gas": "Traffic",
-        "RoadTransport non-exhaust": "Traffic",
-        "Shipping": "Traffic",
-        "OffRoad": "Traffic",
-        "Waste": None,
-        "Agricultural Livestock": None,
-        "Agricultural Other": None,
-    }
-
     logging.info(
         "Contribution of each TNO sector in percent to the total CO2 emissions"
     )
@@ -482,14 +483,14 @@ def create_tno_area_fluxes():
         .to_dataframe(name="Relative contribution of CO2 [%]")
     )
 
-    co2_contribution_series["Group"] = SECTOR_GROUPS
+    co2_contribution_series["Group"] = TNO_SECTOR_GROUPS
     logging.info(co2_contribution_series)
 
     logging.info("Grouping the sectors into larger groups.")
     tno_for_domain["sector_group"] = xr.DataArray(
-        [v for v in SECTOR_GROUPS.values()],
+        [v for v in TNO_SECTOR_GROUPS.values()],
         dims=("sector",),
-        coords={"sector": [k for k in SECTOR_GROUPS.keys()]},
+        coords={"sector": [k for k in TNO_SECTOR_GROUPS.keys()]},
     )
     tno_for_domain = tno_for_domain.groupby("sector_group").sum()
     tno_gral = tno_for_domain.co2.rio.reproject_match(
@@ -576,7 +577,10 @@ def create_tno_point_fluxes():
         .values,
     )
 
-    tno["type"] = ("source", [f"TNO 2018 {type_}" for type_ in tno["type"].values])
+    tno["type"] = (
+        "source",
+        [f"TNO 2018 {TNO_SECTOR_GROUPS[type_]}" for type_ in tno["type"].values],
+    )
     tno = tno.rename({"source": "index"})
     tno["index"] = np.arange(tno.sizes["index"])
     tno = tno[["x", "y", "flux", "type"]]
@@ -667,8 +671,10 @@ def create_tno_point_fluxes():
     gral_elevation = terrain.elevation.sel(x=tno.x, y=tno.y, method="nearest")
     tno["z"] = tno["elevation"] - gral_elevation.values
     tno = tno.set_coords(["x", "y", "z", "type"]).drop_vars("elevation")
-    logging.info("Assign default exit velocity, stack diameter, and exit temperature")
-    logging.info("based on Pregger and Friedrich 2009.")
+    logging.info(
+        "Assign default exit velocity, stack diameter, and exit temperature"
+        "based on Pregger and Friedrich 2009."
+    )
     tno["exit_velocity"] = ("index", np.full(tno.sizes["index"], 5.0))
     tno["stack_diameter"] = ("index", np.full(tno.sizes["index"], 1.0))
     tno["exit_temperature"] = (
@@ -715,7 +721,7 @@ def create_tno_point_fluxes():
         "units": "K",
     }
     if not TNO_POINT_NETCDF_PATH.exists():
-        logging.info(f"Saving Origins.earth data to {TNO_POINT_NETCDF_PATH}")
+        logging.info(f"Saving TNO point sources to {TNO_POINT_NETCDF_PATH}")
         tno.to_netcdf(TNO_POINT_NETCDF_PATH)
     else:
         logging.info(f"File {TNO_POINT_NETCDF_PATH} exists, skipping save.")

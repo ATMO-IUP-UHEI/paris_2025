@@ -69,8 +69,10 @@ def get_mean_wind_vars():
     meteo = p.meteo.get_meteo_measurements()
     mean_u_wind = meteo.u_wind.mean("station")
     mean_v_wind = meteo.v_wind.mean("station")
-    mean_wind_speed = ggpy.utils.wind_speed_from_vector(mean_u_wind, mean_v_wind)
-    mean_wind_direction = ggpy.utils.direction_from_vector(mean_u_wind, mean_v_wind)
+    mean_wind_speed = ggpy.processing.wind_speed_from_vector(mean_u_wind, mean_v_wind)
+    mean_wind_direction = ggpy.processing.direction_from_vector(
+        mean_u_wind, mean_v_wind
+    )
     return mean_u_wind, mean_v_wind, mean_wind_speed, mean_wind_direction
 
 
@@ -95,7 +97,7 @@ def create_meteo_measurements() -> None:
     )
 
     # Add wind as vector
-    meteo["u_wind"], meteo["v_wind"] = ggpy.utils.vector_from_direction_and_speed(
+    meteo["u_wind"], meteo["v_wind"] = ggpy.processing.vector_from_direction_and_speed(
         meteo["wind_direction"], meteo["wind_speed"]
     )
 

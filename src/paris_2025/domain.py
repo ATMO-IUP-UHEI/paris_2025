@@ -10,6 +10,7 @@ CONFIG = load_config()
 def checking_domain(domain_name: str, x, y):
     """
     Checks if the given coordinates (x, y) are within the specified domain.
+    
     Parameters
     ----------
     domain_name : str

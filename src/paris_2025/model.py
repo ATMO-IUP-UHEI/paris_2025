@@ -24,10 +24,10 @@ def get_gramm_meteo_data():
     meteo_gramm = meteo_gramm.drop_vars(["speed"])
     meteo_gramm = meteo_gramm.rename({"u": "ux", "v": "vy"})
     # Add "wind_speed" and "wind_direction" variables
-    meteo_gramm["wind_speed"] = ggpy.utils.wind_speed_from_vector(
+    meteo_gramm["wind_speed"] = ggpy.processing.wind_speed_from_vector(
         meteo_gramm.ux, meteo_gramm.vy
     )
-    meteo_gramm["wind_direction"] = ggpy.utils.direction_from_vector(
+    meteo_gramm["wind_direction"] = ggpy.processing.direction_from_vector(
         meteo_gramm.ux, meteo_gramm.vy
     )
     # Reorder dimensions
@@ -47,10 +47,10 @@ def get_gral_meteo_data():
     meteo_gral = meteo_gral.rename({"direction": "synoptic_wind_direction"})
     meteo_gral = meteo_gral.rename({"speed": "synoptic_wind_speed"})
     # Add "wind_speed" and "wind_direction" variables
-    meteo_gral["wind_speed"] = ggpy.utils.wind_speed_from_vector(
+    meteo_gral["wind_speed"] = ggpy.processing.wind_speed_from_vector(
         meteo_gral.ux, meteo_gral.vy
     )
-    meteo_gral["wind_direction"] = ggpy.utils.direction_from_vector(
+    meteo_gral["wind_direction"] = ggpy.processing.direction_from_vector(
         meteo_gral.ux, meteo_gral.vy
     )
     return meteo_gral

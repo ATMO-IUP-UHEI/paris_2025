@@ -111,24 +111,9 @@ def create_co2_measurements() -> None:
             "Unique identifier for each CO2 measurement station, combining station "
             "code and sampling height.",
         ],
-        "co2": [
-            "ppm",
-            "CO2 concentration",
-            "co2",
-            np.nan,
-        ],
-        "stdev": [
-            "ppm",
-            "Standard deviation",
-            "stdev",
-            np.nan,
-        ],
-        "nbpoints": [
-            "1",
-            "Number of points",
-            "nbpoints",
-            np.nan,
-        ],
+        "co2": ["ppm", "CO2 concentration", "co2", np.nan],
+        "stdev": ["ppm", "Standard deviation", "stdev", np.nan],
+        "nbpoints": ["1", "Number of points", "nbpoints", np.nan],
         "flag": [
             None,
             "Flag",
@@ -148,16 +133,8 @@ def create_co2_measurements() -> None:
             "height",
             "Height of the station above ground level in meters.",
         ],
-        "x": [
-            "m",
-            f"X coordinate in GRAL projection: {CONFIG['domain']['crs']}",
-            "x",
-        ],
-        "y": [
-            "m",
-            f"Y coordinate in GRAL projection: {CONFIG['domain']['crs']}",
-            "y",
-        ],
+        "x": ["m", f"X coordinate in GRAL projection: {CONFIG['domain']['crs']}", "x"],
+        "y": ["m", f"Y coordinate in GRAL projection: {CONFIG['domain']['crs']}", "y"],
         "in_gramm_domain": [
             "boolean",
             "Station in gramm domain",
