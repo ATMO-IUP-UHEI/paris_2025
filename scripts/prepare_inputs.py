@@ -24,15 +24,15 @@ def prepare_terrain():
     else:
         path = p.model_input.terrain.process_terrain("gramm", only_check_status=False)
         elevation = xr.open_dataset(path)["elevation"]
-        elevation = ggp.gramm_geometry.smooth_elevation(elevation)
-        geom = ggp.gramm_geometry.create_ggeom_dataset(
+        elevation = ggp.processing.smooth_elevation(elevation)
+        geom = ggp.processing.create_ggeom_dataset(
             elevation=elevation,
             nz=gramm_conf["nz"],
             z0=gramm_conf["z0"],
             vert_stretching=gramm_conf["vert_stretching"],
         )
         logging.info(f"Writing geometry file to {geometry_file}...")
-        ggp.gramm_geometry.write_ggeom_file(geom, file_path=geometry_file)
+        ggp.io.write_ggeom_file(geom, file_path=geometry_file)
 
     logging.info("Preparing terrain for GRAL...")
     gral_conf = CONFIG["domain"]["gral"]
@@ -43,7 +43,7 @@ def prepare_terrain():
         path = p.model_input.terrain.process_terrain("gral", only_check_status=False)
         elevation = xr.open_dataset(path)["elevation"]
         logging.info(f"Writing geometry file to {geometry_file}...")
-        ggp.utils.write_esri_ascii(geometry_file, elevation)
+        ggp.io.write_esri_ascii(geometry_file, elevation)
 
 
 def prepare_landcover():
@@ -54,7 +54,7 @@ def prepare_landcover():
         return
     gramm_landcover_path = p.model_input.landcover.process_landcover()
     landcover = xr.open_dataset(gramm_landcover_path)
-    ggp.utils.write_landuse(landuse_file, landcover)
+    ggp.io.write_landuse(landuse_file, landcover)
 
 
 def prepare_buildings():
@@ -68,7 +68,7 @@ def prepare_buildings():
     gral_buildings_path = p.model_input.buildings.process_buildings()
     buildings = xr.open_dataset(gral_buildings_path)
     logging.info(f"Writing buildings file to {buildings_file}...")
-    ggp.utils.write_buildings_file(buildings_file, buildings["building_height"])
+    ggp.io.write_buildings_file(buildings_file, buildings["building_height"])
 
 
 def prepare_fluxes():
@@ -81,7 +81,7 @@ def prepare_fluxes():
     points = source_group_ds.sel(source_group=source_group_ds.geometry == "point")
     if not point_file.exists():
         logging.info(f"Writing point file to {point_file}...")
-        ggp.utils.write_point_dat(
+        ggp.io.write_point_dat(
             path=point_file,
             x=points.x_point.values,
             y=points.y_point.values,
