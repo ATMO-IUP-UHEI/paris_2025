@@ -69,7 +69,7 @@ def create_area_partitioning():
         nx = CONFIG["fluxes"]["nx_areas"]
         ny = CONFIG["fluxes"]["ny_areas"]
 
-        gral_grid = ggp.utils.create_domain_grid("gral", CONFIG)
+        gral_grid = ggp.processing.create_domain_grid("gral", CONFIG)
         minx, maxx = gral_grid.x.values[[0, -1]]
         miny, maxy = gral_grid.y.values[[0, -1]]
         xbins = np.linspace(minx, maxx, nx + 1)
@@ -79,25 +79,51 @@ def create_area_partitioning():
         gral_grid = gral_grid.assign_coords(xbins=xbins, ybins=ybins)
 
         gral_grid["area_id"] = (
-            ("y", "x"),
-            np.nan * np.ones(gral_grid.y.shape + gral_grid.x.shape),
+            ("area_id"),
+            np.arange(nx * ny, dtype=int),
         )
+        gral_grid["area_id_map"] = (
+            ("y", "x"),
+            -np.ones(gral_grid.y.shape + gral_grid.x.shape, dtype=int),
+        )
+        gral_grid["x_center"] = ("area_id", -np.ones(nx * ny))
+        gral_grid["y_center"] = ("area_id", -np.ones(nx * ny))
         for i in range(nx):
             for j in range(ny):
-                gral_grid["area_id"].loc[
+                area_id = i + j * nx
+                gral_grid["x_center"][area_id] = 0.5 * (xbins[i] + xbins[i + 1])
+                gral_grid["y_center"][area_id] = 0.5 * (ybins[j] + ybins[j + 1])
+                gral_grid["area_id_map"].loc[
                     dict(
                         x=slice(xbins[i], xbins[i + 1]), y=slice(ybins[j], ybins[j + 1])
                     )
-                ] = (i + j * nx)
+                ] = area_id
 
         # Add attrs
         timestamp = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
         gral_grid.attrs["description"] = f"Dataset compiled {timestamp} EDT"
         gral_grid["area_id"].attrs = {
             "long_name": "Area ID",
-            "description": f"Partitioning of the model domain into {nx} x {ny} areas",
+            "description": f"Unique ID for each area in a {nx} x {ny} partitioning "
+            "of the model domain",
             "units": "1",
             "standard_name": "area_id",
+        }
+        gral_grid["x_center"].attrs = {
+            "long_name": "Area center X coordinate",
+            "units": "m",
+            "standard_name": "projection_x_coordinate",
+        }
+        gral_grid["y_center"].attrs = {
+            "long_name": "Area center Y coordinate",
+            "units": "m",
+            "standard_name": "projection_y_coordinate",
+        }
+        gral_grid["area_id_map"].attrs = {
+            "long_name": "Area ID map",
+            "description": f"Partitioning of the model domain into {nx} x {ny} areas",
+            "units": "1",
+            "standard_name": "area_id_map",
         }
         gral_grid["xbins"].attrs = {
             "long_name": "X bin edges",
@@ -121,9 +147,18 @@ def create_area_partitioning():
         }
 
         logging.info(f"Writing area_id to {AREA_ID_NETCDF_PATH}")
-        gral_grid[["x", "y", "xbins", "ybins", "area_id"]].to_netcdf(
-            AREA_ID_NETCDF_PATH
-        )
+        gral_grid[
+            [
+                "x",
+                "y",
+                "xbins",
+                "ybins",
+                "area_id",
+                "x_center",
+                "y_center",
+                "area_id_map",
+            ]
+        ].to_netcdf(AREA_ID_NETCDF_PATH)
     else:
         logging.info(f"File {AREA_ID_NETCDF_PATH} exists, not overwriting.")
     gral_grid = xr.open_dataset(AREA_ID_NETCDF_PATH)
@@ -216,7 +251,7 @@ def create_oe_area_fluxes():
     if OE_AREA_NETCDF_PATH.exists():
         logging.info(f"{OE_AREA_NETCDF_PATH} exists, skipping creation.")
         return
-    gral_grid = ggp.utils.create_domain_grid("gral", CONFIG)
+    gral_grid = ggp.processing.create_domain_grid("gral", CONFIG)
 
     logging.info("Loading Origins.earth data...")
     oe = xr.load_dataset(
@@ -386,7 +421,7 @@ def create_tno_area_fluxes():
     if TNO_AREA_NETCDF_PATH.exists():
         logging.info(f"{TNO_AREA_NETCDF_PATH} exists, skipping creation.")
         return
-    gral_grid = ggp.utils.create_domain_grid("gral", CONFIG)
+    gral_grid = ggp.processing.create_domain_grid("gral", CONFIG)
 
     logging.info("Loading TNO data...")
     tno = xr.open_mfdataset(
@@ -404,7 +439,7 @@ def create_tno_area_fluxes():
     tno = tno.sel(source=area_mask)
     logging.info(f"Number of area sources in France: {area_mask.sum().item()}")
 
-    domain_area = ggp.utils.create_domain_geometry("gral", CONFIG)
+    domain_area = ggp.processing.create_domain_geometry("gral", CONFIG)
     min_lon, min_lat, max_lon, max_lat = (
         domain_area.buffer(1e4).to_crs("EPSG:4326").total_bounds
     )
@@ -809,10 +844,13 @@ def create_source_group_dataset():
     logging.info("Combining point and area sources into one dataset...")
     cadastre = (
         xr.concat(
-            [areas.where(flux_grid.area_id == i) for i in np.unique(flux_grid.area_id)],
+            [
+                areas.where(flux_grid["area_id_map"] == i)
+                for i in np.unique(flux_grid["area_id_map"])
+            ],
             dim="area_id",
         )
-        .assign_coords(area_id=np.unique(flux_grid.area_id))
+        .assign_coords(area_id=np.unique(flux_grid["area_id_map"]))
         .compute()
     )
     cadastre = cadastre.stack(
@@ -893,7 +931,7 @@ def create_cadastre_dat_from_area(path):
                 ["type", "x_point", "y_point", "z_point", "spatial_ref"]
             )
             .where((source_group_ds["area_id"] == area_id).compute(), drop=True)
-            .where(flux_grid["area_id"] == area_id, drop=True)[
+            .where(flux_grid["area_id_map"] == area_id, drop=True)[
                 ["x", "y", "source_group", "area_flux"]
             ]
             .stack(index=["y", "x", "source_group"], create_index=False)
@@ -960,7 +998,7 @@ def create_cadastre_dat_from_area(path):
     df["dx"] = 10
     df["dy"] = 10
     df["dz"] = 0
-    ggp.utils.write_cadastre_dat(
+    ggp.io.write_cadastre_dat(
         path=path,
         x=df["x"],
         y=df["y"],
