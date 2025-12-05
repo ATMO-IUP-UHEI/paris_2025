@@ -1,23 +1,11 @@
 import ggpymanager as ggp
-from matplotlib import colors as mcolors
 import matplotlib.pyplot as plt
 import pandas as pd
 import xarray as xr
-import datetime
-import sys
+from matplotlib import colors as mcolors
 
 import paris_2025 as p
-
-
-def get_metadata(description=None):
-    """Get metadata for the plots."""
-    now = datetime.datetime.now()
-    date_str = now.strftime("%Y-%m-%d")
-    caller_name = sys._getframe().f_back.f_code.co_name  # type: ignore
-    _description = f"Created by function '{caller_name}' on {date_str}."
-    if description is not None:
-        _description += f"\n{description}"
-    return {"Description": _description}
+from paris_2025.plotting.common import get_metadata
 
 
 def plot_source_group_contribution_to_stations(fig_path_1, fig_path_2):
@@ -54,6 +42,10 @@ def plot_source_group_contribution_to_stations(fig_path_1, fig_path_2):
     }
     fp.plot(col="station", col_wrap=6, cmap="jet")  # type: ignore
     plt.savefig(
-        fig_path_2, metadata=get_metadata("Mean over all source groups of that area,")
+        fig_path_2,
+        metadata=get_metadata(
+            "Mean over all source groups of that area,"
+            " each pixel shows the contribution to a station."
+        ),
     )
     plt.clf()
