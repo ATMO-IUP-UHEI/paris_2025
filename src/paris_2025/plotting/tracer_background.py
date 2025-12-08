@@ -16,7 +16,7 @@ def plot_mean_windrose(fig_path: str | Path, year: str = "2023"):
     )
     mean_wind_speed = mean_wind_speed.sel(time=year)
     mean_wind_direction = mean_wind_direction.sel(time=year)
-    
+
     fig = plt.figure(figsize=(8, 8))
     ax = WindroseAxes.from_ax()
     ax.bar(
@@ -39,16 +39,16 @@ def plot_co2_stations_with_windrose(fig_path: str | Path, year: str = "2023"):
     """Plot CO2 measurement stations with embedded windrose."""
     co2 = p.tracers.get_co2_measurements()
     co2 = co2.sel(time=year)
-    
+
     mean_u_wind, mean_v_wind, mean_wind_speed, mean_wind_direction = (
         p.meteo.get_mean_wind_vars()
     )
     mean_wind_speed = mean_wind_speed.sel(time=year)
     mean_wind_direction = mean_wind_direction.sel(time=year)
-    
+
     fig, ax = plt.subplots(figsize=(20, 10))
     p.domain.add_domain(ax)
-    
+
     co2.sel(station=~co2.in_gral_domain).plot.scatter(
         x="x",
         y="y",
@@ -59,7 +59,7 @@ def plot_co2_stations_with_windrose(fig_path: str | Path, year: str = "2023"):
         cmap="viridis",
         ax=ax,
     )
-    
+
     co2.sel(station=co2.in_gral_domain).plot.scatter(
         x="x",
         y="y",
@@ -70,7 +70,7 @@ def plot_co2_stations_with_windrose(fig_path: str | Path, year: str = "2023"):
         cmap="tab10",
         ax=ax,
     )
-    
+
     wrax = inset_axes(
         ax,
         width=1,
@@ -100,7 +100,7 @@ def plot_background_co2_stations(fig_path: str | Path, year: str = "2023"):
     """Plot background CO2 stations (Picarro instruments outside GRAL domain)."""
     co2 = p.tracers.get_co2_measurements()
     co2 = co2.sel(time=year)
-    
+
     fig, ax = plt.subplots(figsize=(12, 8))
     background_stations = co2.where(
         (co2.instrument == "Picarro") & ~co2.in_gral_domain, drop=True
@@ -128,7 +128,7 @@ def plot_background_co2_stations(fig_path: str | Path, year: str = "2023"):
 def plot_background_station_counts(fig_path: str | Path, year: str = "2023"):
     """Plot bar chart of background station usage counts."""
     dynamic_background = p.background.get_background_co2(year=year)
-    
+
     fig, ax = plt.subplots(figsize=(10, 6))
     dynamic_background.station.to_pandas().value_counts().plot.bar(ax=ax)
     ax.set_xlabel("Station")
@@ -142,6 +142,56 @@ def plot_background_station_counts(fig_path: str | Path, year: str = "2023"):
     plt.close(fig)
 
 
+def plot_background_station_co2_violin(fig_path: str | Path, year: str = "2023"):
+    """Plot violin plot of CO2 concentrations by background station."""
+    dynamic_background = p.background.get_background_co2(year=year)
+
+    # Prepare data for violin plot
+    import pandas as pd
+
+    df = pd.DataFrame(
+        {
+            "station": dynamic_background.station.values,
+            "co2": dynamic_background.co2.values,
+        }
+    )
+
+    # Get unique stations sorted by median CO2 or count
+    station_order = (
+        df.groupby("station")["co2"].count().sort_values(ascending=False).index.tolist()
+    )
+
+    fig, ax = plt.subplots(figsize=(12, 6))
+
+    # Create violin plot
+    ax.violinplot(
+        [
+            df[df["station"] == station]["co2"].dropna().values
+            for station in station_order
+        ],
+        positions=range(len(station_order)),
+        showmeans=True,
+        showmedians=True,
+    )
+
+    ax.set_xticks(range(len(station_order)))
+    ax.set_xticklabels(station_order, rotation=45, ha="right")
+    ax.set_xlabel("Station")
+    ax.set_ylabel("CO2 Concentration (ppm)")
+    ax.set_title(f"Background CO2 Concentration Distribution by Station for {year}")
+    ax.grid(True, alpha=0.3, axis="y")
+
+    plt.tight_layout()
+    plt.savefig(
+        fig_path,
+        metadata=get_metadata(
+            f"CO2 concentration distribution by background station for {year}."
+        ),
+        bbox_inches="tight",
+    )
+    plt.close(fig)
+
+
 def plot_background_station_hourly_contribution(
     fig_path: str | Path, year: str = "2023"
 ):
@@ -150,16 +200,14 @@ def plot_background_station_hourly_contribution(
     background station by hour of day.
     """
     dynamic_background = p.background.get_background_co2(year=year)
-    
+
     # Extract hour of day
-    hourly_data = dynamic_background.assign_coords(
-        hour=dynamic_background.time.dt.hour
-    )
-    
+    hourly_data = dynamic_background.assign_coords(hour=dynamic_background.time.dt.hour)
+
     # Count occurrences of each station per hour
     station_hour_counts = {}
     unique_stations = np.unique(dynamic_background.station.values)
-    
+
     for station in unique_stations:
         station_mask = hourly_data.station == station
         counts_per_hour = []
@@ -168,26 +216,25 @@ def plot_background_station_hourly_contribution(
             count = (station_mask & hour_mask).sum().values
             counts_per_hour.append(count)
         station_hour_counts[station] = counts_per_hour
-    
+
     # Convert to relative contributions (density that adds to 1 for each hour)
     hours = np.arange(24)
-    total_per_hour = np.array([
-        sum(station_hour_counts[s][h] for s in unique_stations)
-        for h in hours
-    ])
-    
+    total_per_hour = np.array(
+        [sum(station_hour_counts[s][h] for s in unique_stations) for h in hours]
+    )
+
     # Avoid division by zero
     total_per_hour = np.where(total_per_hour == 0, 1, total_per_hour)
-    
+
     station_contributions = {}
     for station in unique_stations:
         station_contributions[station] = (
             np.array(station_hour_counts[station]) / total_per_hour
         )
-    
+
     # Create stacked area plot
     fig, ax = plt.subplots(figsize=(12, 6))
-    
+
     # Stack the contributions
     bottom = np.zeros(24)
     for station in unique_stations:
@@ -196,10 +243,10 @@ def plot_background_station_hourly_contribution(
             bottom,
             bottom + station_contributions[station],
             label=station,
-            alpha=0.7
+            alpha=0.7,
         )
         bottom += station_contributions[station]
-    
+
     ax.set_xlabel("Hour of Day")
     ax.set_ylabel("Relative Contribution")
     ax.set_title(f"Background Station Hourly Contribution for {year}")
@@ -208,7 +255,7 @@ def plot_background_station_hourly_contribution(
     ax.set_xticks(range(0, 24, 2))
     ax.legend(loc="upper left", bbox_to_anchor=(1, 1), ncol=1)
     ax.grid(True, alpha=0.3)
-    
+
     plt.tight_layout()
     plt.savefig(
         fig_path,
@@ -227,14 +274,14 @@ def plot_co2_diff_vs_wind_speed(fig_path: str | Path, year: str = "2023"):
     meteo = meteo.sel(time=year)
     percent = meteo.wind_speed.notnull().sum("time") / len(meteo.time) * 100
     meteo = meteo.sel(station=percent > 50)
-    
+
     co2 = p.tracers.get_co2_measurements()
     co2 = co2.sel(time=year)
-    
+
     time_center = 12  # Center time at noon
     time_window = 6  # 6 hours window
     during_day = np.abs(co2.time.dt.hour - time_center) < time_window
-    
+
     fig, axs = plt.subplots(1, 2, figsize=(16, 6))
     hb = axs[0].hist2d(
         co2.co2.sel(station="SAC_100") - co2.co2.sel(station="SAC_15"),
@@ -251,7 +298,7 @@ def plot_co2_diff_vs_wind_speed(fig_path: str | Path, year: str = "2023"):
     axs[0].set_title(
         "CO2 difference vs. Wind speed during daytime (6 hours around noon)"
     )
-    
+
     hb = axs[1].hist2d(
         co2.co2.sel(station="SAC_100") - co2.co2.sel(station="SAC_15"),
         meteo.mean("station").wind_speed.where(~during_day),
@@ -267,7 +314,7 @@ def plot_co2_diff_vs_wind_speed(fig_path: str | Path, year: str = "2023"):
     axs[1].set_title(
         "CO2 difference vs. Wind speed during nighttime (6 hours around midnight)"
     )
-    
+
     plt.tight_layout()
     plt.savefig(
         fig_path,
@@ -286,12 +333,12 @@ def plot_co2_diff_vs_wind_direction(fig_path: str | Path, year: str = "2023"):
     meteo = meteo.sel(time=year)
     percent = meteo.wind_speed.notnull().sum("time") / len(meteo.time) * 100
     meteo = meteo.sel(station=percent > 50)
-    
+
     co2 = p.tracers.get_co2_measurements()
     co2 = co2.sel(time=year)
-    
+
     during_day = np.abs(co2.time.dt.hour - 12) < 6
-    
+
     fig, axs = plt.subplots(1, 2, figsize=(16, 6))
     hb_day = axs[0].hexbin(
         co2.co2.sel(station="SAC_100") - co2.co2.sel(station="SAC_15"),
@@ -305,11 +352,10 @@ def plot_co2_diff_vs_wind_direction(fig_path: str | Path, year: str = "2023"):
     axs[0].set_xlabel("CO2 difference (SAC_100 - SAC_15)")
     axs[0].set_ylabel("Wind direction (deg)")
     title_day = (
-        "CO2 difference vs. Wind direction during daytime "
-        "(6 hours around noon)"
+        "CO2 difference vs. Wind direction during daytime " "(6 hours around noon)"
     )
     axs[0].set_title(title_day)
-    
+
     hb_night = axs[1].hexbin(
         co2.co2.sel(station="SAC_100") - co2.co2.sel(station="SAC_15"),
         meteo.mean("station").wind_direction.where(~during_day),
@@ -326,7 +372,7 @@ def plot_co2_diff_vs_wind_direction(fig_path: str | Path, year: str = "2023"):
         "(6 hours around midnight)"
     )
     axs[1].set_title(title_night)
-    
+
     plt.tight_layout()
     plt.savefig(
         fig_path,

@@ -133,6 +133,10 @@ if __name__ == "__main__":
         p.plotting.tracer_background.plot_background_station_counts,
     )
     create_figures_if_missing(
+        FIGURE_PATH / DIR / "background_station_co2_violin_2023.png",
+        p.plotting.tracer_background.plot_background_station_co2_violin,
+    )
+    create_figures_if_missing(
         FIGURE_PATH / DIR / "background_station_hourly_contribution_2023.png",
         p.plotting.tracer_background.plot_background_station_hourly_contribution,
     )
