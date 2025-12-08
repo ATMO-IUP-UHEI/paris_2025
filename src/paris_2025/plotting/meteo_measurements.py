@@ -135,3 +135,50 @@ def plot_wind_data_availability(fig_path_1, fig_path_2):
             bbox_inches="tight",
         )
         plt.close(fig)
+
+
+def plot_wind_speed_by_altitude_lidar(fig_path: str | Path, year: str = "2023"):
+    """Plot mean wind speed by altitude for lidar measurements."""
+    meteo = p.meteo.get_meteo_measurements()
+    meteo = meteo.sel(time=year)
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    lidar_data = meteo.where(meteo.operator == "lidar", drop=True)
+    lidar_data.wind_speed.mean("time").plot.scatter(hue="altitude", ax=ax, s=100)
+    ax.set_title(f"Mean Wind Speed by Altitude (Lidar) for {year}")
+    ax.set_xlabel("Station Index")
+    ax.set_ylabel("Mean Wind Speed (m/s)")
+
+    ax.tick_params(axis="x", rotation=90)
+    plt.tight_layout()
+    plt.savefig(
+        fig_path,
+        metadata=get_metadata(f"Mean wind speed by altitude for lidar in {year}."),
+        bbox_inches="tight",
+    )
+    plt.close(fig)
+
+
+def plot_wind_speed_by_altitude_non_lidar(fig_path: str | Path, year: str = "2023"):
+    """Plot mean wind speed by altitude for non-lidar measurements."""
+    meteo = p.meteo.get_meteo_measurements()
+    meteo = meteo.sel(time=year)
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    non_lidar_data = meteo.where(meteo.operator != "lidar", drop=True)
+    non_lidar_data_sorted = non_lidar_data.sortby("altitude")
+    non_lidar_data_sorted.wind_speed.mean("time").plot.scatter(
+        hue="altitude", ax=ax, s=100
+    )
+    ax.set_title(f"Mean Wind Speed by Altitude (Non-Lidar) for {year}")
+    ax.set_xlabel("Station Index")
+    ax.set_ylabel("Mean Wind Speed (m/s)")
+
+    ax.tick_params(axis="x", rotation=90)
+    plt.tight_layout()
+    plt.savefig(
+        fig_path,
+        metadata=get_metadata(f"Mean wind speed by altitude for non-lidar in {year}."),
+        bbox_inches="tight",
+    )
+    plt.close(fig)
