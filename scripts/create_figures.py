@@ -112,3 +112,35 @@ if __name__ == "__main__":
         ],
         p.plotting.tracer_measurements.plot_co2_data_availability,
     )
+
+    # CO2 background analysis
+    DIR = "co2_background"
+    (FIGURE_PATH / DIR).mkdir(parents=True, exist_ok=True)
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "mean_windrose_2023.png",
+        p.plotting.tracer_background.plot_mean_windrose,
+    )
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "co2_stations_with_windrose_2023.png",
+        p.plotting.tracer_background.plot_co2_stations_with_windrose,
+    )
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "background_co2_stations_2023.png",
+        p.plotting.tracer_background.plot_background_co2_stations,
+    )
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "background_station_counts_2023.png",
+        p.plotting.tracer_background.plot_background_station_counts,
+    )
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "background_station_hourly_contribution_2023.png",
+        p.plotting.tracer_background.plot_background_station_hourly_contribution,
+    )
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "co2_diff_vs_wind_speed_2023.png",
+        p.plotting.tracer_background.plot_co2_diff_vs_wind_speed,
+    )
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "co2_diff_vs_wind_direction_2023.png",
+        p.plotting.tracer_background.plot_co2_diff_vs_wind_direction,
+    )
