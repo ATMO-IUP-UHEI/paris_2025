@@ -152,3 +152,11 @@ if __name__ == "__main__":
         FIGURE_PATH / DIR / "co2_diff_vs_wind_direction_2023.png",
         p.plotting.tracer_background.plot_co2_diff_vs_wind_direction,
     )
+
+    # Fluxes
+    DIR = "fluxes"
+    (FIGURE_PATH / DIR).mkdir(parents=True, exist_ok=True)
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "flux_by_type.png",
+        p.plotting.fluxes.plot_flux_by_type,
+    )

@@ -1,9 +1,10 @@
 from . import (
-    meteo_measurements,
-    tracer_measurements,
     common,
-    tracer_from_catalog,
+    fluxes,
+    meteo_measurements,
     tracer_background,
+    tracer_from_catalog,
+    tracer_measurements,
 )
 
 __all__ = [
@@ -12,4 +13,5 @@ __all__ = [
     "meteo_measurements",
     "tracer_measurements",
     "common",
+    "fluxes",
 ]
