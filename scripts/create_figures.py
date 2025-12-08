@@ -112,6 +112,10 @@ if __name__ == "__main__":
         ],
         p.plotting.tracer_measurements.plot_co2_data_availability,
     )
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "picarro_co2_violin_2023.png",
+        p.plotting.tracer_measurements.plot_picarro_co2_violin,
+    )
 
     # CO2 background analysis
     DIR = "co2_background"

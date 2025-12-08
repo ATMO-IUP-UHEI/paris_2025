@@ -115,3 +115,58 @@ def plot_co2_data_availability(fig_path_2023: str | Path, fig_path_2024: str | P
             metadata=get_metadata(f"CO2 data availability in Paris for {year}."),
         )
         plt.close(fig)
+
+
+def plot_picarro_co2_violin(fig_path: str | Path, year: str = "2023"):
+    """Plot violin plot of CO2 concentrations by Picarro station."""
+
+    co2 = p.tracers.get_co2_measurements()
+    co2 = co2.sel(time=year)
+
+    # Filter for Picarro instruments only
+    picarro_co2 = co2.where(co2.instrument == "Picarro", drop=True)
+
+    fig, ax = plt.subplots(figsize=(14, 6))
+
+    # Create violin plot
+    violin_data = [
+        picarro_co2["co2"].sel(station=station).dropna("time").values
+        for station in picarro_co2.station.values
+    ]
+    ax.violinplot(
+        violin_data,
+        positions=range(len(violin_data)),
+        showmeans=True,
+        showmedians=True,
+    )
+
+    # Add count labels above each violin
+    for i, data in enumerate(violin_data):
+        count = len(data)
+        y_max = ax.get_ylim()[1]
+        ax.text(
+            i,
+            y_max * 0.98,
+            f"n={count}",
+            ha="center",
+            va="top",
+            fontsize=8,
+            bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.7),
+        )
+
+    ax.set_xticks(range(len(violin_data)))
+    ax.set_xticklabels(picarro_co2["station"].values, rotation=45, ha="right")
+    ax.set_xlabel("Station")
+    ax.set_ylabel("CO2 Concentration (ppm)")
+    ax.set_title(f"Picarro CO2 Concentration Distribution by Station for {year}")
+    ax.grid(True, alpha=0.3, axis="y")
+
+    plt.tight_layout()
+    plt.savefig(
+        fig_path,
+        metadata=get_metadata(
+            f"CO2 concentration distribution by Picarro station for {year}."
+        ),
+        bbox_inches="tight",
+    )
+    plt.close(fig)
