@@ -30,3 +30,15 @@ domain:
 fluxes:
   nx_areas: 9
   ny_areas: 7
+matching:
+  stations:
+    LONGCHAMP: gramm
+    PARIS-MONTSOURIS: gral
+    TOUR EIFFEL: gral
+    LFPB: gramm
+    LFPN: gramm
+    LFPO: gramm
+    LFPV: gramm
+    Cité des Sciences: gral
+    Meudon: gral
+    Romainville: gral
