@@ -68,7 +68,7 @@ if __name__ == "__main__":
     )
 
     # Wind measurements
-    DIR = "wind_measurements"
+    DIR = "meteo_measurements"
     (FIGURE_PATH / DIR).mkdir(parents=True, exist_ok=True)
     create_figures_if_missing(
         FIGURE_PATH / DIR / "wind_roses_measurements.png",
@@ -93,9 +93,17 @@ if __name__ == "__main__":
         FIGURE_PATH / DIR / "wind_speed_by_altitude_non_lidar_2023.png",
         p.plotting.meteo_measurements.plot_wind_speed_by_altitude_non_lidar,
     )
+
+    # Meteo model comparison
+    DIR = "meteo_model_comparison"
+    (FIGURE_PATH / DIR).mkdir(parents=True, exist_ok=True)
     create_figures_if_missing(
         FIGURE_PATH / DIR / "wind_components_by_stability_class_2023.png",
-        p.plotting.meteo_measurements.plot_gral_wind_components_by_stability_class,
+        p.plotting.meteo_from_catalog.plot_gral_wind_components_by_stability_class,
+    )
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "meteo_gramm_gral_comparison.png",
+        p.plotting.meteo_from_catalog.plot_meteo_model_comparison,
     )
 
     # CO2 measurements

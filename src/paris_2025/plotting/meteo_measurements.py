@@ -182,34 +182,3 @@ def plot_wind_speed_by_altitude_non_lidar(fig_path: str | Path, year: str = "202
         bbox_inches="tight",
     )
     plt.close(fig)
-
-
-def plot_gral_wind_components_by_stability_class(
-    fig_path: str | Path, year: str = "2023"
-):
-    """Plot wind components (ux vs vy) by stability class for non-Lidar stations."""
-    gral_meteo = p.model.get_gral_meteo_data()
-
-    # Filter out Lidar stations
-    non_lidar_meteo = gral_meteo.where(gral_meteo.operator != "lidar", drop=True)
-
-    # Create facet plot
-    n_rows = int(np.ceil(len(non_lidar_meteo.station) / 3))
-    g = non_lidar_meteo.plot.scatter(
-        x="ux",
-        y="vy",
-        hue="stab_class",
-        col="station",
-        col_wrap=3,
-        figsize=(10, 4 * n_rows),
-    )
-    g.fig.suptitle(f"Wind Components by Stability Class (Non-Lidar) for {year}", y=1.02)
-
-    plt.savefig(
-        fig_path,
-        metadata=get_metadata(
-            f"Wind components by stability class for non-Lidar stations in {year}."
-        ),
-        bbox_inches="tight",
-    )
-    plt.close(g.fig)
