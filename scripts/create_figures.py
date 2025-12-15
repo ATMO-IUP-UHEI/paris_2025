@@ -93,6 +93,10 @@ if __name__ == "__main__":
         FIGURE_PATH / DIR / "wind_speed_by_altitude_non_lidar_2023.png",
         p.plotting.meteo_measurements.plot_wind_speed_by_altitude_non_lidar,
     )
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "wind_components_scatter_2023.png",
+        p.plotting.meteo_measurements.plot_wind_components,
+    )
 
     # Meteo model comparison
     DIR = "meteo_model_comparison"

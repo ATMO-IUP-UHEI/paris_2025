@@ -182,3 +182,20 @@ def plot_wind_speed_by_altitude_non_lidar(fig_path: str | Path, year: str = "202
         bbox_inches="tight",
     )
     plt.close(fig)
+
+
+def plot_wind_components(fig_path: str | Path, year: str = "2023"):
+    """Plot wind components (ux vs vy) for all stations."""
+    meteo = p.meteo.get_meteo_measurements()
+    non_lidar_mask = meteo["operator"] != "lidar"
+    not_all_nan = meteo["u_wind"].notnull().any("time")
+    meteo.where(
+        non_lidar_mask & not_all_nan & meteo.in_gramm_domain, drop=True
+    ).plot.scatter(x="u_wind", y="v_wind", col="station", col_wrap=4, alpha=0.5)
+    plt.suptitle(f"Wind Components for Non-Lidar Stations in {year}", y=1.02)
+    plt.savefig(
+        fig_path,
+        metadata=get_metadata(f"Wind components for non-lidar stations in {year}."),
+        bbox_inches="tight",
+    )
+    plt.close()
