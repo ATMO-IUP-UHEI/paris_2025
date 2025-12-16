@@ -246,9 +246,12 @@ def plot_comparison_of_different_matching_methods(
     wind_speed = ggp.processing.wind_speed_from_vector(matched["ux"], matched["vy"])
     wind_direction = ggp.processing.direction_from_vector(matched["ux"], matched["vy"])
 
-    fig, axs = plt.subplots(2, 1, figsize=(32, 6), dpi=300)
-    wind_speed.plot(hue="loss_type", ax=axs[0], lw=0.2)
-    wind_direction.plot(hue="loss_type", ax=axs[1], lw=0.2)
+    fig, axs = plt.subplots(2, 1, figsize=(64, 6), dpi=300)
+    wind_speed.plot(hue="loss_type", ax=axs[0], lw=0.5)
+    wind_direction.plot(hue="loss_type", ax=axs[1], lw=0.5)
+
+    axs[0].set_title(f"Wind Speed at Station {station}")
+    axs[0].set_ylabel("Wind Speed (m/s)")
     plt.tight_layout()
     plt.savefig(
         fig_path,
