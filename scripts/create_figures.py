@@ -4,7 +4,13 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 
 import paris_2025 as p
-import paris_2025.plotting as plotting
+from paris_2025.plotting import (
+    meteo_from_catalog,
+    meteo_measurements,
+    tracer_background,
+    tracer_from_catalog,
+    tracer_measurements,
+)
 
 # Get the root logger
 logger = logging.getLogger()
@@ -64,7 +70,7 @@ if __name__ == "__main__":
             FIGURE_PATH / DIR / "source_group_contribution_stations.png",
             FIGURE_PATH / DIR / "source_group_area_contribution_stations.png",
         ],
-        plotting.tracer_from_catalog.plot_source_group_contribution_to_stations,
+        tracer_from_catalog.plot_source_group_contribution_to_stations,
     )
 
     # Wind measurements
@@ -72,30 +78,30 @@ if __name__ == "__main__":
     (FIGURE_PATH / DIR).mkdir(parents=True, exist_ok=True)
     create_figures_if_missing(
         FIGURE_PATH / DIR / "wind_roses_measurements.png",
-        p.plotting.meteo_measurements.plot_wind_roses_of_meteo_measurements,
+        meteo_measurements.plot_wind_roses_of_meteo_measurements,
     )
     create_figures_if_missing(
         FIGURE_PATH / DIR / "meteo_overview.png",
-        p.plotting.meteo_measurements.plot_meteo_overview,
+        meteo_measurements.plot_meteo_overview,
     )
     create_figures_if_missing(
         [
             FIGURE_PATH / DIR / "wind_data_availability_2023.png",
             FIGURE_PATH / DIR / "wind_data_availability_2024.png",
         ],
-        p.plotting.meteo_measurements.plot_wind_data_availability,
+        meteo_measurements.plot_wind_data_availability,
     )
     create_figures_if_missing(
         FIGURE_PATH / DIR / "wind_speed_by_altitude_lidar_2023.png",
-        p.plotting.meteo_measurements.plot_wind_speed_by_altitude_lidar,
+        meteo_measurements.plot_wind_speed_by_altitude_lidar,
     )
     create_figures_if_missing(
         FIGURE_PATH / DIR / "wind_speed_by_altitude_non_lidar_2023.png",
-        p.plotting.meteo_measurements.plot_wind_speed_by_altitude_non_lidar,
+        meteo_measurements.plot_wind_speed_by_altitude_non_lidar,
     )
     create_figures_if_missing(
         FIGURE_PATH / DIR / "wind_components_scatter_2023.png",
-        p.plotting.meteo_measurements.plot_wind_components,
+        meteo_measurements.plot_wind_components,
     )
 
     # Meteo model comparison
@@ -103,11 +109,15 @@ if __name__ == "__main__":
     (FIGURE_PATH / DIR).mkdir(parents=True, exist_ok=True)
     create_figures_if_missing(
         FIGURE_PATH / DIR / "wind_components_by_stability_class_2023.png",
-        p.plotting.meteo_from_catalog.plot_gral_wind_components_by_stability_class,
+        meteo_from_catalog.plot_gral_wind_components_by_stability_class,
     )
     create_figures_if_missing(
         FIGURE_PATH / DIR / "meteo_gramm_gral_comparison.png",
-        p.plotting.meteo_from_catalog.plot_meteo_model_comparison,
+        meteo_from_catalog.plot_meteo_model_comparison,
+    )
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "matching_methods_comparison.pdf",
+        meteo_from_catalog.plot_comparison_of_different_matching_methods,
     )
 
     # CO2 measurements
@@ -115,30 +125,30 @@ if __name__ == "__main__":
     (FIGURE_PATH / DIR).mkdir(parents=True, exist_ok=True)
     create_figures_if_missing(
         FIGURE_PATH / DIR / "co2_concentration_heatmap.png",
-        p.plotting.tracer_measurements.plot_co2_concentration_heatmap,
+        tracer_measurements.plot_co2_concentration_heatmap,
     )
     create_figures_if_missing(
         FIGURE_PATH / DIR / "co2_by_height_and_instrument.png",
-        p.plotting.tracer_measurements.plot_co2_by_height_and_instrument,
+        tracer_measurements.plot_co2_by_height_and_instrument,
     )
     create_figures_if_missing(
         FIGURE_PATH / DIR / "average_co2_spatial.png",
-        p.plotting.tracer_measurements.plot_average_co2_spatial,
+        tracer_measurements.plot_average_co2_spatial,
     )
     create_figures_if_missing(
         FIGURE_PATH / DIR / "co2_instruments_map.png",
-        p.plotting.tracer_measurements.plot_co2_instruments_map,
+        tracer_measurements.plot_co2_instruments_map,
     )
     create_figures_if_missing(
         [
             FIGURE_PATH / DIR / "co2_data_availability_2023.png",
             FIGURE_PATH / DIR / "co2_data_availability_2024.png",
         ],
-        p.plotting.tracer_measurements.plot_co2_data_availability,
+        tracer_measurements.plot_co2_data_availability,
     )
     create_figures_if_missing(
         FIGURE_PATH / DIR / "picarro_co2_violin_2023.png",
-        p.plotting.tracer_measurements.plot_picarro_co2_violin,
+        tracer_measurements.plot_picarro_co2_violin,
     )
 
     # CO2 background analysis
@@ -146,35 +156,35 @@ if __name__ == "__main__":
     (FIGURE_PATH / DIR).mkdir(parents=True, exist_ok=True)
     create_figures_if_missing(
         FIGURE_PATH / DIR / "mean_windrose_2023.png",
-        p.plotting.tracer_background.plot_mean_windrose,
+        tracer_background.plot_mean_windrose,
     )
     create_figures_if_missing(
         FIGURE_PATH / DIR / "co2_stations_with_windrose_2023.png",
-        p.plotting.tracer_background.plot_co2_stations_with_windrose,
+        tracer_background.plot_co2_stations_with_windrose,
     )
     create_figures_if_missing(
         FIGURE_PATH / DIR / "background_co2_stations_2023.png",
-        p.plotting.tracer_background.plot_background_co2_stations,
+        tracer_background.plot_background_co2_stations,
     )
     create_figures_if_missing(
         FIGURE_PATH / DIR / "background_station_counts_2023.png",
-        p.plotting.tracer_background.plot_background_station_counts,
+        tracer_background.plot_background_station_counts,
     )
     create_figures_if_missing(
         FIGURE_PATH / DIR / "background_station_co2_violin_2023.png",
-        p.plotting.tracer_background.plot_background_station_co2_violin,
+        tracer_background.plot_background_station_co2_violin,
     )
     create_figures_if_missing(
         FIGURE_PATH / DIR / "background_station_hourly_contribution_2023.png",
-        p.plotting.tracer_background.plot_background_station_hourly_contribution,
+        tracer_background.plot_background_station_hourly_contribution,
     )
     create_figures_if_missing(
         FIGURE_PATH / DIR / "co2_diff_vs_wind_speed_2023.png",
-        p.plotting.tracer_background.plot_co2_diff_vs_wind_speed,
+        tracer_background.plot_co2_diff_vs_wind_speed,
     )
     create_figures_if_missing(
         FIGURE_PATH / DIR / "co2_diff_vs_wind_direction_2023.png",
-        p.plotting.tracer_background.plot_co2_diff_vs_wind_direction,
+        tracer_background.plot_co2_diff_vs_wind_direction,
     )
 
     # Fluxes

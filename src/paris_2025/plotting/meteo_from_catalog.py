@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import ggpymanager as ggp
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
@@ -84,7 +85,8 @@ def plot_meteo_model_comparison(
     buildings_path : str | Path, optional
         Path to buildings NetCDF file. Default is Paris buildings dataset.
     selected_operators : list[str] | None, optional
-        List of operator names to include. Default is ["MeteoFrance", "NCAR", "high-cost"].
+        List of operator names to include. Default is ["MeteoFrance", "NCAR",
+        "high-cost"].
     max_wind_speed : float, optional
         Maximum wind speed for plot axis limits. Default is 20.0 m/s.
     """
@@ -99,7 +101,7 @@ def plot_meteo_model_comparison(
 
     # Filter stations
     non_lidar_mask = meteo["operator"] != "lidar"
-    not_all_nan = ~np.isnan(meteo["u_wind"]).all("time")
+    not_all_nan = ~meteo["u_wind"].isnull().all("time")
     operator_mask = meteo["operator"].isin(selected_operators)
 
     selected_stations = meteo.where(
@@ -173,7 +175,7 @@ def plot_meteo_model_comparison(
             )
             vmax = abs(height_diff).max()
             vmin = -vmax
-            height_diff.plot(cmap="bwr", vmin=vmin, vmax=vmax, ax=axs[i, 3])
+            height_diff.plot(cmap="bwr", vmin=vmin, vmax=vmax, ax=axs[i, 3])  # type: ignore
 
         # Set titles
         axs[i, 0].set_title(f"Meteo - Station: {s.item()}")
@@ -204,8 +206,55 @@ def plot_meteo_model_comparison(
     plt.savefig(
         fig_path,
         metadata=get_metadata(
-            f"Comparison of meteorological measurements with GRAMM and GRAL model outputs "
-            f"for {len(selected_stations)} selected stations."
+            f"Comparison of meteorological measurements with GRAMM and GRAL model "
+            f"outputs for {len(selected_stations)} selected stations."
+        ),
+        bbox_inches="tight",
+    )
+    plt.close(fig)
+
+
+def plot_comparison_of_different_matching_methods(
+    fig_path: str | Path,
+    matching_loss_filepath: (
+        str | Path
+    ) = "/Users/rmaiwald/Levante/Paris/Output/matching_loss.nc",
+    station: str = "LONGCHAMP",
+):
+    """
+    Plot comparison of wind speed and direction using different matching loss methods.
+
+    Creates a two-panel figure showing:
+    - Wind speed time series for different matching loss methods
+    - Wind direction time series for different matching loss methods
+
+    Parameters
+    ----------
+    fig_path : str | Path
+        Path to save the output figure.
+    matching_loss_filepath : str | Path
+        Path to the matching loss NetCDF file containing loss metrics for different
+        methods.
+    station : str, optional
+        Name of the station to analyze. Default is "LONGCHAMP".
+    """
+    gramm_meteo = p.model.get_gramm_meteo_data()
+    matching_loss = xr.open_dataset(matching_loss_filepath)
+    matched = gramm_meteo.sel(
+        station=station, sim_id=matching_loss.idxmin("sim_id")["matching_loss"]
+    )
+    wind_speed = ggp.processing.wind_speed_from_vector(matched["ux"], matched["vy"])
+    wind_direction = ggp.processing.direction_from_vector(matched["ux"], matched["vy"])
+
+    fig, axs = plt.subplots(2, 1, figsize=(32, 6), dpi=300)
+    wind_speed.plot(hue="loss_type", ax=axs[0], lw=0.2)
+    wind_direction.plot(hue="loss_type", ax=axs[1], lw=0.2)
+    plt.tight_layout()
+    plt.savefig(
+        fig_path,
+        metadata=get_metadata(
+            "Comparison of wind speed and direction from GRAMM model "
+            "using different matching loss methods."
         ),
         bbox_inches="tight",
     )

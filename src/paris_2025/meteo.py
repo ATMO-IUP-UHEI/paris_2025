@@ -11,7 +11,7 @@ import paris_2025 as p
 from paris_2025.config import load_config
 
 CONFIG = load_config()
-METEO_PATH = Path(CONFIG["data_path"]) / "6_measurements/6_1_meteo"
+METEO_PATH = Path(CONFIG["meteo_path"])
 print(f"Using meteorological path: {METEO_PATH}")
 METEO_FILE = METEO_PATH / "meteo.nc"
 

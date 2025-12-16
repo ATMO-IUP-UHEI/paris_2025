@@ -1,7 +1,11 @@
 data_path: /Users/rmaiwald/Levante/Paris/Input/
 figures_path: /Users/rmaiwald/Levante/Paris/Figures/
 gramm_gral_conf_path: /Users/rmaiwald/Paris/GRAMM-GRAL-data/conf/
-gramm_meteo_path: /Users/rmaiwald/Levante/Paris/Output/gramm_0/data_at_stations/
+output_path: /Users/rmaiwald/Levante/Paris/Output/
+# Measurements
+meteo_path: /Users/rmaiwald/Levante/Paris/Input/6_measurements/6_1_meteo/
+# Model output
+gramm_meteo_path: /Users/rmaiwald/Levante/Paris/Output/gramm_05_paper/data_at_stations/
 gral_meteo_path: /Users/rmaiwald/Levante/Paris/Output/gral_16_paper/data_at_stations/
 gral_co2_path: /Users/rmaiwald/Levante/Paris/Output/gral_16_paper/data_at_stations/
 domain:
@@ -42,3 +46,5 @@ matching:
     Cité des Sciences: gral
     Meudon: gral
     Romainville: gral
+  time_start: 2023-01-01 00:00
+  time_end: 2023-12-31 23:00
