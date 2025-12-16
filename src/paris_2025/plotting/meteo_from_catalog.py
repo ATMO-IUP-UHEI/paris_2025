@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import ggpymanager as ggp
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
@@ -258,6 +259,78 @@ def plot_comparison_of_different_matching_methods(
         metadata=get_metadata(
             "Comparison of wind speed and direction from GRAMM model "
             "using different matching loss methods."
+        ),
+        bbox_inches="tight",
+    )
+    plt.close(fig)
+
+
+def plot_model_wind_speed_vs_synoptic(
+    fig_path: str | Path,
+):
+    """
+    Plot comparison of model wind speeds versus synoptic wind speed.
+
+    Creates a two-panel figure showing:
+    - GRAMM wind speed (from measurements) vs synoptic wind speed
+    - GRAL wind speed (at measurement stations) vs synoptic wind speed
+    Both colored by atmospheric stability class.
+
+    Parameters
+    ----------
+    fig_path : str | Path
+        Path to save the output figure.
+    """
+    gramm_meteo = p.model.get_gramm_meteo_data()
+    gral_meteo = p.model.get_gral_meteo_data()
+
+    fig, axs = plt.subplots(1, 2, figsize=(10, 4), dpi=300)
+    for model, ax in zip(["gramm", "gral"], axs):
+        if model == "gramm":
+            ax.scatter(
+                ggp.processing.wind_speed_from_vector(
+                    gramm_meteo["ux"], gramm_meteo["vy"]
+                ).mean("station"),
+                gral_meteo["synoptic_wind_speed"],
+                c=gral_meteo["stab_class"],
+            )
+        elif model == "gral":
+            ax.scatter(
+                ggp.processing.wind_speed_from_vector(
+                    gral_meteo["ux"], gral_meteo["vy"]
+                ).mean("station"),
+                gral_meteo["synoptic_wind_speed"],
+                c=gral_meteo["stab_class"],
+            )
+
+        # Create custom legend
+        ax.legend(
+            handles=[
+                mpl.patches.Patch(color=plt.cm.viridis(i / 6), label=f"Class {i}")
+                for i in range(7)
+            ]
+        )
+        # Plot 1:1 line
+        max_speed = max(
+            ggp.processing.wind_speed_from_vector(gral_meteo["ux"], gral_meteo["vy"])
+            .mean("station")
+            .max(),
+            gral_meteo["synoptic_wind_speed"].max(),
+        )
+        ax.plot([0, max_speed], [0, max_speed], color="black", linestyle="--")
+        ax.set_xlabel("Average wind speed at measurement sites [m/s]")
+        ax.set_ylabel("Synoptic wind speed [m/s]")
+        ax.set_title(
+            f"Comparison of {model.upper()} wind speed\nand measurement site wind speed"
+        )
+        ax.grid()
+
+    plt.tight_layout()
+    plt.savefig(
+        fig_path,
+        metadata=get_metadata(
+            "Comparison of GRAMM and GRAL wind speeds versus synoptic wind speed, "
+            "colored by atmospheric stability class."
         ),
         bbox_inches="tight",
     )

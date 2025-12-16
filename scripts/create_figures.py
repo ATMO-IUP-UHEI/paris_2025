@@ -119,6 +119,10 @@ if __name__ == "__main__":
         FIGURE_PATH / DIR / "matching_methods_comparison.pdf",
         meteo_from_catalog.plot_comparison_of_different_matching_methods,
     )
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "model_wind_speed_vs_synoptic.png",
+        meteo_from_catalog.plot_model_wind_speed_vs_synoptic,
+    )
 
     # CO2 measurements
     DIR = "co2_measurements"
