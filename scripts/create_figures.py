@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 
 import paris_2025 as p
 from paris_2025.plotting import (
+    matching_methods,
     meteo_from_catalog,
     meteo_measurements,
     tracer_background,
@@ -126,6 +127,14 @@ if __name__ == "__main__":
     create_figures_if_missing(
         FIGURE_PATH / DIR / "model_wind_speed_vs_synoptic.png",
         meteo_from_catalog.plot_model_wind_speed_vs_synoptic,
+    )
+
+    # Matching methods
+    DIR = "matching_methods"
+    (FIGURE_PATH / DIR).mkdir(parents=True, exist_ok=True)
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "matching_loss_cumulative_distribution.png",
+        matching_methods.plot_matching_loss_cumulative_distribution,
     )
 
     # CO2 measurements
