@@ -1,8 +1,9 @@
 from . import (
     common,
     fluxes,
-    meteo_measurements,
+    matching_methods,
     meteo_from_catalog,
+    meteo_measurements,
     tracer_background,
     tracer_from_catalog,
     tracer_measurements,
@@ -16,4 +17,5 @@ __all__ = [
     "tracer_measurements",
     "common",
     "fluxes",
+    "matching_methods",
 ]
