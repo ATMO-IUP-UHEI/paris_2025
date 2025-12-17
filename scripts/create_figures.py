@@ -72,6 +72,10 @@ if __name__ == "__main__":
         ],
         tracer_from_catalog.plot_source_group_contribution_to_stations,
     )
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "concentration_at_station_per_simulation.png",
+        tracer_from_catalog.plot_concentration_at_station_per_simulation,
+    )
 
     # Wind measurements
     DIR = "meteo_measurements"

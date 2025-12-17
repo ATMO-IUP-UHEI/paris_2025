@@ -12,7 +12,16 @@ except FileNotFoundError as e:
         "Configuration file 'config.yaml' not found in the current directory."
     ) from e
 
-from paris_2025 import tracers, domain, meteo, model, background, model_input, plotting
+from paris_2025 import (
+    background,
+    domain,
+    meteo,
+    model,
+    model_input,
+    model_timeseries,
+    plotting,
+    tracers,
+)
 
 __all__ = [
     "tracers",
@@ -22,5 +31,6 @@ __all__ = [
     "background",
     "CONFIG",
     "model_input",
+    "model_timeseries",
     "plotting",
 ]

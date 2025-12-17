@@ -49,3 +49,16 @@ def plot_source_group_contribution_to_stations(fig_path_1, fig_path_2):
         ),
     )
     plt.clf()
+
+
+def plot_concentration_at_station_per_simulation(fig_path):
+    """Plot concentration at each station per simulation."""
+    co2 = p.model.get_co2_data()
+    ppm = ggp.utils.ugm3_to_ppm(co2["concentration"], gas="CO2")
+    ppm.mean("source_group").plot()  # type: ignore
+    plt.xticks(rotation=90)
+    plt.savefig(
+        fig_path,
+        metadata=get_metadata("Mean concentration at each station per simulation."),
+    )
+    plt.clf()
