@@ -18,7 +18,6 @@ from paris_2025 import (
     meteo,
     model,
     model_input,
-    model_timeseries,
     plotting,
     tracers,
 )
@@ -31,6 +30,5 @@ __all__ = [
     "background",
     "CONFIG",
     "model_input",
-    "model_timeseries",
     "plotting",
 ]

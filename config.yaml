@@ -1,17 +1,21 @@
-data_path: /Users/rmaiwald/Levante/Paris/Input/
-figures_path: /Users/rmaiwald/Levante/Paris/Figures/
+main_path: /Users/rmaiwald/Levante/Paris/
+data_path: ./Input/
+figures_path: ./Figures/
 gramm_gral_conf_path: /Users/rmaiwald/Paris/GRAMM-GRAL-data/conf/
-output_path: /Users/rmaiwald/Levante/Paris/Output/
+output_path: ./Output/
+# Model input
+temporal_profiles_path: ./Input/Fluxes/temporal_profiles.nc
+source_groups_path: ./Input/Fluxes/source_groups.nc
 # Measurements
-meteo_path: /Users/rmaiwald/Levante/Paris/Input/6_measurements/6_1_meteo/
+meteo_path: ./Input/6_measurements/6_1_meteo/
 # Model output
-gramm_meteo_path: /Users/rmaiwald/Levante/Paris/Output/gramm_05_paper/data_at_stations/
-gral_meteo_path: /Users/rmaiwald/Levante/Paris/Output/gral_16_paper/data_at_stations/
-gral_co2_path: /Users/rmaiwald/Levante/Paris/Output/gral_16_paper/data_at_stations/
+gramm_meteo_path: ./Output/gramm_05_paper/data_at_stations/
+gral_meteo_path: ./Output/gral_16_paper/data_at_stations/
+gral_co2_path: ./Output/gral_16_paper/data_at_stations/
 domain:
   crs: EPSG:2154
   gral:
-    conf_path: /Users/rmaiwald/Levante/Paris/GRAMM-GRAL-data/gral_16_paper/
+    conf_path: ./GRAMM-GRAL-data/gral_16_paper/
     bbox:
       x0: 640485.
       y0: 6854565.
@@ -20,7 +24,7 @@ domain:
     dx: 10.
     dy: 10.
   gramm:
-    conf_path: /Users/rmaiwald/Levante/Paris/GRAMM-GRAL-data/gramm_05_paper/
+    conf_path: ./GRAMM-GRAL-data/gramm_05_paper/
     bbox:
       x0: 630750.
       y0: 6846850.
