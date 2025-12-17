@@ -27,9 +27,13 @@ def plot_source_group_contribution_to_stations(fig_path_1, fig_path_2):
     )
     plt.clf()
 
-    fp = ppm.groupby(source_groups["area_id"]).sum("source_group").mean("sim_id")
+    fp = (
+        ppm.groupby(source_groups["area_id"])
+        .sum("source_group")
+        .fillna(0.0)
+        .mean("sim_id", skipna=False)
+    )
     fp = fp.drop_vars(["x", "y", "z"])
-    # Use xarray's indexing directly with the area_id DataArray
     mindex = pd.MultiIndex.from_arrays(
         [area_id["y_center"].values, area_id["x_center"].values],
         names=["y_center", "x_center"],
