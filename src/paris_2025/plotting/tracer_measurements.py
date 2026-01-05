@@ -14,6 +14,7 @@ def plot_co2_concentration_heatmap(fig_path: str | Path):
     co2.co2.plot.imshow(ax=ax)
     ax.set_title("CO2 Concentration available in Paris")
     plt.xticks(rotation=90)
+    plt.tight_layout()
     plt.savefig(
         fig_path,
         metadata=get_metadata("CO2 concentration availability as heatmap."),
