@@ -43,12 +43,12 @@ plt.rcParams.update(
 )
 
 
-def create_figures_if_missing(fig_paths, plot_function):
+def create_figures_if_missing(fig_paths, plot_function, *args, **kwargs):
     """Create figures only if any of them don't exist."""
     if isinstance(fig_paths, (list, tuple)):
         if any(not path.exists() for path in fig_paths):
             logging.info(f"Creating figures:\n{[str(p) for p in fig_paths]}")
-            plot_function(*fig_paths)
+            plot_function(*fig_paths, *args, **kwargs)
         else:
             logging.info(
                 "Figures already exist:\n"
@@ -57,7 +57,7 @@ def create_figures_if_missing(fig_paths, plot_function):
     else:
         if not fig_paths.exists():
             logging.info(f"Creating figure:\n{fig_paths}")
-            plot_function(fig_paths)
+            plot_function(fig_paths, *args, **kwargs)
         else:
             logging.info(f"Figure already exists:\n{fig_paths}")
 
@@ -163,46 +163,57 @@ if __name__ == "__main__":
         ],
         tracer_measurements.plot_co2_data_availability,
     )
-    create_figures_if_missing(
-        FIGURE_PATH / DIR / "picarro_co2_violin_2023.png",
-        tracer_measurements.plot_picarro_co2_violin,
-    )
+    for year in ["2023"]:
+        create_figures_if_missing(
+            FIGURE_PATH / DIR / f"picarro_co2_violin_{year}.png",
+            tracer_measurements.plot_picarro_co2_violin,
+            year=year,
+        )
 
     # CO2 background analysis
     DIR = "co2_background"
     (FIGURE_PATH / DIR).mkdir(parents=True, exist_ok=True)
-    create_figures_if_missing(
-        FIGURE_PATH / DIR / "mean_windrose_2023.png",
-        tracer_background.plot_mean_windrose,
-    )
-    create_figures_if_missing(
-        FIGURE_PATH / DIR / "co2_stations_with_windrose_2023.png",
-        tracer_background.plot_co2_stations_with_windrose,
-    )
-    create_figures_if_missing(
-        FIGURE_PATH / DIR / "background_co2_stations_2023.png",
-        tracer_background.plot_background_co2_stations,
-    )
-    create_figures_if_missing(
-        FIGURE_PATH / DIR / "background_station_counts_2023.png",
-        tracer_background.plot_background_station_counts,
-    )
-    create_figures_if_missing(
-        FIGURE_PATH / DIR / "background_station_co2_violin_2023.png",
-        tracer_background.plot_background_station_co2_violin,
-    )
-    create_figures_if_missing(
-        FIGURE_PATH / DIR / "background_station_hourly_contribution_2023.png",
-        tracer_background.plot_background_station_hourly_contribution,
-    )
-    create_figures_if_missing(
-        FIGURE_PATH / DIR / "co2_diff_vs_wind_speed_2023.png",
-        tracer_background.plot_co2_diff_vs_wind_speed,
-    )
-    create_figures_if_missing(
-        FIGURE_PATH / DIR / "co2_diff_vs_wind_direction_2023.png",
-        tracer_background.plot_co2_diff_vs_wind_direction,
-    )
+    for year in ["2023"]:
+        create_figures_if_missing(
+            FIGURE_PATH / DIR / f"mean_windrose_{year}.png",
+            tracer_background.plot_mean_windrose,
+            year=year,
+        )
+        create_figures_if_missing(
+            FIGURE_PATH / DIR / f"co2_stations_with_windrose_{year}.png",
+            tracer_background.plot_co2_stations_with_windrose,
+            year=year,
+        )
+        create_figures_if_missing(
+            FIGURE_PATH / DIR / f"background_co2_stations_{year}.png",
+            tracer_background.plot_background_co2_stations,
+            year=year,
+        )
+        create_figures_if_missing(
+            FIGURE_PATH / DIR / f"background_station_counts_{year}.png",
+            tracer_background.plot_background_station_counts,
+            year=year,
+        )
+        create_figures_if_missing(
+            FIGURE_PATH / DIR / f"background_station_co2_violin_{year}.png",
+            tracer_background.plot_background_station_co2_violin,
+            year=year,
+        )
+        create_figures_if_missing(
+            FIGURE_PATH / DIR / f"background_station_hourly_contribution_{year}.png",
+            tracer_background.plot_background_station_hourly_contribution,
+            year=year,
+        )
+        create_figures_if_missing(
+            FIGURE_PATH / DIR / f"co2_diff_vs_wind_speed_{year}.png",
+            tracer_background.plot_co2_diff_vs_wind_speed,
+            year=year,
+        )
+        create_figures_if_missing(
+            FIGURE_PATH / DIR / f"co2_diff_vs_wind_direction_{year}.png",
+            tracer_background.plot_co2_diff_vs_wind_direction,
+            year=year,
+        )
 
     # Fluxes
     DIR = "fluxes"
