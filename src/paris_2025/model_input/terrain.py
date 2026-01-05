@@ -267,20 +267,20 @@ def process_terrain(
             else:
                 logging.info(f"GRAL terrain data does not exist at {GRAL_TERRAIN_PATH}")
     else:
-        domain_area = ggp.utils.create_domain_geometry("gramm", CONFIG)
+        domain_area = ggp.processing.create_domain_geometry("gramm", CONFIG)
 
         if (not TMP_FILE.exists()) or (not FIGURE_PATH.exists()):
             create_tmp_netcdf(CONFIG, domain_area, TMP_FILE, FIGURE_PATH)
         terrain = load_terrain(TMP_FILE)
 
         if name == "gramm":
-            gramm_grid = ggp.utils.create_domain_grid("gramm", CONFIG)
+            gramm_grid = ggp.processing.create_domain_grid("gramm", CONFIG)
             if not GRAMM_TERRAIN_PATH.exists():
                 create_terrain_netcdf(gramm_grid, terrain, GRAMM_TERRAIN_PATH)
             else:
                 logging.info(f"File {GRAMM_TERRAIN_PATH} is already created")
         if name == "gral":
-            gral_grid = ggp.utils.create_domain_grid("gral", CONFIG)
+            gral_grid = ggp.processing.create_domain_grid("gral", CONFIG)
             if not GRAL_TERRAIN_PATH.exists():
                 create_terrain_netcdf(gral_grid, terrain, GRAL_TERRAIN_PATH)
             else:

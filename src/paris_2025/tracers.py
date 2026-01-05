@@ -1,4 +1,5 @@
 # import os
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -20,7 +21,7 @@ from paris_2025.config import load_config
 
 CONFIG = load_config()
 
-TRACER_PATH = Path(CONFIG["data_path"]) / "6_measurements/6_2_tracers"
+TRACER_PATH = Path(CONFIG["data_path"]) / "6_measurements/6_2_tracers/"
 print(f"Using tracer path: {TRACER_PATH}")
 TRACER_CO2_FILE = TRACER_PATH / "co2.nc"
 
@@ -58,7 +59,7 @@ def create_co2_measurements() -> None:
     TRACER_CO2_FILE.parent.mkdir(parents=True, exist_ok=True)
     high_cost = process_high_cost()
     mid_cost = process_mid_cost()
-    co2 = xr.concat([high_cost, mid_cost], dim="station")
+    co2 = xr.concat([high_cost, mid_cost], dim="station", join="outer")
     # Add coordinates in GRAL projection
     x, y = pyproj.Proj(CONFIG["domain"]["crs"])(
         co2.longitude.values, co2.latitude.values
@@ -97,8 +98,8 @@ def create_co2_measurements() -> None:
             "altitude",
             "name",
             "instrument",
-            "HPP_ID|K96_ID",
-            "box_id",
+            # "HPP_ID|K96_ID",
+            # "box_id",
         ]
     )
 
@@ -189,22 +190,28 @@ def create_co2_measurements() -> None:
             "instrument",
             "Identifier for the instrument used to measure CO2",
         ],
-        "HPP_ID|K96_ID": [
-            None,
-            "HPP_ID or K96_ID",
-            "HPP_ID|K96_ID",
-            "Identifier for the HPP or K96 station",
-        ],
-        "box_id": [
-            None,
-            "Box ID",
-            "box_id",
-            "Identifier for the box containing the CO2 measurement instrument",
-        ],
+        # "HPP_ID|K96_ID": [
+        #     None,
+        #     "HPP_ID or K96_ID",
+        #     "HPP_ID|K96_ID",
+        #     "Identifier for the HPP or K96 station",
+        # ],
+        # "box_id": [
+        #     None,
+        #     "Box ID",
+        #     "box_id",
+        #     "Identifier for the box containing the CO2 measurement instrument",
+        # ],
     }
     for var in attrs.keys():
         co2[var].attrs.update(
-            dict(zip(["unit", "long_name", "standard_name", "description"], attrs[var]))
+            {
+                k: v
+                for k, v in zip(
+                    ["unit", "long_name", "standard_name", "description"], attrs[var]
+                )
+                if v is not None
+            }
         )
 
     # Add global attributes
@@ -226,7 +233,7 @@ def process_high_cost() -> xr.Dataset:
     """
     Process high-cost CO2 measurement files and return as a single xarray.Dataset.
     """
-    data_path = TRACER_PATH / "6_2_1_high-cost/"
+    data_path = TRACER_PATH / "6_2_1_high-cost/ICOS-CITIES-Paris-Tower-L2-2024/"
     if not data_path.exists():
         raise FileNotFoundError(
             f"High-cost CO2 measurement data path does not exist: {data_path}"
@@ -257,8 +264,15 @@ def process_mid_cost() -> xr.Dataset:
 
 
 def update_metadata(data_path, mid_cost):
+    file_path = data_path.parent / "co2_metadata.csv"
+    if not file_path.exists():
+        warnings.warn(
+            f"Mid-cost CO2 measurement metadata file does not exist: {file_path}. "
+            "Using default metadata from measurement files."
+        )
+        return mid_cost
     df = pd.read_csv(
-        data_path.parent / "co2_metadata.csv",
+        file_path,
         index_col=0,
         comment="#",
     )
@@ -283,6 +297,7 @@ def update_metadata(data_path, mid_cost):
             raise ValueError(
                 f"Code {code} not found in metadata. Please check the metadata file."
             )
+
     df = df.drop("Name", axis=1)
     for column in df.columns:
         mid_cost[column] = (
@@ -294,11 +309,11 @@ def update_metadata(data_path, mid_cost):
 
 def process_files(data_path: Path, measurement_type: str, read_function) -> xr.Dataset:
     """
-    Process mid-cost CO2 measurement files and return as a single xarray.Dataset.
+    Process CO2 measurement files and return as a single xarray.Dataset.
     """
     xds_list = []
     if measurement_type == "high-cost":
-        file_list = data_path.glob("*.co2")
+        file_list = data_path.glob("*.CO2")
     elif measurement_type == "mid-cost":
         file_list = data_path.glob("*_co2.csv")
     else:
@@ -339,7 +354,7 @@ def process_files(data_path: Path, measurement_type: str, read_function) -> xr.D
                 coords={"time": co2_measured.index.values},
             )
         )
-    return xr.concat(xds_list, dim="station")
+    return xr.concat(xds_list, dim="station", join="outer")
 
 
 def read_header(path: Path, measurement_type: str) -> pd.Series:
@@ -404,25 +419,9 @@ def read_co2_measurement_high_cost(path: Path) -> pd.DataFrame:
     """
     Read high-cost CO2 measurement data from file.
     """
-    columns = [
-        "Site",
-        "SamplingHeight",
-        "Year",
-        "Month",
-        "Day",
-        "Hour",
-        "Minute",
-        "DecimalDate",
-        "co2",
-        "Stdev",
-        "NbPoints",
-        "Flag",
-        "InstrumentId",
-        "QualityId",
-        "InternalFlag",
-        "AutoDescriptiveFlag",
-        "ManualDescriptiveFlag",
-    ]
+    with open(path) as f:
+        columns_line = [l for l in f.readlines() if l.startswith("#")][-1]
+    columns = columns_line.lstrip("# ").strip().split(";")
     co2_measured = pd.read_csv(path, sep=";", comment="#", names=columns)
     co2_measured["Datetime"] = pd.to_datetime(
         co2_measured[["Year", "Month", "Day", "Hour", "Minute"]]
