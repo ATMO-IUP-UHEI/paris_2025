@@ -13,6 +13,22 @@ import paris_2025 as p
 from paris_2025.plotting.common import get_metadata
 
 
+def plot_meteo_measurements_heatmap(fig_path: str | Path):
+    """Plot meteorological measurements availability as a heatmap."""
+    meteo = p.meteo.get_meteo_measurements()
+
+    fig, ax = plt.subplots(figsize=(12, 6))
+    meteo.wind_speed.plot.imshow(ax=ax)
+    ax.set_title("Meteorological Measurements available in Paris")
+    plt.xticks(rotation=90)
+    plt.tight_layout()
+    plt.savefig(
+        fig_path,
+        metadata=get_metadata("Meteorological measurements availability as heatmap."),
+    )
+    plt.close(fig)
+
+
 def plot_wind_roses_of_meteo_measurements(fig_path: str | Path):
     YEAR = 2023
     meteo = p.meteo.get_meteo_measurements().sel(time=str(YEAR))

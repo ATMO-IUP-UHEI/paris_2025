@@ -82,6 +82,10 @@ if __name__ == "__main__":
     DIR = "meteo_measurements"
     (FIGURE_PATH / DIR).mkdir(parents=True, exist_ok=True)
     create_figures_if_missing(
+        FIGURE_PATH / DIR / "meteo_stations_map.png",
+        meteo_measurements.plot_meteo_measurements_heatmap,
+    )
+    create_figures_if_missing(
         FIGURE_PATH / DIR / "wind_roses_measurements.png",
         meteo_measurements.plot_wind_roses_of_meteo_measurements,
     )
