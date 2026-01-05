@@ -253,6 +253,8 @@ def plot_comparison_of_different_matching_methods(
 
     axs[0].set_title(f"Wind Speed at Station {station}")
     axs[0].set_ylabel("Wind Speed (m/s)")
+    axs[1].set_title(f"Wind Direction at Station {station}")
+    axs[1].set_ylabel("Wind Direction (degrees)")
     plt.tight_layout()
     plt.savefig(
         fig_path,
