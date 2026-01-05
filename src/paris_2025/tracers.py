@@ -260,6 +260,11 @@ def process_mid_cost() -> xr.Dataset:
     mid_cost = process_files(data_path, measurement_type, read_function)
     # Update the metadata with the correct position and additional data
     mid_cost = update_metadata(data_path, mid_cost)
+    # Add instrument name
+    mid_cost["instrument"] = (
+        ["station"],
+        ["HPP_ID|K96_ID" for _ in mid_cost.code.values],
+    )
     return mid_cost
 
 
