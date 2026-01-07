@@ -98,8 +98,8 @@ def create_co2_measurements() -> None:
             "altitude",
             "name",
             "instrument",
-            # "HPP_ID|K96_ID",
-            # "box_id",
+            "HPP_ID|K96_ID",
+            "box_id",
         ]
     )
 
@@ -190,18 +190,18 @@ def create_co2_measurements() -> None:
             "instrument",
             "Identifier for the instrument used to measure CO2",
         ],
-        # "HPP_ID|K96_ID": [
-        #     None,
-        #     "HPP_ID or K96_ID",
-        #     "HPP_ID|K96_ID",
-        #     "Identifier for the HPP or K96 station",
-        # ],
-        # "box_id": [
-        #     None,
-        #     "Box ID",
-        #     "box_id",
-        #     "Identifier for the box containing the CO2 measurement instrument",
-        # ],
+        "HPP_ID|K96_ID": [
+            None,
+            "HPP_ID or K96_ID",
+            "HPP_ID|K96_ID",
+            "Identifier for the HPP or K96 station",
+        ],
+        "box_id": [
+            None,
+            "Box ID",
+            "box_id",
+            "Identifier for the box containing the CO2 measurement instrument",
+        ],
     }
     for var in attrs.keys():
         co2[var].attrs.update(
@@ -260,11 +260,11 @@ def process_mid_cost() -> xr.Dataset:
     mid_cost = process_files(data_path, measurement_type, read_function)
     # Update the metadata with the correct position and additional data
     mid_cost = update_metadata(data_path, mid_cost)
-    # Add instrument name
-    mid_cost["instrument"] = (
-        ["station"],
-        ["HPP_ID|K96_ID" for _ in mid_cost.code.values],
-    )
+    # # Add instrument name
+    # mid_cost["instrument"] = (
+    #     ["station"],
+    #     ["HPP_ID|K96_ID" for _ in mid_cost.code.values],
+    # )
     return mid_cost
 
 
