@@ -4,6 +4,7 @@ import ggpymanager as ggp
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import xarray as xr
 
 import paris_2025 as p
@@ -445,6 +446,124 @@ def plot_hodographs(
         metadata=get_metadata(
             f"Hodographs comparing GRAMM and GRAL models for station {station_identifier} "
             f"over {len(sim_ids)} simulation IDs."
+        ),
+        bbox_inches="tight",
+    )
+    plt.close(fig)
+
+
+def plot_stability_class_and_wind_speed_by_season(
+    fig_path: str | Path,
+    gramm_meteo_timeseries_path: (
+        str | Path
+    ) = "/Users/rmaiwald/Levante/Paris/Output/gramm_meteo_timeseries.nc",
+    gral_meteo_timeseries_path: (
+        str | Path
+    ) = "/Users/rmaiwald/Levante/Paris/Output/gral_meteo_timeseries.nc",
+    loss_type: str = "rmse - filter: True",
+):
+    """
+    Plot stability class distribution and wind speed by season and hour of day.
+
+    Creates a 4-panel figure showing atmospheric stability class frequency distributions
+    and mean wind speed for each season (spring, summer, autumn, winter). Uses the
+    matched model data (GRAMM or GRAL) based on station-specific matching configuration.
+
+    Parameters
+    ----------
+    fig_path : str | Path
+        Path to save the output figure.
+    gramm_meteo_timeseries_path : str | Path, optional
+        Path to GRAMM meteorological timeseries NetCDF file.
+    gral_meteo_timeseries_path : str | Path, optional
+        Path to GRAL meteorological timeseries NetCDF file.
+    loss_type : str, optional
+        Loss type to use for model selection. Default is "rmse - filter: True".
+    """
+    config = p.config.load_config()
+    gramm_meteo_timeseries = xr.open_dataset(gramm_meteo_timeseries_path)
+    gral_meteo_timeseries = xr.open_dataset(gral_meteo_timeseries_path)
+
+    # Select matched model for each station
+    model_selection = {
+        "gramm": gramm_meteo_timeseries,
+        "gral": gral_meteo_timeseries,
+    }
+    model_meteo_timeseries = xr.concat(
+        [
+            model_selection[m].sel(station=s)
+            for s, m in config["matching"]["stations"].items()
+        ],
+        dim="station",
+        coords="minimal",
+        compat="override",
+    )
+    model_meteo_timeseries["speed"] = ggp.processing.wind_speed_from_vector(
+        model_meteo_timeseries["u"], model_meteo_timeseries["v"]
+    )
+
+    # Define seasons
+    time_periods = {
+        "spring": [3, 4, 5],
+        "summer": [6, 7, 8],
+        "autumn": [9, 10, 11],
+        "winter": [12, 1, 2],
+    }
+
+    fig, axs = plt.subplots(
+        1, len(time_periods), figsize=(12, 4), sharex=True, sharey=True, dpi=200
+    )
+
+    for i, (season, months) in enumerate(time_periods.items()):
+        stab_class_data = {}
+        speed_data = {}
+        mean = model_meteo_timeseries.sel(loss_type=loss_type).mean("station")
+        for label, group in mean.sel(
+            time=gral_meteo_timeseries.time.dt.month.isin(months),
+        ).groupby("time.hour"):
+            stab_class_data[label] = (
+                group.stab_class.to_pandas()
+                .value_counts()
+                .sort_index()
+                .reindex(range(1, 8), fill_value=0)
+            )
+            speed_data[label] = group.speed.mean()
+
+        pd.DataFrame(stab_class_data).T.plot.area(ax=axs[i], legend=False)
+        twin_ax = axs[i].twinx()
+        line_color = "navy"
+        twin_ax.plot(
+            list(speed_data.keys()),
+            list(speed_data.values()),
+            color=line_color,
+            linestyle="--",
+        )
+        axs[i].set_xlabel("Hour of day")
+        axs[i].set_ylabel("Frequency")
+        axs[i].set_title(f"{chr(i+97)}) {season.capitalize()}")
+        axs[i].set_xticks(range(0, 25, 6))
+        axs[i].set_xticks(range(0, 25), minor=True)
+
+        # Set the label for the twin axis
+        if i == len(time_periods) - 1:
+            twin_ax.set_ylabel("Mean wind speed (m/s)", color=line_color)
+        twin_ax.tick_params(axis="y", labelcolor=line_color)
+        twin_ax.spines["right"].set_color(line_color)
+        if i != len(time_periods) - 1:
+            twin_ax.set_yticklabels([])
+        twin_ax.set_ylim(0, 5)
+
+    # Add legend to the right of the last subplot
+    handles, labels = axs[-1].get_legend_handles_labels()
+    labels = [chr(int(l) + 96).upper() for l in labels]
+    fig.legend(handles, labels, loc="center right", title="Stability Class")
+    fig.tight_layout(rect=[0, 0, 0.9, 1])
+
+    plt.savefig(
+        fig_path,
+        metadata=get_metadata(
+            f"Stability class distribution and wind speed by season, "
+            f"using {loss_type} matched model data."
         ),
         bbox_inches="tight",
     )

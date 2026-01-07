@@ -141,6 +141,10 @@ if __name__ == "__main__":
         FIGURE_PATH / DIR / "hodographs_PACHEM.png",
         meteo_from_catalog.plot_hodographs,
     )
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "stability_class_wind_speed_by_season.png",
+        meteo_from_catalog.plot_stability_class_and_wind_speed_by_season,
+    )
 
     # Matching methods
     DIR = "matching_methods"
