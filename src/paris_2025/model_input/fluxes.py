@@ -1178,9 +1178,9 @@ def create_vprm_temporal_scaling(time_index):
         )
         vprm_scaling[year] = vprm_scaling[year] / vprm_scaling[year].mean("time")
         vprm_scaling[year] = xr.concat(
-            [-vprm_scaling[year]["R"], vprm_scaling[year]["GEE"]], dim="type"
+            [vprm_scaling[year]["R"], -vprm_scaling[year]["GEE"]], dim="type"
         ).assign_coords(type=[f"VPRM {year} R", f"VPRM {year} GEE"])
-        assert (vprm_scaling[year].sel(type=f"VPRM {year} R") <= 0).all()
+        assert (vprm_scaling[year].sel(type=f"VPRM {year} GEE") <= 1e-4).all()
 
     return vprm_scaling
 
