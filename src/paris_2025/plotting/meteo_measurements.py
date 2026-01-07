@@ -215,3 +215,64 @@ def plot_wind_components(fig_path: str | Path, year: str = "2023"):
         bbox_inches="tight",
     )
     plt.close()
+
+
+def plot_hodographs(fig_path: str | Path, station_identifier: str = "PAARBO"):
+    """Plot hodographs (wind components by altitude) for a specific station."""
+    meteo = p.meteo.get_meteo_measurements()
+
+    d = meteo.where(meteo.station.str.contains(station_identifier), drop=True)
+    d = d.where(d.u_wind.notnull().any(dim="station"), drop=True)
+
+    time_ids = np.arange(0, 500, 10)
+    n_cols = 5
+    n_rows = len(time_ids) // n_cols + int(len(time_ids) % n_cols > 0)
+    fig, axs = plt.subplots(
+        n_rows,
+        n_cols,
+        figsize=(n_cols * 4, n_rows * 4),
+        constrained_layout=True,
+    )
+
+    # Get altitude range for consistent colorbar
+    vmin = d.altitude.min().values
+    vmax = d.altitude.max().values
+
+    for time, ax in zip(time_ids, axs.flatten()):
+        d.isel(time=time).plot.scatter(
+            x="u_wind",
+            y="v_wind",
+            hue="altitude",
+            cmap="viridis",
+            add_colorbar=False,
+            ax=ax,
+            vmin=vmin,
+            vmax=vmax,
+        )
+        xlims = ax.get_xlim()
+        ylims = ax.get_ylim()
+        max_range = max(abs(xlims[0]), abs(xlims[1]), abs(ylims[0]), abs(ylims[1]))
+        ax.set_xlim(-max_range, max_range)
+        ax.set_ylim(-max_range, max_range)
+        ax.set_title(f"Timestep: {time}")
+        ax.set_xlabel("U wind component (m/s)")
+        ax.set_ylabel("V wind component (m/s)")
+        ax.set_aspect("equal", adjustable="box")
+
+    # Hide unused subplots
+    for ax in axs.flatten()[len(time_ids) :]:
+        ax.axis("off")
+
+    # Add colorbar
+    cax = fig.add_axes([1.02, 0.3, 0.02, 0.4])
+    sm = plt.cm.ScalarMappable(cmap="viridis", norm=plt.Normalize(vmin=vmin, vmax=vmax))
+    fig.colorbar(sm, cax=cax, label="Altitude (m)")
+
+    plt.savefig(
+        fig_path,
+        metadata=get_metadata(
+            f"Hodographs for station {station_identifier} over {len(time_ids)} timesteps."
+        ),
+        bbox_inches="tight",
+    )
+    plt.close(fig)

@@ -112,6 +112,11 @@ if __name__ == "__main__":
         FIGURE_PATH / DIR / "wind_components_scatter_2023.png",
         meteo_measurements.plot_wind_components,
     )
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "hodographs_PACHEM.png",
+        meteo_measurements.plot_hodographs,
+        station_identifier="PACHEM",
+    )
 
     # Meteo model comparison
     DIR = "meteo_model_comparison"
@@ -131,6 +136,10 @@ if __name__ == "__main__":
     create_figures_if_missing(
         FIGURE_PATH / DIR / "model_wind_speed_vs_synoptic.png",
         meteo_from_catalog.plot_model_wind_speed_vs_synoptic,
+    )
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "hodographs_PACHEM.png",
+        meteo_from_catalog.plot_hodographs,
     )
 
     # Matching methods

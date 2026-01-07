@@ -337,3 +337,115 @@ def plot_model_wind_speed_vs_synoptic(
         bbox_inches="tight",
     )
     plt.close(fig)
+
+
+def plot_hodographs(
+    fig_path: str | Path,
+    station_identifier: str = "PACHEM",
+    n_sim_ids: int = 40,
+    sim_id_step: int = 25,
+):
+    """
+    Plot hodographs (wind components by altitude) comparing GRAMM and GRAL models.
+
+    Creates a grid of subplots showing wind components (u vs v) colored by altitude
+    for different simulation IDs. GRAMM data is shown in green, GRAL data in red.
+
+    Parameters
+    ----------
+    fig_path : str | Path
+        Path to save the output figure.
+    station_identifier : str, optional
+        Substring to match station names. Default is "PACHEM".
+    n_sim_ids : int, optional
+        Number of simulation IDs to plot. Default is 40.
+    sim_id_step : int, optional
+        Step size between simulation IDs. Default is 25.
+    """
+    gramm_meteo = p.model.get_gramm_meteo_data()
+    gral_meteo = p.model.get_gral_meteo_data()
+
+    # Filter data by station
+    gramm_data = gramm_meteo.where(
+        gramm_meteo.station.str.contains(station_identifier), drop=True
+    )
+    gral_data = gral_meteo.where(
+        gral_meteo.station.str.contains(station_identifier), drop=True
+    )
+
+    # Create simulation ID array
+    max_sim_ids = min(len(gramm_data.sim_id), len(gral_data.sim_id))
+    sim_ids = np.arange(0, min(n_sim_ids * sim_id_step, max_sim_ids), sim_id_step)
+
+    # Set up subplot grid
+    n_cols = 5
+    n_rows = len(sim_ids) // n_cols + int(len(sim_ids) % n_cols > 0)
+    fig, axs = plt.subplots(
+        n_rows,
+        n_cols,
+        figsize=(n_cols * 4, n_rows * 4),
+        constrained_layout=True,
+    )
+
+    # Get altitude range for consistent colorbar
+    vmin = min(gramm_data.altitude.min().values, gral_data.altitude.min().values)
+    vmax = max(gramm_data.altitude.max().values, gral_data.altitude.max().values)
+
+    # Plot each simulation ID
+    for sim_id, ax in zip(sim_ids, axs.flatten()):
+        # Plot GRAMM data (green)
+        gramm_data.isel(sim_id=sim_id).plot.scatter(
+            x="ux",
+            y="vy",
+            hue="altitude",
+            cmap="Greens",
+            add_colorbar=False,
+            ax=ax,
+            vmin=vmin,
+            vmax=vmax,
+        )
+        # Plot GRAL data (red)
+        gral_data.isel(sim_id=sim_id).plot.scatter(
+            x="ux",
+            y="vy",
+            hue="altitude",
+            cmap="Reds",
+            add_colorbar=False,
+            ax=ax,
+            vmin=vmin,
+            vmax=vmax,
+        )
+        # Set equal aspect ratio and symmetric axes
+        xlims = ax.get_xlim()
+        ylims = ax.get_ylim()
+        max_range = max(abs(xlims[0]), abs(xlims[1]), abs(ylims[0]), abs(ylims[1]))
+        ax.set_xlim(-max_range, max_range)
+        ax.set_ylim(-max_range, max_range)
+        ax.set_title(f"Sim ID: {sim_id}")
+        ax.set_xlabel("U wind component (m/s)")
+        ax.set_ylabel("V wind component (m/s)")
+        ax.set_aspect("equal", adjustable="box")
+
+    # Hide unused subplots
+    for ax in axs.flatten()[len(sim_ids) :]:
+        ax.axis("off")
+
+    # Add colorbars for GRAMM and GRAL
+    cax1 = fig.add_axes([1.02, 0.55, 0.02, 0.35])
+    cax2 = fig.add_axes([1.02, 0.1, 0.02, 0.35])
+
+    sm1 = plt.cm.ScalarMappable(cmap="Greens", norm=plt.Normalize(vmin=vmin, vmax=vmax))
+    sm2 = plt.cm.ScalarMappable(cmap="Reds", norm=plt.Normalize(vmin=vmin, vmax=vmax))
+
+    fig.colorbar(sm1, cax=cax1, label="GRAMM Altitude (m)")
+    fig.colorbar(sm2, cax=cax2, label="GRAL Altitude (m)")
+
+    plt.savefig(
+        fig_path,
+        metadata=get_metadata(
+            f"Hodographs comparing GRAMM and GRAL models for station {station_identifier} "
+            f"over {len(sim_ids)} simulation IDs."
+        ),
+        bbox_inches="tight",
+    )
+    plt.close(fig)
