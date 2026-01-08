@@ -5,8 +5,8 @@ import xarray as xr
 from paris_2025.plotting.common import get_metadata
 
 
-def plot_matching_loss_cumulative_distribution(fig_path):
-    """Plot cumulative distribution of best matching simulations."""
+def plot_matching_loss_distribution(fig_path):
+    """Plot distribution of best matching simulations."""
     matching_loss = xr.open_dataset(
         "/Users/rmaiwald/Levante/Paris/Output/matching_loss.nc"
     )
@@ -26,11 +26,11 @@ def plot_matching_loss_cumulative_distribution(fig_path):
                 data = sim_ids.sel(
                     loss_type=lt, ranking=0
                 ).values.flatten()  # type: ignore
-                axs[i].set_title("Cumulative distribution of best matching simulations")
+                axs[i].set_title("Distribution of best matching simulations")
             else:
                 data = sim_ids.sel(loss_type=lt).values.flatten()  # type: ignore
                 axs[i].set_title(
-                    f"Cumulative distribution of the {n_sim_ids} best "
+                    f"Distribution of the {n_sim_ids} best "
                     "matching simulations"
                 )
             out = np.sort(np.bincount(data))
@@ -43,6 +43,6 @@ def plot_matching_loss_cumulative_distribution(fig_path):
 
     plt.savefig(
         fig_path,
-        metadata=get_metadata("Cumulative distribution of best matching simulations."),
+        metadata=get_metadata("Distribution of best matching simulations."),
     )
     plt.clf()

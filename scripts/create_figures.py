@@ -151,7 +151,7 @@ if __name__ == "__main__":
     (FIGURE_PATH / DIR).mkdir(parents=True, exist_ok=True)
     create_figures_if_missing(
         FIGURE_PATH / DIR / "matching_loss_cumulative_distribution.png",
-        matching_methods.plot_matching_loss_cumulative_distribution,
+        matching_methods.plot_matching_loss_distribution,
     )
 
     # CO2 measurements
