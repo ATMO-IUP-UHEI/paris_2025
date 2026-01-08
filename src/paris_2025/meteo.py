@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 import ggpymanager as ggpy
@@ -204,7 +205,13 @@ def create_meteo_measurements() -> None:
     }
     for var in attrs.keys():
         meteo[var].attrs.update(
-            dict(zip(["unit", "long_name", "standard_name", "description"], attrs[var]))
+            {
+                k: v
+                for k, v in zip(
+                    ["unit", "long_name", "standard_name", "description"], attrs[var]
+                )
+                if v is not None
+            }
         )
 
     # Add global attributes
@@ -231,6 +238,7 @@ def process_meteo_measurements(source: str) -> xr.Dataset:
     Returns:
         xr.Dataset: Processed meteorological measurements.
     """
+    logging.info(f"Processing meteorological measurements from {source}")
     funcs = {
         "MeteoFrance": process_meteofrance,
         "NCAR": process_ncar,
@@ -337,7 +345,9 @@ def process_meteofrance() -> xr.Dataset:
         / "6_measurements/6_1_meteo"
         / METEO_SUBPATHS["MeteoFrance"]
     )
-    file_list = list(data_path.glob("./H_??_latest-2023-2024.csv"))
+    file_list = list(data_path.glob("./H_??_previous-2020-2024.csv")) + list(
+        data_path.glob("./H_??_latest-2025-2026.csv")
+    )
     df = pd.concat(
         [pd.read_csv(file, index_col=0, sep=";") for file in tqdm(file_list)],
         ignore_index=True,
@@ -707,12 +717,8 @@ def process_lidar() -> xr.Dataset:
     Returns:
         xr.Dataset: Processed meteorological measurements from mid-cost.
     """
-    path = Path(
-        "/Users/rmaiwald/Levante/A_raw_data/6_measurements/6_1_meteo/6_1_5_Lidar/"
-    )
-    path_list = sorted(list(path.glob("paris_dwl_L3V1.39_2023_*/*.nc")))
     data_path = METEO_PATH / METEO_SUBPATHS["lidar"]
-    path_list = sorted(list(path.glob("paris_dwl_L3V1.39_202*/*.nc")))
+    path_list = sorted(list(data_path.glob("paris_dwl_L3V1.39_202*/*.nc")))
     # Open the files and combine them for faster access
     file_name = data_path / "paris_dwl_L3V1.39_all.nc"
     if not file_name.exists():
