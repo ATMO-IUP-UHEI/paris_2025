@@ -34,14 +34,14 @@ def plot_temporal_scaling_factors(fig_path: str | Path):
     temporal_factor = xr.open_dataset(
         "/Users/rmaiwald/Levante/Paris/Input/Fluxes/temporal_profiles.nc"
     )
-    
+
     temporal_factor.temporal.plot()
     plt.xlabel("Time")
     plt.ylabel("Temporal scaling factor")
     plt.title("Temporal Scaling Factors by Type")
     plt.xticks(rotation=45)
     plt.tight_layout()
-    
+
     plt.savefig(
         fig_path,
         metadata=get_metadata("Temporal scaling factors over time by type."),

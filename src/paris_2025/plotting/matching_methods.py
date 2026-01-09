@@ -11,7 +11,7 @@ def plot_colormesh_of_loss(fig_path):
         "/Users/rmaiwald/Levante/Paris/Output/matching_loss.nc"
     )
     matching_loss.matching_loss.plot(col="loss_type", col_wrap=3)
-    
+
     plt.savefig(
         fig_path,
         metadata=get_metadata("Colormesh of matching loss for different loss types."),
@@ -44,8 +44,7 @@ def plot_matching_loss_distribution(fig_path):
             else:
                 data = sim_ids.sel(loss_type=lt).values.flatten()  # type: ignore
                 axs[i].set_title(
-                    f"Distribution of the {n_sim_ids} best "
-                    "matching simulations"
+                    f"Distribution of the {n_sim_ids} best " "matching simulations"
                 )
             out = np.sort(np.bincount(data))
             not_s = (out == 0).sum()
