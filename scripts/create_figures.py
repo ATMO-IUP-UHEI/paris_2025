@@ -77,6 +77,10 @@ if __name__ == "__main__":
         FIGURE_PATH / DIR / "concentration_at_station_per_simulation.png",
         tracer_from_catalog.plot_concentration_at_station_per_simulation,
     )
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "hourly_vprm_concentration.png",
+        tracer_from_catalog.plot_hourly_vprm_concentration,
+    )
 
     # Wind measurements
     DIR = "meteo_measurements"
@@ -149,6 +153,10 @@ if __name__ == "__main__":
     # Matching methods
     DIR = "matching_methods"
     (FIGURE_PATH / DIR).mkdir(parents=True, exist_ok=True)
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "matching_loss_colormesh.png",
+        matching_methods.plot_colormesh_of_loss,
+    )
     create_figures_if_missing(
         FIGURE_PATH / DIR / "matching_loss_cumulative_distribution.png",
         matching_methods.plot_matching_loss_distribution,

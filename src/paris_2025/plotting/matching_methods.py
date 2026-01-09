@@ -5,6 +5,20 @@ import xarray as xr
 from paris_2025.plotting.common import get_metadata
 
 
+def plot_colormesh_of_loss(fig_path):
+    """Plot colormesh of matching loss for different loss types."""
+    matching_loss = xr.open_dataset(
+        "/Users/rmaiwald/Levante/Paris/Output/matching_loss.nc"
+    )
+    matching_loss.matching_loss.plot(col="loss_type", col_wrap=3)
+    
+    plt.savefig(
+        fig_path,
+        metadata=get_metadata("Colormesh of matching loss for different loss types."),
+    )
+    plt.clf()
+
+
 def plot_matching_loss_distribution(fig_path):
     """Plot distribution of best matching simulations."""
     matching_loss = xr.open_dataset(

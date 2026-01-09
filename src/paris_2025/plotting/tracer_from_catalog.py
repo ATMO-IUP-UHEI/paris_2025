@@ -66,3 +66,45 @@ def plot_concentration_at_station_per_simulation(fig_path):
         metadata=get_metadata("Mean concentration at each station per simulation."),
     )
     plt.clf()
+
+
+def plot_hourly_vprm_concentration(fig_path):
+    """Plot mean hourly VPRM concentration with temporal factors applied."""
+    concentration_timeseries = xr.open_dataset(
+        "/Users/rmaiwald/Levante/Paris/Output/concentration_timeseries.nc"
+    )
+    source_groups = xr.open_dataset(
+        "/Users/rmaiwald/Levante/Paris/Input/Fluxes/source_groups.nc"
+    )
+
+    # Calculate hourly mean concentration
+    concentration = (
+        (
+            ggp.utils.ugm3_to_ppm(
+                concentration_timeseries["co2_timeseries"]
+                .sel(
+                    loss_type="rmse - filter: True",
+                    source_group=source_groups.type.str.contains("VPRM 2023 GEE"),
+                    time="2023-08",
+                )
+                .sum("source_group"),
+                "co2",
+            )
+        )
+        .groupby("time.hour")
+        .mean("time")
+    )
+
+    concentration.plot(cbar_kwargs={"label": "Mixing ratio [ppm]"})  # type: ignore
+    plt.xticks(rotation=90)
+    plt.xlabel("Station")
+    plt.ylabel("Hour of day")
+    plt.title("Mean hourly contribution from VPRM GEE in August 2023")
+    plt.tight_layout()
+    plt.savefig(
+        fig_path,
+        metadata=get_metadata(
+            "Mean hourly VPRM concentration with temporal factors applied."
+        ),
+    )
+    plt.clf()
