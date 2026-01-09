@@ -27,3 +27,24 @@ def plot_flux_by_type(fig_path: str | Path):
         bbox_inches="tight",
     )
     plt.close(fig)
+
+
+def plot_temporal_scaling_factors(fig_path: str | Path):
+    """Plot temporal scaling factors over time."""
+    temporal_factor = xr.open_dataset(
+        "/Users/rmaiwald/Levante/Paris/Input/Fluxes/temporal_profiles.nc"
+    )
+    
+    temporal_factor.temporal.plot()
+    plt.xlabel("Time")
+    plt.ylabel("Temporal scaling factor")
+    plt.title("Temporal Scaling Factors by Type")
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    
+    plt.savefig(
+        fig_path,
+        metadata=get_metadata("Temporal scaling factors over time by type."),
+        bbox_inches="tight",
+    )
+    plt.close()

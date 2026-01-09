@@ -247,3 +247,7 @@ if __name__ == "__main__":
         FIGURE_PATH / DIR / "flux_by_type.png",
         p.plotting.fluxes.plot_flux_by_type,
     )
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "temporal_scaling_factors.png",
+        p.plotting.fluxes.plot_temporal_scaling_factors,
+    )
