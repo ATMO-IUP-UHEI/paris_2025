@@ -5,6 +5,7 @@ from . import (
     meteo_from_catalog,
     meteo_measurements,
     tracer_background,
+    tracer_comparison,
     tracer_from_catalog,
     tracer_measurements,
 )
@@ -12,6 +13,7 @@ from . import (
 __all__ = [
     "tracer_from_catalog",
     "tracer_background",
+    "tracer_comparison",
     "meteo_measurements",
     "meteo_from_catalog",
     "tracer_measurements",
