@@ -75,7 +75,7 @@ def plot_wind_roses_of_meteo_measurements(fig_path: str | Path, year: str = "202
         fig_path,
         metadata=get_metadata(
             "Wind roses of meteorological measurements with more than 50% of "
-            f"measurements during {YEAR}."
+            f"measurements during {year}."
         ),
     )
 
