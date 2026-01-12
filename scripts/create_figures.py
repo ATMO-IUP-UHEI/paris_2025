@@ -19,6 +19,7 @@ logger.setLevel(logging.INFO)
 
 YEAR = 2023
 FIGURE_PATH = Path(p.CONFIG["figures_path"])
+FORCE = True  # Overwrite existing figures
 
 # Set matplotlib style like size of the figures, text size, etc. by hand
 # sns.set_context("paper", font_scale=1)
@@ -43,10 +44,10 @@ plt.rcParams.update(
 )
 
 
-def create_figures_if_missing(fig_paths, plot_function, *args, **kwargs):
+def create_figures_if_missing(fig_paths, plot_function, force=FORCE, *args, **kwargs):
     """Create figures only if any of them don't exist."""
     if isinstance(fig_paths, (list, tuple)):
-        if any(not path.exists() for path in fig_paths):
+        if any(not path.exists() for path in fig_paths) or force:
             logging.info(f"Creating figures:\n{[str(p) for p in fig_paths]}")
             plot_function(*fig_paths, *args, **kwargs)
         else:
@@ -55,7 +56,7 @@ def create_figures_if_missing(fig_paths, plot_function, *args, **kwargs):
                 + ("\n".join([str(p) for p in fig_paths if p.exists()]))
             )
     else:
-        if not fig_paths.exists():
+        if not fig_paths.exists() or force:
             logging.info(f"Creating figure:\n{fig_paths}")
             plot_function(fig_paths, *args, **kwargs)
         else:
