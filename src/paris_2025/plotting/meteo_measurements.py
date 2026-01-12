@@ -29,9 +29,8 @@ def plot_meteo_measurements_heatmap(fig_path: str | Path):
     plt.close(fig)
 
 
-def plot_wind_roses_of_meteo_measurements(fig_path: str | Path):
-    YEAR = 2023
-    meteo = p.meteo.get_meteo_measurements().sel(time=str(YEAR))
+def plot_wind_roses_of_meteo_measurements(fig_path: str | Path, year: str = "2023"):
+    meteo = p.meteo.get_meteo_measurements().sel(time=str(year))
 
     fig, ax = plt.subplots()
     fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
@@ -264,14 +263,15 @@ def plot_hodographs(fig_path: str | Path, station_identifier: str = "PAARBO"):
         ax.axis("off")
 
     # Add colorbar
-    cax = fig.add_axes([1.02, 0.3, 0.02, 0.4])
-    sm = plt.cm.ScalarMappable(cmap="viridis", norm=plt.Normalize(vmin=vmin, vmax=vmax))
+    cax = fig.add_axes((1.02, 0.3, 0.02, 0.4))
+    sm = plt.cm.ScalarMappable(cmap="viridis", norm=Normalize(vmin=vmin, vmax=vmax))
     fig.colorbar(sm, cax=cax, label="Altitude (m)")
 
     plt.savefig(
         fig_path,
         metadata=get_metadata(
-            f"Hodographs for station {station_identifier} over {len(time_ids)} timesteps."
+            f"Hodographs for station {station_identifier} over "
+            f"{len(time_ids)} timesteps."
         ),
         bbox_inches="tight",
     )
