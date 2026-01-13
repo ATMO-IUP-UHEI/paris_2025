@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import ggpymanager as ggp
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -8,7 +10,9 @@ import paris_2025 as p
 from paris_2025.plotting.common import get_metadata
 
 
-def plot_source_group_contribution_to_stations(fig_path_1, fig_path_2):
+def plot_source_group_contribution_to_stations(
+    fig_path_1: str | Path, fig_path_2: str | Path
+):
     """Plot contribution of source groups to stations."""
     source_groups = xr.open_dataset(
         "/Users/rmaiwald/Levante/Paris/Input/Fluxes/source_groups.nc"
@@ -55,7 +59,7 @@ def plot_source_group_contribution_to_stations(fig_path_1, fig_path_2):
     plt.clf()
 
 
-def plot_concentration_at_station_per_simulation(fig_path):
+def plot_concentration_at_station_per_simulation(fig_path: str | Path):
     """Plot concentration at each station per simulation."""
     co2 = p.model.get_co2_data()
     ppm = ggp.utils.ugm3_to_ppm(co2["concentration"], gas="CO2")
@@ -68,7 +72,7 @@ def plot_concentration_at_station_per_simulation(fig_path):
     plt.clf()
 
 
-def plot_hourly_vprm_concentration(fig_path):
+def plot_hourly_vprm_concentration(fig_path: str | Path):
     """Plot mean hourly VPRM concentration with temporal factors applied."""
     concentration_timeseries = xr.open_dataset(
         "/Users/rmaiwald/Levante/Paris/Output/concentration_timeseries.nc"
@@ -78,22 +82,19 @@ def plot_hourly_vprm_concentration(fig_path):
     )
 
     # Calculate hourly mean concentration
-    concentration = (
-        (
-            ggp.utils.ugm3_to_ppm(
-                concentration_timeseries["co2_timeseries"]
-                .sel(
-                    loss_type="rmse - filter: True",
-                    source_group=source_groups.type.str.contains("VPRM 2023 GEE"),
-                    time="2023-08",
-                )
-                .sum("source_group"),
-                "co2",
-            )
+    vprm_data = ggp.utils.ugm3_to_ppm(
+        concentration_timeseries["co2_timeseries"]
+        .sel(
+            loss_type="rmse - filter: True",
+            source_group=source_groups.type.str.contains("VPRM 2023 GEE"),
+            time="2023-08",
         )
-        .groupby("time.hour")
-        .mean("time")
+        .sum("source_group"),
+        "co2",
     )
+    # Type checking: ensure vprm_data is xr.DataArray
+    assert isinstance(vprm_data, xr.DataArray)
+    concentration = vprm_data.groupby("time.hour").mean("time")
 
     concentration.plot(cbar_kwargs={"label": "Mixing ratio [ppm]"})  # type: ignore
     plt.xticks(rotation=90)

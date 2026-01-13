@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
@@ -5,7 +7,7 @@ import xarray as xr
 from paris_2025.plotting.common import get_metadata
 
 
-def plot_colormesh_of_loss(fig_path):
+def plot_colormesh_of_loss(fig_path: str | Path):
     """Plot colormesh of matching loss for different loss types."""
     matching_loss = xr.open_dataset(
         "/Users/rmaiwald/Levante/Paris/Output/matching_loss.nc"
@@ -19,7 +21,7 @@ def plot_colormesh_of_loss(fig_path):
     plt.clf()
 
 
-def plot_matching_loss_distribution(fig_path):
+def plot_matching_loss_distribution(fig_path: str | Path):
     """Plot distribution of best matching simulations."""
     matching_loss = xr.open_dataset(
         "/Users/rmaiwald/Levante/Paris/Output/matching_loss.nc"
@@ -61,16 +63,16 @@ def plot_matching_loss_distribution(fig_path):
     plt.clf()
 
 
-def plot_n_stations_per_time(fig_path):
+def plot_n_stations_per_time(fig_path: str | Path):
     """Plot number of stations per time from matching loss."""
     matching_loss = xr.open_dataset(
         "/Users/rmaiwald/Levante/Paris/Output/matching_loss.nc"
     )
-    
+
     plt.figure(figsize=(12, 6))
     matching_loss.n_stations_per_time.plot()
     plt.title("Number of stations per time")
-    
+
     plt.savefig(
         fig_path,
         metadata=get_metadata("Number of stations per time from matching loss."),

@@ -29,7 +29,9 @@ def plot_meteo_measurements_heatmap(fig_path: str | Path):
     plt.close(fig)
 
 
-def plot_wind_roses_of_meteo_measurements(fig_path: str | Path, year: str = "2023"):
+def plot_wind_roses_of_meteo_measurements(
+    fig_path: str | Path, year: str = "2023"
+):
     meteo = p.meteo.get_meteo_measurements().sel(time=str(year))
 
     fig, ax = plt.subplots()
@@ -80,7 +82,7 @@ def plot_wind_roses_of_meteo_measurements(fig_path: str | Path, year: str = "202
     )
 
 
-def plot_meteo_overview(fig_path):
+def plot_meteo_overview(fig_path: str | Path):
     meteo = p.meteo.get_meteo_measurements()
     time_str = "11-2023"
     data = meteo.sel(time=time_str)
@@ -115,7 +117,7 @@ def plot_meteo_overview(fig_path):
     plt.close(fig)
 
 
-def plot_wind_data_availability(fig_path_1, fig_path_2):
+def plot_wind_data_availability(fig_path_1: str | Path, fig_path_2: str | Path):
     meteo = p.meteo.get_meteo_measurements()
     x0, y0, x1, y1 = p.domain.get_domain_as_geopandas().geometry.total_bounds
     in_domain = (meteo.x >= x0) & (meteo.x <= x1) & (meteo.y >= y0) & (meteo.y <= y1)
@@ -259,7 +261,7 @@ def plot_hodographs(fig_path: str | Path, station_identifier: str = "PAARBO"):
         ax.set_aspect("equal", adjustable="box")
 
     # Hide unused subplots
-    for ax in axs.flatten()[len(time_ids) :]:
+    for ax in axs.flatten()[len(time_ids) :]:  # noqa: E203
         ax.axis("off")
 
     # Add colorbar

@@ -81,6 +81,7 @@ def station_scatter_plot(
 
     fig.suptitle(suptitle, fontsize=16)
 
+    im = None  # Initialize for type checking
     for i in range(len(data_x)):
         ax = axs.flatten()[i]
         ds = xr.Dataset({"x_plot": data_x[i], "y_plot": data_y[i]})
@@ -90,9 +91,8 @@ def station_scatter_plot(
         # Check if there is enough data
         N = len(ds.time)
         if N < 100:
-            print(
-                f"Skipping {co2['code'].sel(station=station).values} due to insufficient data"
-            )
+            station_code = co2["code"].sel(station=station).values
+            print(f"Skipping {station_code} due to insufficient data")
             ax.axis("off")
             continue
 
@@ -171,10 +171,12 @@ def station_scatter_plot(
         ax.set_ylim(ylims)
 
         fw = ax.xaxis.label.get_fontweight()
+        station_code = co2.code.sel(station=station).values
+        station_height = co2["height"].sel(station=station).values
         ax.text(
             0.5,
             1.06,
-            f"{co2.code.sel(station=station).values} {co2['height'].sel(station=station).values}m",
+            f"{station_code} {station_height}m",
             transform=ax.transAxes,
             va="center",
             ha="center",
@@ -185,7 +187,7 @@ def station_scatter_plot(
         # Add fancy box for title
         lw = ax.spines["left"].get_linewidth()
         offwhite = "#F8F8FF"
-        box = mpl.patches.FancyBboxPatch(
+        box = mpl.patches.FancyBboxPatch(  # type: ignore
             (0.0, 1.0),
             1.0,
             0.12,
@@ -209,8 +211,11 @@ def station_scatter_plot(
         fig.delaxes(axs.flatten()[i])
 
     # One colorbar for all plots
+    if im is None:
+        raise ValueError("No valid data was plotted")
+
     x0, y0, dx, dy = axs[-1, -2].get_position().bounds
-    new_ax = fig.add_axes([x0 + dx + 0.04, y0, 0.02, dy])
+    new_ax = fig.add_axes((x0 + dx + 0.04, y0, 0.02, dy))
     label = "Log density" if norm == "log" else "Density"
     cbar = fig.colorbar(im, cax=new_ax, label=label)
     cbar.set_ticks([])
@@ -326,9 +331,14 @@ def plot_bias_rmse_by_location(
             axs[1].set_xlabel(x_label)
             plt.legend(loc="center left", bbox_to_anchor=(1.05, 0.5))
 
+            fig_path_obj = Path(fig_path)
+            y_suffix = y_label.replace(" ", "_")
+            x_suffix = x_label.split("[")[0].strip().replace(" ", "_")
+            output_path = (
+                fig_path_obj.parent / f"{fig_path_obj.stem}_{y_suffix}_{x_suffix}.png"
+            )
             plt.savefig(
-                fig_path.parent
-                / f"{fig_path.stem}_{y_label.replace(' ', '_')}_{x_label.split('[')[0].strip().replace(' ', '_')}.png",
+                output_path,
                 metadata=get_metadata(f"{y_label} by {x_label}"),
                 bbox_inches="tight",
             )

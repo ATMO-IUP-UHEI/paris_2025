@@ -1,11 +1,12 @@
 from pathlib import Path
 
 import ggpymanager as ggp
-import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import xarray as xr
+from matplotlib import colors as mcolors
+from matplotlib import patches as mpatches
 
 import paris_2025 as p
 from paris_2025.plotting.common import get_metadata
@@ -177,7 +178,9 @@ def plot_meteo_model_comparison(
             )
             vmax = abs(height_diff).max()
             vmin = -vmax
-            height_diff.plot(cmap="bwr", vmin=vmin, vmax=vmax, ax=axs[i, 3])  # type: ignore
+            height_diff.plot(
+                cmap="bwr", vmin=vmin, vmax=vmax, ax=axs[i, 3]
+            )  # type: ignore
 
         # Set titles
         axs[i, 0].set_title(f"Meteo - Station: {s.item()}")
@@ -307,9 +310,12 @@ def plot_model_wind_speed_vs_synoptic(
             )
 
         # Create custom legend
+        viridis_cmap = mcolors.get_cmap("viridis")
         ax.legend(
             handles=[
-                mpl.patches.Patch(color=plt.cm.viridis(i / 6), label=f"Class {i}")
+                mpatches.Patch(
+                    color=viridis_cmap(i / 6), label=f"Class {i}"
+                )
                 for i in range(7)
             ]
         )
@@ -428,15 +434,19 @@ def plot_hodographs(
         ax.set_aspect("equal", adjustable="box")
 
     # Hide unused subplots
-    for ax in axs.flatten()[len(sim_ids) :]:
+    for ax in axs.flatten()[len(sim_ids):]:
         ax.axis("off")
 
     # Add colorbars for GRAMM and GRAL
-    cax1 = fig.add_axes([1.02, 0.55, 0.02, 0.35])
-    cax2 = fig.add_axes([1.02, 0.1, 0.02, 0.35])
+    cax1 = fig.add_axes((1.02, 0.55, 0.02, 0.35))
+    cax2 = fig.add_axes((1.02, 0.1, 0.02, 0.35))
 
-    sm1 = plt.cm.ScalarMappable(cmap="Greens", norm=plt.Normalize(vmin=vmin, vmax=vmax))
-    sm2 = plt.cm.ScalarMappable(cmap="Reds", norm=plt.Normalize(vmin=vmin, vmax=vmax))
+    sm1 = plt.cm.ScalarMappable(
+        cmap="Greens", norm=mcolors.Normalize(vmin=vmin, vmax=vmax)
+    )
+    sm2 = plt.cm.ScalarMappable(
+        cmap="Reds", norm=plt.Normalize(vmin=vmin, vmax=vmax)
+    )
 
     fig.colorbar(sm1, cax=cax1, label="GRAMM Altitude (m)")
     fig.colorbar(sm2, cax=cax2, label="GRAL Altitude (m)")
@@ -444,8 +454,8 @@ def plot_hodographs(
     plt.savefig(
         fig_path,
         metadata=get_metadata(
-            f"Hodographs comparing GRAMM and GRAL models for station {station_identifier} "
-            f"over {len(sim_ids)} simulation IDs."
+            f"Hodographs comparing GRAMM and GRAL models for "
+            f"station {station_identifier} over {len(sim_ids)} simulation IDs."
         ),
         bbox_inches="tight",
     )
@@ -555,9 +565,9 @@ def plot_stability_class_and_wind_speed_by_season(
 
     # Add legend to the right of the last subplot
     handles, labels = axs[-1].get_legend_handles_labels()
-    labels = [chr(int(l) + 96).upper() for l in labels]
+    labels = [chr(int(label) + 96).upper() for label in labels]
     fig.legend(handles, labels, loc="center right", title="Stability Class")
-    fig.tight_layout(rect=[0, 0, 0.9, 1])
+    fig.tight_layout(rect=(0, 0, 0.9, 1))
 
     plt.savefig(
         fig_path,
