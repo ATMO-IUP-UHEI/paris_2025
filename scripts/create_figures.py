@@ -162,6 +162,10 @@ if __name__ == "__main__":
         FIGURE_PATH / DIR / "matching_loss_cumulative_distribution.png",
         matching_methods.plot_matching_loss_distribution,
     )
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "n_stations_per_time.png",
+        matching_methods.plot_n_stations_per_time,
+    )
 
     # CO2 measurements
     DIR = "co2_measurements"

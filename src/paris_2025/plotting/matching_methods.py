@@ -59,3 +59,20 @@ def plot_matching_loss_distribution(fig_path):
         metadata=get_metadata("Distribution of best matching simulations."),
     )
     plt.clf()
+
+
+def plot_n_stations_per_time(fig_path):
+    """Plot number of stations per time from matching loss."""
+    matching_loss = xr.open_dataset(
+        "/Users/rmaiwald/Levante/Paris/Output/matching_loss.nc"
+    )
+    
+    plt.figure(figsize=(12, 6))
+    matching_loss.n_stations_per_time.plot()
+    plt.title("Number of stations per time")
+    
+    plt.savefig(
+        fig_path,
+        metadata=get_metadata("Number of stations per time from matching loss."),
+    )
+    plt.clf()
