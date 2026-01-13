@@ -2,6 +2,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from windrose import WindroseAxes
 
@@ -127,7 +128,7 @@ def plot_background_co2_stations(fig_path: str | Path, year: str = "2023"):
 
 def plot_background_station_counts(fig_path: str | Path, year: str = "2023"):
     """Plot bar chart of background station usage counts."""
-    dynamic_background = p.background.get_background_co2(year=year)
+    dynamic_background = p.background.get_background_co2().sel(time=year)
 
     fig, ax = plt.subplots(figsize=(10, 6))
     dynamic_background.station.to_pandas().value_counts().plot.bar(ax=ax)
@@ -144,10 +145,7 @@ def plot_background_station_counts(fig_path: str | Path, year: str = "2023"):
 
 def plot_background_station_co2_violin(fig_path: str | Path, year: str = "2023"):
     """Plot violin plot of CO2 concentrations by background station."""
-    dynamic_background = p.background.get_background_co2(year=year)
-
-    # Prepare data for violin plot
-    import pandas as pd
+    dynamic_background = p.background.get_background_co2().sel(time=year)
 
     df = pd.DataFrame(
         {
@@ -155,6 +153,8 @@ def plot_background_station_co2_violin(fig_path: str | Path, year: str = "2023")
             "co2": dynamic_background.co2.values,
         }
     )
+    # Drop nans
+    df = df.dropna(axis="index")
 
     # Get unique stations sorted by median CO2 or count
     station_order = (
@@ -199,7 +199,7 @@ def plot_background_station_hourly_contribution(
     Plot stacked area chart showing relative contribution of each
     background station by hour of day.
     """
-    dynamic_background = p.background.get_background_co2(year=year)
+    dynamic_background = p.background.get_background_co2().sel(time=year)
 
     # Extract hour of day
     hourly_data = dynamic_background.assign_coords(hour=dynamic_background.time.dt.hour)

@@ -310,7 +310,7 @@ def plot_model_wind_speed_vs_synoptic(
             )
 
         # Create custom legend
-        viridis_cmap = mcolors.get_cmap("viridis")
+        viridis_cmap = plt.get_cmap("viridis")
         ax.legend(
             handles=[
                 mpatches.Patch(
@@ -445,7 +445,7 @@ def plot_hodographs(
         cmap="Greens", norm=mcolors.Normalize(vmin=vmin, vmax=vmax)
     )
     sm2 = plt.cm.ScalarMappable(
-        cmap="Reds", norm=plt.Normalize(vmin=vmin, vmax=vmax)
+        cmap="Reds", norm=mcolors.Normalize(vmin=vmin, vmax=vmax)
     )
 
     fig.colorbar(sm1, cax=cax1, label="GRAMM Altitude (m)")

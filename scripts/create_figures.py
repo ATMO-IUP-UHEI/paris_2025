@@ -17,9 +17,8 @@ from paris_2025.plotting import (
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-YEAR = 2023
 FIGURE_PATH = Path(p.CONFIG["figures_path"])
-FORCE = True  # Overwrite existing figures
+FORCE = False  # Overwrite existing figures
 
 # Set matplotlib style like size of the figures, text size, etc. by hand
 # sns.set_context("paper", font_scale=1)
@@ -193,7 +192,7 @@ if __name__ == "__main__":
         ],
         tracer_measurements.plot_co2_data_availability,
     )
-    for year in ["2023"]:
+    for year in ["2023", "2024"]:
         create_figures_if_missing(
             FIGURE_PATH / DIR / f"picarro_co2_violin_{year}.png",
             tracer_measurements.plot_picarro_co2_violin,
@@ -203,7 +202,7 @@ if __name__ == "__main__":
     # CO2 background analysis
     DIR = "co2_background"
     (FIGURE_PATH / DIR).mkdir(parents=True, exist_ok=True)
-    for year in ["2023"]:
+    for year in ["2023", "2024"]:
         create_figures_if_missing(
             FIGURE_PATH / DIR / f"mean_windrose_{year}.png",
             tracer_background.plot_mean_windrose,
