@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import pyproj
 import xarray as xr
+from joblib import Parallel, delayed
 from tqdm import tqdm
 
 import paris_2025 as p
@@ -13,7 +14,7 @@ from paris_2025.config import load_config
 
 CONFIG = load_config()
 METEO_PATH = Path(CONFIG["meteo_path"])
-print(f"Using meteorological path: {METEO_PATH}")
+logging.info(f"Using meteorological path: {METEO_PATH}")
 METEO_FILE = METEO_PATH / "meteo.nc"
 
 METEO_SUBPATHS = {
@@ -79,7 +80,9 @@ def get_mean_wind_vars():
 
 def create_meteo_measurements() -> None:
     if METEO_FILE.exists():
-        print("CO2 measurement file already exists. Please delete it to recreate it.")
+        logging.info(
+            "Meteo measurement file already exists. Please delete it to recreate it."
+        )
         return
     METEO_FILE.parent.mkdir(parents=True, exist_ok=True)
     meteo = xr.concat(
@@ -250,14 +253,48 @@ def process_meteo_measurements(source: str) -> xr.Dataset:
     return funcs[source]()
 
 
+def is_variable_static_over_time(xds, var) -> bool:
+    """
+    Check if a variable in an xarray Dataset is static over the time dimension for all
+    stations. This function iterates through all stations in the dataset and checks
+    whether the specified variable has only one unique value across the time dimension
+    (excluding NaNs). It handles cases where the time series might be entirely full of
+    NaNs by immediately returning False in that scenario.
+
+    Parameters
+    ----------
+    xds : xarray.Dataset
+        The dataset containing the variable and dimensions 'time' and 'station'.
+    var : str
+        The name of the variable within the dataset to check.
+
+    Returns
+    -------
+    bool
+        True if the variable has exactly one unique value over time for every station
+        (i.e., it is static). False if the variable changes over time for any station,
+        or if any station's time series consists entirely of NaNs.
+    """
+
+    # If one other dimension only contains nans, skip it
+    if xds[var].isnull().all("time").any():
+        return False
+    nunique = {
+        s: xds[var].sel(station=s).to_series().nunique() for s in xds.station.values
+    }
+    if all(v == 1 for v in nunique.values()):
+        return True
+    else:
+        return False
+
+
 def squeeze_static_dims(xds: xr.Dataset) -> xr.Dataset:
     # If a variable does not change with time, convert it to a scalar
     for var in xds.data_vars:
         if "time" in xds[var].dims:
-            # If one other dimension only contains nans, skip it
-            if xds[var].isnull().all("time").any():
-                continue
-            if np.allclose(xds[var].std("time"), 0.0, atol=1e-6):
+            # Check if the variable is static over time
+            var_is_static = is_variable_static_over_time(xds, var)
+            if var_is_static:
                 xds[var] = xds[var].mean("time", keep_attrs=True)
     return xds
 
@@ -308,6 +345,7 @@ def refine_dataset(xds: xr.Dataset, variable_names: dict, operator: str) -> xr.D
         xr.Dataset: The refined dataset with renamed variables and proper structure.
     """
     # Only keep variables listed in variable_names, and rename them accordingly
+    logging.info("Renaming and selecting variables")
     xds = xds.rename({k: v for k, v in variable_names.items() if k in xds.data_vars})
     xds = xds[[v for v in variable_names.values() if v in xds.data_vars]]
     xds = squeeze_static_dims(xds)
@@ -324,6 +362,9 @@ def refine_dataset(xds: xr.Dataset, variable_names: dict, operator: str) -> xr.D
 
     # Set time index to UTC (Not possible for netCDF files, as they are already in UTC)
     # xds = xds.assign_coords(time=xds["time"].to_index().tz_localize("UTC"))
+
+    # Sort by time
+    xds = xds.sortby("time")
 
     # Take hourly mean
     xds = xds.resample(time="1h").mean(dim="time", keep_attrs=True)
@@ -345,9 +386,7 @@ def process_meteofrance() -> xr.Dataset:
         / "6_measurements/6_1_meteo"
         / METEO_SUBPATHS["MeteoFrance"]
     )
-    file_list = list(data_path.glob("./H_??_previous-2020-2024.csv")) + list(
-        data_path.glob("./H_??_latest-2025-2026.csv")
-    )
+    file_list = list(data_path.glob("./H_??_*????-????.csv"))
     df = pd.concat(
         [pd.read_csv(file, index_col=0, sep=";") for file in tqdm(file_list)],
         ignore_index=True,
@@ -416,7 +455,6 @@ def read_txt_file(file):
         name.strip() if name.find("-") == -1 else name.replace("-", "").replace(" ", "")
         for name in names
     ]
-    # print(names)
     no_data = "-9999.9"
     df = pd.read_table(
         file,
@@ -427,7 +465,79 @@ def read_txt_file(file):
         names=names,
         na_values=no_data,
     )
+    # Rename columns to harmonized names
+    to_rename = {
+        "ELEV  (M)": "ELEVATION",
+    }
+    df = df.rename(columns=to_rename)
+
+    # Check that wind speed and wind direction are included
+    if "WDIR" not in df.columns:
+        logging.warning(f"WDIR not in columns of file {file}: {df.columns}")
+    if "WSPD" not in df.columns:
+        logging.warning(f"WSPD not in columns of file {file}: {df.columns}")
     return df
+
+
+def ncar_exemptions(xds: xr.Dataset) -> xr.Dataset:
+    """
+    Apply exemptions for known issues in NCAR data.
+
+    Parameters:
+        xds (xr.Dataset): The input dataset to apply exemptions to.
+
+    Returns:
+        xr.Dataset: The dataset with exemptions applied.
+    """
+    position_vars = [
+        "LATITUDE",
+        "LONGITUDE",
+        "ELEVATION",
+    ]
+    datasets: list[xr.Dataset] = []
+
+    for s in xds.station.values:
+        sub_ds = xds.sel(station=s)
+        problem_with_position = False
+
+        for var in position_vars:
+            if sub_ds[var].to_series().nunique() > 1:
+                problem_with_position = True
+                unique_values = sub_ds[var].to_series().unique()
+                logging.warning(
+                    f"Station {s} has varying {var} values."
+                    f" Unique values: {unique_values}"
+                )
+
+        if problem_with_position:
+            # Find all unique combinations of the position variables
+            pos_df = sub_ds[position_vars].to_dataframe()
+            # Drop NaN values before finding unique combinations as we only want valid
+            # positions
+            unique_positions = pos_df.dropna().drop_duplicates()
+
+            for i, (_, row) in enumerate(unique_positions.iterrows()):
+                # Create mask for this position
+                mask = (
+                    (sub_ds["LATITUDE"] == row["LATITUDE"])
+                    & (sub_ds["LONGITUDE"] == row["LONGITUDE"])
+                    & (sub_ds["ELEVATION"] == row["ELEVATION"])
+                )
+
+                # Apply mask
+                new_sub_ds = sub_ds.where(mask)
+
+                # Rename station
+                new_station_name = f"{s}_{i+1}"
+                new_sub_ds = new_sub_ds.assign_coords(station=new_station_name)
+
+                datasets.append(new_sub_ds)
+        else:
+            datasets.append(sub_ds)
+
+    if datasets:
+        return xr.concat(datasets, dim="station")
+    return xds
 
 
 def process_ncar() -> xr.Dataset:
@@ -437,18 +547,32 @@ def process_ncar() -> xr.Dataset:
     Returns:
         xr.Dataset: Processed meteorological measurements from NCAR.
     """
+    logging.info("Starting NCAR data processing")
     data_path = METEO_PATH / METEO_SUBPATHS["NCAR"]
-    files = list(data_path.glob("ncar_202?/downloads/data/*.txt"))
-    df = pd.concat(
-        [read_txt_file(file) for file in tqdm(files, desc="Reading files")],
-        ignore_index=True,
-    )
+    files = list(data_path.glob("ncar_????/downloads/data/*.txt"))
+    logging.info(f"Found {len(files)} NCAR files to process")
+    # Check if there are duplicate files
+    file_names = [file.name for file in files]
+    if len(file_names) != len(set(file_names)):
+        raise ValueError("Duplicate files found in NCAR data.")
 
+    logging.info("Reading NCAR text files")
+    # dfs = []
+    # for file in tqdm(files, desc="Reading files"):
+    #     dfs.append(read_txt_file(file))
+
+    dfs = Parallel(n_jobs=-1, verbose=10, batch_size=128)(  # type: ignore
+        delayed(read_txt_file)(file) for file in files
+    )
+    df = pd.concat(dfs, ignore_index=True, copy=False)
+    logging.info(f"Read {len(df)} records from NCAR files")
     # Convert YYYYMMDDHHMM to numpy datetime64
+    logging.info("Converting timestamps and filtering METAR entries")
     df["time"] = pd.to_datetime(df["REPORT TIME YYYYMMDDHHMM"], format="%Y%m%d%H%M")
     df = df.drop(columns=["REPORT TIME YYYYMMDDHHMM"])
     # Select only 'OBS TYPE' 'METAR' entries
     df = df[df["OBS TYPE"] == "METAR"]
+    logging.info(f"Filtered to {len(df)} METAR entries")
     mindex = pd.MultiIndex.from_arrays(
         [
             df[var]
@@ -460,14 +584,35 @@ def process_ncar() -> xr.Dataset:
     )
     xds = df.to_xarray()
     xds["index"] = mindex
+    # Find duplicated indices and check that data is also duplicated
+    logging.info("Removing duplicate entries and restructuring dataset")
+    mask = xds.index.to_pandas().duplicated(keep=False)
+    duplicated_entries = xds.sel(index=mask.values)
+    duplicated_entries = duplicated_entries.sortby("index")
+    for idx in tqdm(
+        duplicated_entries.index,
+        total=len(duplicated_entries.index),
+        desc="Checking duplicates",
+    ):
+        df = duplicated_entries.sel(index=idx).to_dataframe().dropna(how="all")
+        # Test if all rows in df are identical
+        if (df.nunique() > 1).all():
+            logging.warning(f"Duplicated index {idx} has differing data:\n{df}")
+    # Drop duplicated indices
+    xds = xds.sel(index=~mask.values)
     xds = xds.unstack("index")
     # Rename the index to 'station'
     xds = xds.rename({"STATION BBSSS": "station"})
     xds["station"] = xds["station"].astype("str")
+    logging.info(f"Dataset contains {len(xds.station)} stations")
 
     # Add altimeter setting to the pressure variable
     # xds["PRES"] = xds["PRES"] + xds["ALSE"]
 
+    logging.info("Applying NCAR exemptions")
+    xds = ncar_exemptions(xds)
+
+    logging.info("Refining dataset with standardized variable names")
     variable_names = {
         "LATITUDE": "latitude",
         "LONGITUDE": "longitude",
@@ -479,6 +624,7 @@ def process_ncar() -> xr.Dataset:
     }
     xds = refine_dataset(xds, variable_names, operator="NCAR")
 
+    logging.info("NCAR data processing completed successfully")
     return xds
 
 
@@ -904,7 +1050,7 @@ def process_high_cost() -> xr.Dataset:
     xds["station"] = xds["station"].astype("str")
 
     # Limit to the time period of interest
-    xds = xds.sel(time=slice("2023", None))
+    xds = xds.sel(time=slice("2010", None))
 
     # Convert pressure to Pa
     xds["AP"] = xds["AP"] * 100  # hPa to Pa
