@@ -43,7 +43,7 @@ def get_meteo_measurements() -> xr.Dataset:
             "Please run the script to create it "
             "tracers.create_meteo_measurements()"
         )
-    meteo = xr.load_dataset(METEO_FILE)
+    meteo = xr.open_dataset(METEO_FILE)
     if meteo.station.size == 0:
         raise ValueError(
             "Meteorological measurement file is empty. "
@@ -350,6 +350,8 @@ def refine_dataset(xds: xr.Dataset, variable_names: dict, operator: str) -> xr.D
     logging.info("Renaming and selecting variables")
     xds = xds.rename({k: v for k, v in variable_names.items() if k in xds.data_vars})
     xds = xds[[v for v in variable_names.values() if v in xds.data_vars]]
+    # Convert to float32 to save space
+    xds = xds.astype(np.float32)
     xds = squeeze_static_dims(xds)
 
     # Move all variables with only the 'station' dimension to the 'station' coordinate
