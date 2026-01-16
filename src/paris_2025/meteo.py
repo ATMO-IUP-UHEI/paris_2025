@@ -86,7 +86,9 @@ def create_meteo_measurements() -> None:
         return
     METEO_FILE.parent.mkdir(parents=True, exist_ok=True)
     meteo = xr.concat(
-        [process_meteo_measurements(source) for source in METEO_SUBPATHS], dim="station"
+        [process_meteo_measurements(source) for source in METEO_SUBPATHS],
+        dim="station",
+        join="outer",
     )
     # Add coordinates in GRAL projection
     x, y = pyproj.Proj(CONFIG["domain"]["crs"])(
