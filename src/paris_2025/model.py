@@ -27,7 +27,8 @@ def get_gramm_meteo_data():
         meteo_gramm = meteo_gramm.drop_vars(["speed"])
     if ("u" in meteo_gramm.variables) and ("v" in meteo_gramm.variables):
         logging.warning(
-            "'u' and 'v' variables found in GRAMM meteo data. Renaming to 'ux' and 'vy'."
+            "'u' and 'v' variables found in GRAMM meteo data. "
+            "Renaming to 'ux' and 'vy'."
         )
         meteo_gramm = meteo_gramm.rename({"u": "ux", "v": "vy"})
     # Add "wind_speed" and "wind_direction" variables
