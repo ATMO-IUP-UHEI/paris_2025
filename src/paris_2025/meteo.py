@@ -350,8 +350,6 @@ def refine_dataset(xds: xr.Dataset, variable_names: dict, operator: str) -> xr.D
     logging.info("Renaming and selecting variables")
     xds = xds.rename({k: v for k, v in variable_names.items() if k in xds.data_vars})
     xds = xds[[v for v in variable_names.values() if v in xds.data_vars]]
-    # Convert to float32 to save space
-    xds = xds.astype(np.float32)
     xds = squeeze_static_dims(xds)
 
     # Move all variables with only the 'station' dimension to the 'station' coordinate
@@ -363,6 +361,10 @@ def refine_dataset(xds: xr.Dataset, variable_names: dict, operator: str) -> xr.D
     xds = xds.assign_coords(
         operator=(("station",), np.repeat([operator], len(xds["station"])))
     )
+
+    # Convert to each data variable to float32 to save space
+    for var in xds.data_vars:
+        xds[var] = xds[var].astype("float32")
 
     # Set time index to UTC (Not possible for netCDF files, as they are already in UTC)
     # xds = xds.assign_coords(time=xds["time"].to_index().tz_localize("UTC"))
@@ -499,7 +501,6 @@ def ncar_exemptions(xds: xr.Dataset) -> xr.Dataset:
         "ELEVATION",
     ]
     datasets: list[xr.Dataset] = []
-
     for s in xds.station.values:
         sub_ds = xds.sel(station=s)
         problem_with_position = False
@@ -529,7 +530,7 @@ def ncar_exemptions(xds: xr.Dataset) -> xr.Dataset:
                 )
 
                 # Apply mask
-                new_sub_ds = sub_ds.where(mask)
+                new_sub_ds = sub_ds.where(mask, drop=True)
 
                 # Rename station
                 new_station_name = f"{s}_{i+1}"
@@ -540,7 +541,7 @@ def ncar_exemptions(xds: xr.Dataset) -> xr.Dataset:
             datasets.append(sub_ds)
 
     if datasets:
-        return xr.concat(datasets, dim="station")
+        return xr.concat(datasets, dim="station", join="outer")
     return xds
 
 
@@ -577,6 +578,17 @@ def process_ncar() -> xr.Dataset:
     # Select only 'OBS TYPE' 'METAR' entries
     df = df[df["OBS TYPE"] == "METAR"]
     logging.info(f"Filtered to {len(df)} METAR entries")
+    xds = df.to_xarray()
+    # Find unique stations
+    station_grouper = xds.groupby(
+        ["STATION BBSSS", "LATITUDE", "LONGITUDE", "ELEVATION"]
+    )
+    logging.info(f"Found {len(station_grouper.groups)} unique stations in NCAR data")
+    for group in station_grouper:
+        logging.info(
+            f"Station: "
+            f"{group[0][0]}, Lat: {group[0][1]}, Lon: {group[0][2]}, Alt: {group[0][3]}"
+        )
     mindex = pd.MultiIndex.from_arrays(
         [
             df[var]
@@ -586,7 +598,6 @@ def process_ncar() -> xr.Dataset:
             ]
         ],
     )
-    xds = df.to_xarray()
     xds["index"] = mindex
     # Find duplicated indices and check that data is also duplicated
     logging.info("Removing duplicate entries and restructuring dataset")
@@ -598,11 +609,12 @@ def process_ncar() -> xr.Dataset:
         total=len(duplicated_entries.index),
         desc="Checking duplicates",
     ):
-        df = duplicated_entries.sel(index=idx).to_dataframe().dropna(how="all")
+        df = duplicated_entries.sel(index=idx).to_dataframe()  # .dropna(how="all")
         # Test if all rows in df are identical
         if (df.nunique() > 1).all():
             logging.warning(f"Duplicated index {idx} has differing data:\n{df}")
     # Drop duplicated indices
+    mask = xds.index.to_pandas().duplicated(keep="first")
     xds = xds.sel(index=~mask.values)
     xds = xds.unstack("index")
     # Rename the index to 'station'
@@ -615,6 +627,9 @@ def process_ncar() -> xr.Dataset:
 
     logging.info("Applying NCAR exemptions")
     xds = ncar_exemptions(xds)
+    assert len(xds.station) == len(
+        station_grouper.groups
+    ), "Number of stations in dataset does not match number of unique stations."
 
     logging.info("Refining dataset with standardized variable names")
     variable_names = {
