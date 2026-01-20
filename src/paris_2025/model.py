@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 import ggpymanager as ggpy
@@ -21,8 +22,14 @@ def get_gramm_meteo_data():
     meteo_gramm = xr.open_dataset(GRAMM_METEO_FILE)
     # Fix some issues with the dataset
     # Drop var "speed" and rename "u" and "v" to "ux" and "vy" respectively
-    meteo_gramm = meteo_gramm.drop_vars(["speed"])
-    meteo_gramm = meteo_gramm.rename({"u": "ux", "v": "vy"})
+    if "speed" in meteo_gramm.variables:
+        logging.warning("'speed' variable found in GRAMM meteo data. Dropping it.")
+        meteo_gramm = meteo_gramm.drop_vars(["speed"])
+    if ("u" in meteo_gramm.variables) and ("v" in meteo_gramm.variables):
+        logging.warning(
+            "'u' and 'v' variables found in GRAMM meteo data. Renaming to 'ux' and 'vy'."
+        )
+        meteo_gramm = meteo_gramm.rename({"u": "ux", "v": "vy"})
     # Add "wind_speed" and "wind_direction" variables
     meteo_gramm["wind_speed"] = ggpy.processing.wind_speed_from_vector(
         meteo_gramm.ux, meteo_gramm.vy
