@@ -98,6 +98,10 @@ def plot_meteo_model_comparison(
 
     config = p.config.load_config()
     meteo = p.meteo.get_meteo_measurements()
+    # Select time period
+    meteo = meteo.sel(
+        time=slice(config["matching"]["time_start"], config["matching"]["time_end"])
+    )
     meteo_gramm = p.model.get_gramm_meteo_data()
     meteo_gral = p.model.get_gral_meteo_data()
     buildings = xr.open_dataset(buildings_path)
@@ -185,8 +189,8 @@ def plot_meteo_model_comparison(
         # Set titles
         axs[i, 0].set_title(f"Meteo - Station: {s.item()}")
         axs[i, 1].set_title(f"Meteo - Operator: {sm['operator'].item()}")
-        matching_model = config["matching"]["stations"][s.item()]
-        axs[i, 2].set_title(f"Matching - Model: {matching_model}")
+        # matching_model = config["matching"]["stations"][s.item()]
+        # axs[i, 2].set_title(f"Matching - Model: {matching_model}")
         axs[i, 3].set_title("")
 
     # Format axes
@@ -313,9 +317,7 @@ def plot_model_wind_speed_vs_synoptic(
         viridis_cmap = plt.get_cmap("viridis")
         ax.legend(
             handles=[
-                mpatches.Patch(
-                    color=viridis_cmap(i / 6), label=f"Class {i}"
-                )
+                mpatches.Patch(color=viridis_cmap(i / 6), label=f"Class {i}")
                 for i in range(7)
             ]
         )
@@ -434,7 +436,7 @@ def plot_hodographs(
         ax.set_aspect("equal", adjustable="box")
 
     # Hide unused subplots
-    for ax in axs.flatten()[len(sim_ids):]:
+    for ax in axs.flatten()[len(sim_ids) :]:
         ax.axis("off")
 
     # Add colorbars for GRAMM and GRAL
