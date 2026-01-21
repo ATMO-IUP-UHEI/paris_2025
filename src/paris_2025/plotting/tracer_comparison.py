@@ -2,11 +2,15 @@
 
 from pathlib import Path
 
+import ggpymanager as ggp
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+import seaborn as sns  # Remove for colormap "flare" # noqa: F401
 import xarray as xr
+from dask.diagnostics.progress import ProgressBar
 
+import paris_2025 as p
 from paris_2025.plotting.common import get_metadata
 
 
@@ -226,6 +230,134 @@ def station_scatter_plot(
         bbox_inches="tight",
     )
     plt.close(fig)
+
+
+def plot_tracer_model_scatter_plots(fig_path: str | Path):
+    conc_series = xr.open_mfdataset(
+        "/Users/rmaiwald/Levante/Paris/Output/concentration_timeseries.nc"
+    )
+    source_groups = xr.open_mfdataset(
+        "/Users/rmaiwald/Levante/Paris/Input/Fluxes/source_groups.nc"
+    )
+    t = source_groups.type
+    mask = xr.concat(
+        [
+            t.str.contains("Origins.earth") | t.str.contains("VPRM 2023"),
+            t.str.contains("TNO") | t.str.contains("VPRM 2023"),
+        ],
+        dim="prior",
+    )
+    mask["prior"] = ["Origins.earth", "TNO"]
+    time_series = ggp.utils.ugm3_to_ppm(
+        conc_series.co2_timeseries.sel(loss_type="rmse - filter: True")
+        .where(mask)
+        .sum("source_group"),
+        "co2",
+    )
+    with ProgressBar():
+        time_series = time_series.compute()  # type: ignore
+    dynamic_background = p.background.get_background_co2()
+    co2 = p.tracers.get_co2_measurements()
+    co2_model = dynamic_background.co2.reset_coords(
+        drop=True
+    ) + time_series.reset_coords(names=["x", "y"], drop=True)
+    combinations = [
+        ("background", "measured"),
+        ("modeled_Origins.earth", "measured"),
+        ("modeled_TNO", "measured"),
+        ("modeled_Origins.earth", "modeled_TNO"),
+    ]
+
+    def get_plot_data(name, afternoon_only=False, main_wind_direction_only=False):
+        if name == "background":
+            data = [
+                dynamic_background.co2.reset_coords(drop=True).assign_coords(station=s)
+                for s in co2_model.station.values
+            ]
+            title = "Background CO2"
+            axis_label = "Background CO2 [ppm]"
+        elif name == "measured":
+            data = [co2.co2.sel(station=s) for s in co2_model.station.values]
+            title = "Measured CO2"
+            axis_label = "Measured CO2 [ppm]"
+        elif name == "modeled_Origins.earth":
+            data = [
+                co2_model.sel(prior="Origins.earth")
+                .reset_coords(drop=True)
+                .sel(station=s)
+                for s in co2_model.station.values
+            ]
+            title = "Modeled CO2 (Origins.earth)"
+            axis_label = "Modeled CO2 (Origins.earth) [ppm]"
+        elif name == "modeled_TNO":
+            data = [
+                co2_model.sel(prior="TNO").reset_coords(drop=True).sel(station=s)
+                for s in co2_model.station.values
+            ]
+            title = "Modeled CO2 (TNO)"
+            axis_label = "Modeled CO2 (TNO) [ppm]"
+        else:
+            raise ValueError(f"Unknown plot data name: {name}")
+        if afternoon_only:
+            data = [
+                d.where(
+                    (d.time.dt.hour >= 12) & (d.time.dt.hour < 16),
+                    drop=True,
+                )
+                for d in data
+            ]
+        if main_wind_direction_only:
+            main_wind_code = "SAC"
+            time_mask = (dynamic_background.code == main_wind_code).reset_coords(
+                drop=True
+            )
+            data = [d.where(time_mask, drop=True) for d in data]
+        return data, title, axis_label
+
+    xlims = (400, 500)
+    ylims = (400, 500)
+    col_wrap = 4
+
+    for afternoon_only in [True, False]:
+        afternoon_label = "_afternoon" if afternoon_only else ""
+        afternoon_title = " (12:00-16:00)" if afternoon_only else ""
+        for main_wind_direction_only in [True, False]:
+            wind_label = "_main_wind_direction" if main_wind_direction_only else ""
+            wind_title = " (main wind direction SW)" if main_wind_direction_only else ""
+            for x_, y_ in combinations:
+                x_data, x_title, x_label = get_plot_data(
+                    x_,
+                    afternoon_only=afternoon_only,
+                    main_wind_direction_only=main_wind_direction_only,
+                )
+                y_data, y_title, y_label = get_plot_data(
+                    y_,
+                    afternoon_only=afternoon_only,
+                    main_wind_direction_only=main_wind_direction_only,
+                )
+                suptitle = (
+                    f"{x_title} vs. {y_title} (rmse - filter: True) "
+                    f"{afternoon_title}{wind_title}"
+                )
+
+                fig_path = Path(fig_path)
+                stem = fig_path.stem
+                parent = fig_path.parent
+                suffix = fig_path.suffix
+                station_scatter_plot(
+                    fig_path=f"{parent}/{stem}{x_title}_{y_title}"
+                    f"{afternoon_label}{wind_label}{suffix}",
+                    data_x=x_data,
+                    data_y=y_data,
+                    co2=co2,
+                    suptitle=suptitle,
+                    xlabel=x_label,
+                    ylabel=y_label,
+                    xlims=xlims,
+                    ylims=ylims,
+                    col_wrap=col_wrap,
+                    norm="linear",
+                )
 
 
 def plot_bias_rmse_by_location(

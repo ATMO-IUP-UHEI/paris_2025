@@ -289,3 +289,12 @@ if __name__ == "__main__":
         FIGURE_PATH / DIR / "temporal_scaling_factors.png",
         p.plotting.fluxes.plot_temporal_scaling_factors,
     )
+
+    # Tracer model comparison
+    DIR = "tracer_model_comparison"
+    (FIGURE_PATH / DIR).mkdir(parents=True, exist_ok=True)
+    # Scatter plots for different variable combinations
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "tracer_model_scatter_plots.png",
+        p.plotting.tracer_comparison.plot_tracer_model_scatter_plots,
+    )
