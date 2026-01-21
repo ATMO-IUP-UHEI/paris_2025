@@ -166,6 +166,40 @@ if __name__ == "__main__":
         matching_methods.plot_n_stations_per_time,
     )
 
+    # Matching methods - meteo condition analysis
+    for var in ["synoptic_wind_speed", "synoptic_wind_direction", "stab_class"]:
+        create_figures_if_missing(
+            FIGURE_PATH / DIR / f"selected_meteo_conditions_{var}.png",
+            matching_methods.plot_selected_meteo_conditions_by_variable,
+            variable=var,
+        )
+        create_figures_if_missing(
+            FIGURE_PATH / DIR / f"meteo_selection_frequency_{var}.png",
+            matching_methods.plot_meteo_selection_frequency_by_variable,
+            variable=var,
+        )
+
+    # Matching methods - CO2 analysis
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "co2_concentration_violin_by_loss_type.png",
+        matching_methods.plot_co2_concentration_violin_by_loss_type,
+    )
+
+    for var in ["synoptic_wind_speed", "synoptic_wind_direction", "stab_class"]:
+        create_figures_if_missing(
+            FIGURE_PATH / DIR / f"co2_distribution_by_{var}.png",
+            matching_methods.plot_co2_distribution_by_meteo_variable,
+            variable=var,
+        )
+
+    # Matching methods - loss analysis
+    for var in ["synoptic_wind_speed", "stab_class"]:
+        create_figures_if_missing(
+            FIGURE_PATH / DIR / f"matching_loss_by_{var}.png",
+            matching_methods.plot_matching_loss_by_meteo_variable,
+            variable=var,
+        )
+
     # CO2 measurements
     DIR = "co2_measurements"
     (FIGURE_PATH / DIR).mkdir(parents=True, exist_ok=True)
