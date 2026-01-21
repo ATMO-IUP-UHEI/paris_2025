@@ -40,7 +40,7 @@ def get_co2_measurements() -> xr.Dataset:
             "CO2 measurement file not found. Please run the script to create it "
             "tracers.create_co2_measurement()"
         )
-    co2 = xr.open_dataset(TRACER_CO2_FILE)
+    co2 = xr.load_dataset(TRACER_CO2_FILE)
     if co2.station.size == 0:
         raise ValueError(
             "CO2 measurement file is empty. Please run the script to create it. "
