@@ -298,3 +298,8 @@ if __name__ == "__main__":
         FIGURE_PATH / DIR / "tracer_model_scatter_plots.png",
         p.plotting.tracer_comparison.plot_tracer_model_scatter_plots,
     )
+    # Scatter plots of bias and RMSE by location
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "tracer_model_scatter_plots.png",
+        p.plotting.tracer_comparison.plot_bias_rmse_by_location,
+    )

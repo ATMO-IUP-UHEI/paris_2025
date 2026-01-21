@@ -1,5 +1,6 @@
 """Plotting functions for comparing modeled and measured CO2 concentrations."""
 
+from functools import lru_cache
 from pathlib import Path
 
 import ggpymanager as ggp
@@ -12,6 +13,84 @@ from dask.diagnostics.progress import ProgressBar
 
 import paris_2025 as p
 from paris_2025.plotting.common import get_metadata
+
+
+@lru_cache()
+def cache_data():
+    conc_series = xr.open_mfdataset(
+        "/Users/rmaiwald/Levante/Paris/Output/concentration_timeseries.nc"
+    )
+    source_groups = xr.open_mfdataset(
+        "/Users/rmaiwald/Levante/Paris/Input/Fluxes/source_groups.nc"
+    )
+    t = source_groups.type
+    mask = xr.concat(
+        [
+            t.str.contains("Origins.earth") | t.str.contains("VPRM 2023"),
+            t.str.contains("TNO") | t.str.contains("VPRM 2023"),
+        ],
+        dim="prior",
+    )
+    mask["prior"] = ["Origins.earth", "TNO"]
+    time_series = ggp.utils.ugm3_to_ppm(
+        conc_series.co2_timeseries.sel(loss_type="rmse - filter: True")
+        .where(mask)
+        .sum("source_group"),
+        "co2",
+    )
+    with ProgressBar():
+        time_series = time_series.compute()  # type: ignore
+    dynamic_background = p.background.get_background_co2()
+    co2 = p.tracers.get_co2_measurements()
+    co2_model = dynamic_background.co2.reset_coords(
+        drop=True
+    ) + time_series.reset_coords(names=["x", "y"], drop=True)
+
+    return dynamic_background, co2, co2_model
+
+
+def get_plot_data(name, afternoon_only=False, main_wind_direction_only=False):
+    dynamic_background, co2, co2_model = cache_data()
+    if name == "background":
+        data = [
+            dynamic_background.co2.reset_coords(drop=True).assign_coords(station=s)
+            for s in co2_model.station.values
+        ]
+        title = "Background CO2"
+        axis_label = "Background CO2 [ppm]"
+    elif name == "measured":
+        data = [co2.co2.sel(station=s) for s in co2_model.station.values]
+        title = "Measured CO2"
+        axis_label = "Measured CO2 [ppm]"
+    elif name == "modeled_Origins.earth":
+        data = [
+            co2_model.sel(prior="Origins.earth").reset_coords(drop=True).sel(station=s)
+            for s in co2_model.station.values
+        ]
+        title = "Modeled CO2 (Origins.earth)"
+        axis_label = "Modeled CO2 (Origins.earth) [ppm]"
+    elif name == "modeled_TNO":
+        data = [
+            co2_model.sel(prior="TNO").reset_coords(drop=True).sel(station=s)
+            for s in co2_model.station.values
+        ]
+        title = "Modeled CO2 (TNO)"
+        axis_label = "Modeled CO2 (TNO) [ppm]"
+    else:
+        raise ValueError(f"Unknown plot data name: {name}")
+    if afternoon_only:
+        data = [
+            d.where(
+                (d.time.dt.hour >= 12) & (d.time.dt.hour < 16),
+                drop=True,
+            )
+            for d in data
+        ]
+    if main_wind_direction_only:
+        main_wind_code = "SAC"
+        time_mask = (dynamic_background.code == main_wind_code).reset_coords(drop=True)
+        data = [d.where(time_mask, drop=True) for d in data]
+    return data, title, axis_label
 
 
 def station_scatter_plot(
@@ -233,34 +312,6 @@ def station_scatter_plot(
 
 
 def plot_tracer_model_scatter_plots(fig_path: str | Path):
-    conc_series = xr.open_mfdataset(
-        "/Users/rmaiwald/Levante/Paris/Output/concentration_timeseries.nc"
-    )
-    source_groups = xr.open_mfdataset(
-        "/Users/rmaiwald/Levante/Paris/Input/Fluxes/source_groups.nc"
-    )
-    t = source_groups.type
-    mask = xr.concat(
-        [
-            t.str.contains("Origins.earth") | t.str.contains("VPRM 2023"),
-            t.str.contains("TNO") | t.str.contains("VPRM 2023"),
-        ],
-        dim="prior",
-    )
-    mask["prior"] = ["Origins.earth", "TNO"]
-    time_series = ggp.utils.ugm3_to_ppm(
-        conc_series.co2_timeseries.sel(loss_type="rmse - filter: True")
-        .where(mask)
-        .sum("source_group"),
-        "co2",
-    )
-    with ProgressBar():
-        time_series = time_series.compute()  # type: ignore
-    dynamic_background = p.background.get_background_co2()
-    co2 = p.tracers.get_co2_measurements()
-    co2_model = dynamic_background.co2.reset_coords(
-        drop=True
-    ) + time_series.reset_coords(names=["x", "y"], drop=True)
     combinations = [
         ("background", "measured"),
         ("modeled_Origins.earth", "measured"),
@@ -268,55 +319,10 @@ def plot_tracer_model_scatter_plots(fig_path: str | Path):
         ("modeled_Origins.earth", "modeled_TNO"),
     ]
 
-    def get_plot_data(name, afternoon_only=False, main_wind_direction_only=False):
-        if name == "background":
-            data = [
-                dynamic_background.co2.reset_coords(drop=True).assign_coords(station=s)
-                for s in co2_model.station.values
-            ]
-            title = "Background CO2"
-            axis_label = "Background CO2 [ppm]"
-        elif name == "measured":
-            data = [co2.co2.sel(station=s) for s in co2_model.station.values]
-            title = "Measured CO2"
-            axis_label = "Measured CO2 [ppm]"
-        elif name == "modeled_Origins.earth":
-            data = [
-                co2_model.sel(prior="Origins.earth")
-                .reset_coords(drop=True)
-                .sel(station=s)
-                for s in co2_model.station.values
-            ]
-            title = "Modeled CO2 (Origins.earth)"
-            axis_label = "Modeled CO2 (Origins.earth) [ppm]"
-        elif name == "modeled_TNO":
-            data = [
-                co2_model.sel(prior="TNO").reset_coords(drop=True).sel(station=s)
-                for s in co2_model.station.values
-            ]
-            title = "Modeled CO2 (TNO)"
-            axis_label = "Modeled CO2 (TNO) [ppm]"
-        else:
-            raise ValueError(f"Unknown plot data name: {name}")
-        if afternoon_only:
-            data = [
-                d.where(
-                    (d.time.dt.hour >= 12) & (d.time.dt.hour < 16),
-                    drop=True,
-                )
-                for d in data
-            ]
-        if main_wind_direction_only:
-            main_wind_code = "SAC"
-            time_mask = (dynamic_background.code == main_wind_code).reset_coords(
-                drop=True
-            )
-            data = [d.where(time_mask, drop=True) for d in data]
-        return data, title, axis_label
-
     xlims = (400, 500)
     ylims = (400, 500)
     col_wrap = 4
+    co2 = cache_data()[1]
 
     for afternoon_only in [True, False]:
         afternoon_label = "_afternoon" if afternoon_only else ""
@@ -360,63 +366,40 @@ def plot_tracer_model_scatter_plots(fig_path: str | Path):
                 )
 
 
-def plot_bias_rmse_by_location(
-    fig_path: str | Path,
-    co2_measurements,
-    gral_co2,
-    gral_tno_co2,
-    background,
-    high_cost_stations,
-    mid_cost_stations,
-):
+def plot_bias_rmse_by_location(fig_path: str | Path):
     """Plot bias and RMSE statistics by station location and height.
 
     Parameters
     ----------
     fig_path : str or Path
         Path to save the figure
-    co2_measurements : xr.Dataset
-        Measured CO2 data
-    gral_co2 : xr.DataArray
-        Modeled CO2 from Origins.Earth
-    gral_tno_co2 : xr.Dataset
-        Modeled CO2 from TNO
-    background : xr.DataArray
-        Background CO2
-    high_cost_stations : list
-        List of high-cost station IDs
-    mid_cost_stations : list
-        List of mid-cost station IDs
     """
-    x = (
-        co2_measurements["co2"]
-        .sel(station=high_cost_stations + list(mid_cost_stations))
-        .sel(
-            time=(12 <= co2_measurements.time.dt.hour)
-            & (co2_measurements.time.dt.hour <= 16)
-        )
+    dynamic_background, co2, co2_model = cache_data()
+    # Filter out stations outside the GRAL domain
+    co2 = co2.sel(station=co2.in_gral_domain)
+    high_cost_mask = co2.instrument == "Picarro"
+    high_cost_stations = list(co2.station.sel(station=high_cost_mask).values)
+    mid_cost_stations = list(co2.station.sel(station=~high_cost_mask).values)
+    x = co2.co2.sel(station=high_cost_stations + list(mid_cost_stations)).sel(
+        time=(12 <= co2.co2.time.dt.hour) & (co2.co2.time.dt.hour <= 16)
     )
     y_tno = (
-        gral_tno_co2.co2.sel(station=high_cost_stations + list(mid_cost_stations)).isel(
-            rank=0
+        co2_model.sel(prior="TNO").sel(
+            station=high_cost_stations + list(mid_cost_stations)
         )
-        + background
-    ).sel(
-        time=(12 <= co2_measurements.time.dt.hour)
-        & (co2_measurements.time.dt.hour <= 16)
-    )
+        # + background
+    ).sel(time=(12 <= co2.co2.time.dt.hour) & (co2.co2.time.dt.hour <= 16))
     y = (
-        gral_co2.sel(station=high_cost_stations + list(mid_cost_stations)).isel(rank=0)
-        + background
-    ).sel(
-        time=(12 <= co2_measurements.time.dt.hour)
-        & (co2_measurements.time.dt.hour <= 16)
-    )
+        co2_model.sel(prior="Origins.earth").sel(
+            station=high_cost_stations + list(mid_cost_stations)
+        )
+        #   + background
+    ).sel(time=(12 <= co2.co2.time.dt.hour) & (co2.co2.time.dt.hour <= 16))
 
-    position_x = co2_measurements.sel(
+    position_x = co2.co2.sel(
         station=high_cost_stations + list(mid_cost_stations)
     ).x.values
-    position_y = co2_measurements.sel(
+    position_y = co2.co2.sel(
         station=high_cost_stations + list(mid_cost_stations)
     ).y.values
 
@@ -424,22 +407,20 @@ def plot_bias_rmse_by_location(
     rmse = np.sqrt(((y - x) ** 2).mean(dim="time"))
     bias_tno = (y_tno - x).mean(dim="time")
     rmse_tno = np.sqrt(((y_tno - x) ** 2).mean(dim="time"))
-    bias_background = (background - x).mean(dim="time")
-    rmse_background = np.sqrt(((background - x) ** 2).mean(dim="time"))
+    bias_background = (dynamic_background.co2 - x).mean(dim="time")
+    rmse_background = np.sqrt(((dynamic_background.co2 - x) ** 2).mean(dim="time"))
 
-    t = co2_measurements.sel(
-        station=high_cost_stations + list(mid_cost_stations)
-    ).type.values
+    t = co2.co2.sel(station=high_cost_stations + list(mid_cost_stations)).type.values
 
     y_labels = ["Mean Bias", "RMSE"]
     plot_data = [(bias, bias_tno, bias_background), (rmse, rmse_tno, rmse_background)]
-    x_data = [bias.z, position_x, position_y]
+    x_data = [co2.co2.height, position_x, position_y]
     x_labels = ["Height above ground level [m]", "x position [m]", "y position [m]"]
 
     for x_label, xd in zip(x_labels, x_data):
         for y_label, yd in zip(y_labels, plot_data):
             fig, axs = plt.subplots(1, 2, figsize=(16, 6), sharex=True, sharey=True)
-            for station_type in np.unique(co2_measurements.type):
+            for station_type in np.unique(co2.co2.type):
                 scatter = axs[0].scatter(
                     xd, yd[0].where(t == station_type), label=station_type
                 )
