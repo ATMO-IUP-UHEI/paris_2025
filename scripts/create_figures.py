@@ -54,12 +54,32 @@ def create_figures_if_missing(fig_paths, plot_function, force=FORCE, *args, **kw
                 "Figures already exist:\n"
                 + ("\n".join([str(p) for p in fig_paths if p.exists()]))
             )
-    else:
+    elif isinstance(fig_paths, dict):
+        search_str = str(fig_paths["template"])
+        # Replace placeholders with wildcards to search for existing files
+        bracket_opens = [i for i, c in enumerate(search_str) if c == "{"]
+        bracket_closes = [i for i, c in enumerate(search_str) if c == "}"]
+        for open_idx, close_idx in zip(
+            reversed(bracket_opens), reversed(bracket_closes)
+        ):
+            search_str = search_str[:open_idx] + "*" + search_str[close_idx + 1 :]
+        existing_files = list(Path(search_str).parent.glob(Path(search_str).name))
+        if len(existing_files) < fig_paths["n"] or force:
+            logging.info(f"Creating figures matching:\n{search_str}")
+            plot_function(fig_paths["template"], *args, **kwargs)
+        else:
+            logging.info(
+                f"Figures already exist matching:\n{search_str} "
+                f"({len(existing_files)} files found)"
+            )
+    elif isinstance(fig_paths, Path):
         if not fig_paths.exists() or force:
             logging.info(f"Creating figure:\n{fig_paths}")
             plot_function(fig_paths, *args, **kwargs)
         else:
             logging.info(f"Figure already exists:\n{fig_paths}")
+    else:
+        raise ValueError("fig_paths must be a Path or a list/tuple of Paths.")
 
 
 if __name__ == "__main__":
@@ -295,11 +315,24 @@ if __name__ == "__main__":
     (FIGURE_PATH / DIR).mkdir(parents=True, exist_ok=True)
     # Scatter plots for different variable combinations
     create_figures_if_missing(
-        FIGURE_PATH / DIR / "tracer_model_scatter_plots.png",
+        {
+            "n": 16,
+            "template": FIGURE_PATH
+            / DIR
+            / (
+                "tracer_model_density_plots"
+                "{x_title}_{y_title}{afternoon_label}{wind_label}.png"
+            ),
+        },
         p.plotting.tracer_comparison.plot_tracer_model_scatter_plots,
     )
     # Scatter plots of bias and RMSE by location
     create_figures_if_missing(
-        FIGURE_PATH / DIR / "tracer_model_scatter_plots.png",
+        {
+            "n": 6,
+            "template": FIGURE_PATH
+            / DIR
+            / ("bias_and_rmse_tracer_model_scatter_plots_{y_title}_{x_title}.png"),
+        },
         p.plotting.tracer_comparison.plot_bias_rmse_by_location,
     )
