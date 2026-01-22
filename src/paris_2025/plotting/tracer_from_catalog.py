@@ -75,21 +75,18 @@ def plot_concentration_at_station_per_simulation(fig_path: str | Path):
 def plot_hourly_vprm_concentration(fig_path: str | Path):
     """Plot mean hourly VPRM concentration with temporal factors applied."""
     concentration_timeseries = xr.open_dataset(
-        "/Users/rmaiwald/Levante/Paris/Output/concentration_timeseries.nc"
-    )
-    source_groups = xr.open_dataset(
-        "/Users/rmaiwald/Levante/Paris/Input/Fluxes/source_groups.nc"
-    )
+        p.CONFIG["output_path"] + "/" + ggp.config.CONCENTRATION_TIMESERIES_FILE_NAME
+    ).sel(best_sim_id=0)
 
     # Calculate hourly mean concentration
     vprm_data = ggp.utils.ugm3_to_ppm(
         concentration_timeseries["co2_timeseries"]
         .sel(
             loss_type="rmse - filter: True",
-            source_group=source_groups.type.str.contains("VPRM 2023 GEE"),
+            type=concentration_timeseries.type.str.contains("VPRM 2023 GEE"),
             time="2023-08",
         )
-        .sum("source_group"),
+        .sum("type"),
         "co2",
     )
     # Type checking: ensure vprm_data is xr.DataArray
