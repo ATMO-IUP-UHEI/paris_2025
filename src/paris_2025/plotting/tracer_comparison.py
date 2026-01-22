@@ -18,12 +18,9 @@ from paris_2025.plotting.common import get_metadata
 @lru_cache()
 def cache_data():
     conc_series = xr.open_mfdataset(
-        "/Users/rmaiwald/Levante/Paris/Output/concentration_timeseries.nc"
-    )
-    source_groups = xr.open_mfdataset(
-        "/Users/rmaiwald/Levante/Paris/Input/Fluxes/source_groups.nc"
-    )
-    t = source_groups.type
+        p.CONFIG["output_path"] + "/" + ggp.config.CONCENTRATION_TIMESERIES_FILE_NAME
+    ).sel(best_sim_id=0)
+    t = conc_series.type
     mask = xr.concat(
         [
             t.str.contains("Origins.earth") | t.str.contains("VPRM 2023"),
@@ -35,7 +32,7 @@ def cache_data():
     time_series = ggp.utils.ugm3_to_ppm(
         conc_series.co2_timeseries.sel(loss_type="rmse - filter: True")
         .where(mask)
-        .sum("source_group"),
+        .sum("type"),
         "co2",
     )
     with ProgressBar():
@@ -233,7 +230,7 @@ def station_scatter_plot(
         if show_infos:
             # Calculate RMSE, bias, and R-value
             rmse = np.sqrt(np.mean((ds["x_plot"] - ds["y_plot"]) ** 2))
-            bias = np.mean(ds["y_plot"] - ds["x_plot"])
+            bias = np.mean(ds["x_plot"] - ds["y_plot"])
             corr = np.corrcoef(ds["x_plot"], ds["y_plot"])[0, 1]
 
             # Add RMSE and correlation to plot
@@ -346,13 +343,15 @@ def plot_tracer_model_scatter_plots(fig_path: str | Path):
                     f"{afternoon_title}{wind_title}"
                 )
 
-                fig_path = Path(fig_path)
-                stem = fig_path.stem
-                parent = fig_path.parent
-                suffix = fig_path.suffix
+                from_template = str(fig_path).format(
+                    x_title=x_title,
+                    y_title=y_title,
+                    afternoon_label=afternoon_label,
+                    wind_label=wind_label,
+                )
+
                 station_scatter_plot(
-                    fig_path=f"{parent}/{stem}{x_title}_{y_title}"
-                    f"{afternoon_label}{wind_label}{suffix}",
+                    fig_path=from_template,
                     data_x=x_data,
                     data_y=y_data,
                     co2=co2,
@@ -444,14 +443,14 @@ def plot_bias_rmse_by_location(fig_path: str | Path):
             axs[1].set_xlabel(x_label)
             plt.legend(loc="center left", bbox_to_anchor=(1.05, 0.5))
 
-            fig_path_obj = Path(fig_path)
-            y_suffix = y_label.replace(" ", "_")
-            x_suffix = x_label.split("[")[0].strip().replace(" ", "_")
-            output_path = (
-                fig_path_obj.parent / f"{fig_path_obj.stem}_{y_suffix}_{x_suffix}.png"
-            )
+            y_title = y_label.replace(" ", "_")
+            x_title = x_label.split("[")[0].strip().replace(" ", "_")
+            from_template = str(fig_path).format(
+                    x_title=x_title,
+                    y_title=y_title,
+                )
             plt.savefig(
-                output_path,
+                from_template,
                 metadata=get_metadata(f"{y_label} by {x_label}"),
                 bbox_inches="tight",
             )
@@ -507,20 +506,22 @@ def plot_timeseries_comparison(
     for i, (ax, station) in enumerate(zip(axs, stations)):
         # Model
         (
-            gral_co2.isel(rank=0).sel(station=station).rolling(time=rolling).mean()
-            + background
+            gral_co2.sel(station=station)
+            .rolling(time=rolling)
+            .mean()
+            # gral_co2.isel(rank=0).sel(station=station).rolling(time=rolling).mean()
         ).sel(time=time_slice).plot(
             ax=ax,
             label="Model",
         )
 
         # Model uncertainty
+        """
         extended_co2 = (
             gral_co2.sel(station=station)
             .isel(rank=slice(0, 10))
             .rolling(time=rolling)
             .mean()
-            + background
         ).sel(time=time_slice)
         ax.fill_between(
             extended_co2.time,
@@ -529,6 +530,7 @@ def plot_timeseries_comparison(
             alpha=0.3,
             label="Model uncertainty",
         )
+        """
 
         # Measurement
         co2_measurements["co2"].sel(station=station).sel(time=time_slice).plot(
