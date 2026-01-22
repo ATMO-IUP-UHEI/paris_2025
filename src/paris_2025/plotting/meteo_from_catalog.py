@@ -466,12 +466,12 @@ def plot_hodographs(
 
 def plot_stability_class_and_wind_speed_by_season(
     fig_path: str | Path,
-    gramm_meteo_timeseries_path: (
-        str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Output/gramm_meteo_timeseries.nc",
-    gral_meteo_timeseries_path: (
-        str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Output/gral_meteo_timeseries.nc",
+    gramm_meteo_timeseries_path: str | Path = p.CONFIG["output_path"]
+    + "/"
+    + ggp.config.GRAMM_METEO_TIMESERIES_FILE_NAME,
+    gral_meteo_timeseries_path: str | Path = p.CONFIG["output_path"]
+    + "/"
+    + ggp.config.GRAL_METEO_TIMESERIES_FILE_NAME,
     loss_type: str = "rmse - filter: True",
 ):
     """
@@ -493,8 +493,12 @@ def plot_stability_class_and_wind_speed_by_season(
         Loss type to use for model selection. Default is "rmse - filter: True".
     """
     config = p.config.load_config()
-    gramm_meteo_timeseries = xr.open_dataset(gramm_meteo_timeseries_path)
-    gral_meteo_timeseries = xr.open_dataset(gral_meteo_timeseries_path)
+    gramm_meteo_timeseries = xr.open_dataset(gramm_meteo_timeseries_path).sel(
+        best_sim_id=0
+    )
+    gral_meteo_timeseries = xr.open_dataset(gral_meteo_timeseries_path).sel(
+        best_sim_id=0
+    )
 
     # Select matched model for each station
     model_selection = {
