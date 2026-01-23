@@ -9,7 +9,9 @@ from paris_2025.plotting import (
     meteo_from_catalog,
     meteo_measurements,
     tracer_background,
+    tracer_comparison,
     tracer_from_catalog,
+    fluxes,
     tracer_measurements,
 )
 
@@ -303,11 +305,11 @@ if __name__ == "__main__":
     (FIGURE_PATH / DIR).mkdir(parents=True, exist_ok=True)
     create_figures_if_missing(
         FIGURE_PATH / DIR / "flux_by_type.png",
-        p.plotting.fluxes.plot_flux_by_type,
+        fluxes.plot_flux_by_type,
     )
     create_figures_if_missing(
         FIGURE_PATH / DIR / "temporal_scaling_factors.png",
-        p.plotting.fluxes.plot_temporal_scaling_factors,
+        fluxes.plot_temporal_scaling_factors,
     )
 
     # Tracer model comparison
@@ -324,7 +326,7 @@ if __name__ == "__main__":
                 "{x_title}_{y_title}{afternoon_label}{wind_label}.png"
             ),
         },
-        p.plotting.tracer_comparison.plot_tracer_model_scatter_plots,
+        tracer_comparison.plot_tracer_model_scatter_plots,
     )
     # Scatter plots of bias and RMSE by location
     create_figures_if_missing(
@@ -334,5 +336,28 @@ if __name__ == "__main__":
             / DIR
             / ("bias_and_rmse_tracer_model_scatter_plots_{y_title}_{x_title}.png"),
         },
-        p.plotting.tracer_comparison.plot_bias_rmse_by_location,
+        tracer_comparison.plot_bias_rmse_by_location,
     )
+    # Time series comparison
+    for season in ["summer", "fall", "winter"]:
+        if season == "summer":
+            start_time = "2023-05-16"
+        elif season == "fall":
+            start_time = "2023-10-01"
+        elif season == "winter":
+            start_time = "2023-01-01"
+        else:
+            raise ValueError(f"Unknown season: {season}")
+        for inventory in ["Origins.earth", "TNO"]:
+            for n_best in [3, 5, 10, 20]:
+                create_figures_if_missing(
+                    (
+                        FIGURE_PATH / DIR / f"time_series_"
+                        f"{season}_{inventory}_{n_best}.png"
+                    ),
+                    tracer_comparison.plot_timeseries_comparison,
+                    inventory=inventory,
+                    n_best=n_best,
+                    stations=["CDS_34", "JUS_30", "ROV_103"],
+                    start_time=start_time,
+                )

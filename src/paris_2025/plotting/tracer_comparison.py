@@ -19,7 +19,7 @@ from paris_2025.plotting.common import get_metadata
 def cache_data():
     conc_series = xr.open_mfdataset(
         p.CONFIG["output_path"] + "/" + ggp.config.CONCENTRATION_TIMESERIES_FILE_NAME
-    ).sel(best_sim_id=0)
+    )
     t = conc_series.type
     mask = xr.concat(
         [
@@ -48,6 +48,7 @@ def cache_data():
 
 def get_plot_data(name, afternoon_only=False, main_wind_direction_only=False):
     dynamic_background, co2, co2_model = cache_data()
+    co2_model = co2_model.sel(best_sim_id=0)
     if name == "background":
         data = [
             dynamic_background.co2.reset_coords(drop=True).assign_coords(station=s)
@@ -374,6 +375,7 @@ def plot_bias_rmse_by_location(fig_path: str | Path):
         Path to save the figure
     """
     dynamic_background, co2, co2_model = cache_data()
+    co2_model = co2_model.sel(best_sim_id=0)
     # Filter out stations outside the GRAL domain
     co2 = co2.sel(station=co2.in_gral_domain)
     high_cost_mask = co2.instrument == "Picarro"
@@ -446,9 +448,9 @@ def plot_bias_rmse_by_location(fig_path: str | Path):
             y_title = y_label.replace(" ", "_")
             x_title = x_label.split("[")[0].strip().replace(" ", "_")
             from_template = str(fig_path).format(
-                    x_title=x_title,
-                    y_title=y_title,
-                )
+                x_title=x_title,
+                y_title=y_title,
+            )
             plt.savefig(
                 from_template,
                 metadata=get_metadata(f"{y_label} by {x_label}"),
@@ -459,35 +461,16 @@ def plot_bias_rmse_by_location(fig_path: str | Path):
 
 def plot_timeseries_comparison(
     fig_path: str | Path,
-    co2_measurements,
-    gral_co2,
-    background,
-    stations,
-    start_time,
+    inventory: str,
+    n_best: int,
+    stations: list,
+    start_time: str,
     duration=14,
     rolling=3,
 ):
-    """Plot time series comparison of modeled vs measured CO2.
-
-    Parameters
-    ----------
-    fig_path : str or Path
-        Path to save the figure
-    co2_measurements : xr.Dataset
-        Measured CO2 data
-    gral_co2 : xr.DataArray
-        Modeled CO2 data
-    background : xr.DataArray
-        Background CO2
-    stations : list
-        List of station IDs to plot
-    start_time : str
-        Start time for the plot
-    duration : int, optional
-        Duration in days
-    rolling : int, optional
-        Rolling mean window size
-    """
+    """Plot time series comparison of modeled vs measured CO2."""
+    dynamic_background, co2, co2_model = p.plotting.tracer_comparison.cache_data()
+    gral_co2 = co2_model.sel(prior=inventory).sel(best_sim_id=slice(0, n_best))
     time_slice = slice(
         start_time, np.datetime64(start_time) + np.timedelta64(duration, "D")
     )
@@ -506,40 +489,38 @@ def plot_timeseries_comparison(
     for i, (ax, station) in enumerate(zip(axs, stations)):
         # Model
         (
-            gral_co2.sel(station=station)
+            gral_co2.isel(best_sim_id=0)
+            .sel(station=station)
             .rolling(time=rolling)
             .mean()
-            # gral_co2.isel(rank=0).sel(station=station).rolling(time=rolling).mean()
         ).sel(time=time_slice).plot(
             ax=ax,
             label="Model",
         )
 
         # Model uncertainty
-        """
         extended_co2 = (
             gral_co2.sel(station=station)
-            .isel(rank=slice(0, 10))
+            .isel(best_sim_id=slice(0, 10))
             .rolling(time=rolling)
             .mean()
         ).sel(time=time_slice)
         ax.fill_between(
             extended_co2.time,
-            extended_co2.min(dim="rank"),
-            extended_co2.max(dim="rank"),
+            extended_co2.min(dim="best_sim_id"),
+            extended_co2.max(dim="best_sim_id"),
             alpha=0.3,
             label="Model uncertainty",
         )
-        """
 
         # Measurement
-        co2_measurements["co2"].sel(station=station).sel(time=time_slice).plot(
+        co2["co2"].sel(station=station).sel(time=time_slice).plot(
             ax=ax,
             label="Measurement",
-        )
+        )  # type: ignore
 
         # Background
-        background.sel(time=time_slice).plot(
+        dynamic_background.co2.sel(time=time_slice).plot(
             ax=ax,
             label="Background",
         )
@@ -552,8 +533,8 @@ def plot_timeseries_comparison(
         # Create title
         fw = ax.xaxis.label.get_fontweight()
         title = (
-            f"{co2_measurements.code.sel(station=station).values}"
-            f" {co2_measurements['height'].sel(station=station).values}m"
+            f"{co2.code.sel(station=station).values}"
+            f" {co2['height'].sel(station=station).values}m"
         )
         ax.text(
             0.5,
