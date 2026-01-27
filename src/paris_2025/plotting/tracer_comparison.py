@@ -16,7 +16,7 @@ from paris_2025.plotting.common import get_metadata
 
 
 @lru_cache()
-def cache_data():
+def cache_data(loss_type: str | None = "rmse - filter: True"):
     conc_series = xr.open_mfdataset(
         p.CONFIG["output_path"] + "/" + ggp.config.CONCENTRATION_TIMESERIES_FILE_NAME
     )
@@ -29,10 +29,10 @@ def cache_data():
         dim="prior",
     )
     mask["prior"] = ["Origins.earth", "TNO"]
+    if loss_type is not None:
+        conc_series = conc_series.sel(loss_type=loss_type)
     time_series = ggp.utils.ugm3_to_ppm(
-        conc_series.co2_timeseries.sel(loss_type="rmse - filter: True")
-        .where(mask)
-        .sum("type"),
+        conc_series.co2_timeseries.where(mask).sum("type"),
         "co2",
     )
     with ProgressBar():
@@ -469,7 +469,7 @@ def plot_timeseries_comparison(
     rolling=3,
 ):
     """Plot time series comparison of modeled vs measured CO2."""
-    dynamic_background, co2, co2_model = p.plotting.tracer_comparison.cache_data()
+    dynamic_background, co2, co2_model = cache_data()
     gral_co2 = co2_model.sel(prior=inventory).sel(best_sim_id=slice(0, n_best))
     time_slice = slice(
         start_time, np.datetime64(start_time) + np.timedelta64(duration, "D")
