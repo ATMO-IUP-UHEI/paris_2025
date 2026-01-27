@@ -15,6 +15,7 @@ except FileNotFoundError as e:
 from paris_2025 import (
     background,
     domain,
+    google_earth_files,
     meteo,
     model,
     model_input,
@@ -25,6 +26,7 @@ from paris_2025 import (
 __all__ = [
     "tracers",
     "domain",
+    "google_earth_files",
     "meteo",
     "model",
     "background",

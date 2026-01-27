@@ -108,3 +108,4 @@ if __name__ == "__main__":
     prepare_landcover()
     prepare_buildings()
     prepare_fluxes()
+    p.google_earth_files.create_files_for_google_earth()
