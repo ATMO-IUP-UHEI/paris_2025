@@ -361,6 +361,7 @@ if __name__ == "__main__":
                     stations=["CDS_34", "JUS_30", "ROV_103"],
                     start_time=start_time,
                 )
+
     # Diurnal, weekly, and annual cycles
     for lt in ["rmse - filter: True"]:
         for prior in ["Origins.earth", "TNO"]:
@@ -392,3 +393,21 @@ if __name__ == "__main__":
                         time_str=time_str,
                         groupby=groupby,
                     )
+
+    # Full time series plots
+    for prior in ["Origins.earth", "TNO"]:
+        for afternoon_only in [True, False]:
+            afternoon_str = "_afternoon" if afternoon_only else ""
+            create_figures_if_missing(
+                {
+                    "n": 26,
+                    "template": FIGURE_PATH
+                    / DIR
+                    / "plot_full_timeseries_mean_{station}"
+                    f"_{prior.replace(".", "_")}{afternoon_str}.png",
+                },
+                tracer_comparison.plot_full_timeseries_daily_mean,
+                loss_type="rmse - filter: True",
+                prior=prior,
+                afternoon_only=afternoon_only,
+            )

@@ -781,3 +781,46 @@ def plot_cycles_per_station(
         bbox_inches="tight",
     )
     plt.close()
+
+
+def plot_full_timeseries_daily_mean(
+    fig_path: str | Path, loss_type: str, prior: str, afternoon_only: bool = True
+):
+    background, co2, co2_model = cache_data(loss_type=loss_type)
+    afternoon_start_hour = 12
+    afternoon_end_hour = 16
+    afternoon_mask = co2.time.dt.hour.isin(
+        range(afternoon_start_hour, afternoon_end_hour)
+    )
+    if not afternoon_only:
+        afternoon_mask = xr.ones_like(co2.time, dtype=bool)
+
+    for station in co2_model.station.values:
+        plt.figure(figsize=(18, 6))
+        (co2_model.sel(prior=prior, best_sim_id=0)).sel(
+            station=station, time=afternoon_mask
+        ).resample(time="1D").mean().plot(add_legend=False)
+        co2.sel(station=co2_model.station).co2.sel(
+            station=station, time=afternoon_mask
+        ).resample(time="1D").mean().plot(add_legend=False)
+        background.co2.sel(time=afternoon_mask).resample(time="1D").mean().plot(
+            add_legend=False
+        )
+        plt.legend(["Modeled", "Measured", "Background"])
+        if afternoon_only:
+            title = (
+                f"Daily mean afternoon ({afternoon_start_hour}-{afternoon_end_hour} h) "
+                f"CO$_2$ at station {station} ({prior}, {loss_type})"
+            )
+        else:
+            title = f"Daily mean CO$_2$ at station {station} ({prior}, {loss_type})"
+        plt.title(title)
+        from_template = str(fig_path).format(
+            station=station,
+        )
+        plt.savefig(
+            from_template,
+            metadata=get_metadata(title),
+            bbox_inches="tight",
+        )
+        plt.close()
