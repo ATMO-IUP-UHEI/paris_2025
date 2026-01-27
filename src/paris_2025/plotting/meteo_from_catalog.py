@@ -515,7 +515,7 @@ def plot_stability_class_and_wind_speed_by_season(
         compat="override",
     )
     model_meteo_timeseries["speed"] = ggp.processing.wind_speed_from_vector(
-        model_meteo_timeseries["u"], model_meteo_timeseries["v"]
+        model_meteo_timeseries["ux"], model_meteo_timeseries["vy"]
     )
 
     # Define seasons
