@@ -270,6 +270,8 @@ def plot_background_station_hourly_contribution(
 def plot_co2_diff_vs_wind_speed(fig_path: str | Path, year: str = "2023"):
     """Plot CO2 vertical difference vs wind speed for day and night."""
     meteo = p.meteo.get_meteo_measurements()
+    # Drop lidar measurements
+    meteo = meteo.sel(station=meteo.operator != "lidar")
     meteo = meteo.sel(station=meteo.in_gramm_domain)
     meteo = meteo.sel(time=year)
     percent = meteo.wind_speed.notnull().sum("time") / len(meteo.time) * 100
