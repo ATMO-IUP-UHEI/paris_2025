@@ -12,6 +12,7 @@ from paris_2025.plotting import (
     tracer_comparison,
     tracer_from_catalog,
     fluxes,
+    gradient_for_matching,
     tracer_measurements,
 )
 
@@ -220,6 +221,15 @@ if __name__ == "__main__":
             FIGURE_PATH / DIR / f"matching_loss_by_{var}.png",
             matching_methods.plot_matching_loss_by_meteo_variable,
             variable=var,
+        )
+
+    # Matching methods - gradient for matching
+    for method in ["stations", "all"]:
+        fig_path = FIGURE_PATH / DIR / f"gradient_for_matching_overview_{method}.png"
+        create_figures_if_missing(
+            fig_path,
+            gradient_for_matching.create_figure,
+            method=method,
         )
 
     # CO2 measurements
