@@ -361,3 +361,34 @@ if __name__ == "__main__":
                     stations=["CDS_34", "JUS_30", "ROV_103"],
                     start_time=start_time,
                 )
+    # Diurnal, weekly, and annual cycles
+    for lt in ["rmse - filter: True"]:
+        for prior in ["Origins.earth", "TNO"]:
+            for groupby in ["hour", "day", "week"]:
+                for time_slice in ["2023", "2024", slice(None)]:
+                    time_str = (
+                        time_slice
+                        if isinstance(time_slice, str)
+                        else f"{time_slice.start}-{time_slice.stop}"
+                    )
+                    loss_type_string = (
+                        lt.replace(" - ", "_").replace(": ", "_").replace(" ", "_")
+                    )
+
+                    # stations = ["CDS_34", "JUS_30", "JUS_40", "MEU_45", "ROV_103"]
+
+                    fig_path = (
+                        FIGURE_PATH / DIR / f"cycle_{groupby}_"
+                        f"{prior.replace('.', '_')}_"
+                        f"{loss_type_string}_"
+                        f"{time_str}.png"
+                    )
+                    create_figures_if_missing(
+                        fig_path,
+                        tracer_comparison.plot_cycles_per_station,
+                        loss_type=lt,
+                        prior=prior,
+                        time_slice=time_slice,
+                        time_str=time_str,
+                        groupby=groupby,
+                    )

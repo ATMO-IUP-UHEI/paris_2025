@@ -4,12 +4,12 @@ from functools import lru_cache
 from pathlib import Path
 
 import ggpymanager as ggp
-import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns  # Remove for colormap "flare" # noqa: F401
 import xarray as xr
 from dask.diagnostics.progress import ProgressBar
+from matplotlib import patches
 
 import paris_2025 as p
 from paris_2025.plotting.common import get_metadata
@@ -268,7 +268,7 @@ def station_scatter_plot(
         # Add fancy box for title
         lw = ax.spines["left"].get_linewidth()
         offwhite = "#F8F8FF"
-        box = mpl.patches.FancyBboxPatch(  # type: ignore
+        box = patches.FancyBboxPatch(
             (0.0, 1.0),
             1.0,
             0.12,
@@ -558,3 +558,226 @@ def plot_timeseries_comparison(
         bbox_inches="tight",
     )
     plt.close(fig)
+
+
+def station_line_plot(
+    model: xr.DataArray,
+    model_data: list[xr.DataArray],
+    measurement_data: list[xr.DataArray],
+    background_data: list[xr.DataArray],
+    labels: list[str],
+    groupby: str,
+    suptitle: str,
+    stations: list[str],
+    ylabel: str,
+    ylims: tuple,
+    col_wrap=4,
+):
+    n_plots = len(model_data)
+    n_rows = int(np.ceil(n_plots / col_wrap))
+    fig, axs = plt.subplots(
+        n_rows,
+        col_wrap,
+        figsize=(18, 4 * n_rows),
+        sharex=True,
+        sharey=True,
+        gridspec_kw={"hspace": 0.2, "wspace": 0.1},
+    )
+
+    fig.suptitle(suptitle, fontsize=16)
+
+    for i, station in enumerate(model.station):
+        ax = axs.flatten()[i]
+
+        ds = xr.Dataset(
+            {
+                "model": model_data[i],
+                "measurement": measurement_data[i],
+                "background": background_data[i],
+            }
+        )
+        ds = ds.dropna(dim="time")
+
+        N = len(ds.time)
+        if N < 100:
+            print(f"Skipping {station.values} due to insufficient data")
+            ax.axis("off")
+            continue
+
+        if groupby == "hour":
+            ds[groupby] = ds["time"].dt.hour
+            time = xr.DataArray(
+                np.arange(0, 24),
+                dims=["hour"],
+                coords={"hour": np.arange(0, 24)},
+            )
+            xticks = np.arange(0, 30, 6)
+            xlabel = "Time of day [h]"
+        elif groupby == "day":
+            ds[groupby] = ds["time"].dt.dayofweek
+            time = xr.DataArray(
+                np.arange(0, 7),
+                dims=["day"],
+                coords={"day": np.arange(0, 7)},
+            )
+            xticks = np.arange(1, 7, 1)
+            xlabel = "Day of week"
+        elif groupby == "week":
+            ds[groupby] = ds["time"].dt.isocalendar().week
+            time = xr.DataArray(
+                np.arange(1, 53),
+                dims=["week"],
+                coords={"week": np.arange(1, 53)},
+            )
+            xticks = np.arange(4, 56, 8)
+            xlabel = "Week of year"
+        elif groupby == "month":
+            ds[groupby] = ds["time"].dt.month
+            time = xr.DataArray(
+                np.arange(1, 13),
+                dims=["month"],
+                coords={"month": np.arange(1, 13)},
+            )
+            xticks = np.arange(1, 13, 1)
+            xlabel = "Month of year"
+        else:
+            raise ValueError(f"Unknown groupby: {groupby}")
+
+        ds = ds.set_coords(groupby)
+        for j, var in enumerate(["model", "measurement", "background"]):
+            # data = ds.groupby(groupby).median()[var]
+            data = ds.groupby(groupby).mean()[var]
+            # Set missing times to nan but confirm to time
+            data = data.reindex({groupby: time}, method=None)
+            ax.plot(
+                time,
+                data,
+                label=labels[j],
+            )
+            if not var == "background":
+                lower_q = ds.groupby(groupby).quantile(0.25)[var]
+                lower_q = lower_q.reindex({groupby: time}, method=None)
+                upper_q = ds.groupby(groupby).quantile(0.75)[var]
+                upper_q = upper_q.reindex({groupby: time}, method=None)
+                ax.fill_between(
+                    time,
+                    lower_q,
+                    upper_q,
+                    alpha=0.2,
+                    label=f"{labels[j]} 25-75% quantile",
+                )
+        ax.set_xticks(xticks)
+
+        # ax.fill_between(
+        #     np.unique(
+        #         ds["model"]
+        #         .groupby(f"time.{groupby}")
+        #         .mean()
+        #         .sel(station=station)[groupby]
+        #     ),
+        #     ds["model_min"].groupby(f"time.{groupby}").mean().sel(station=station),
+        #     ds["model_max"].groupby(f"time.{groupby}").mean().sel(station=station),
+        #     color=color,
+        #     alpha=0.3,
+        # )
+
+        # xlims = ds[groupby].min(), ds[groupby].max()
+        # ax.set_xlim(xlims)
+        ax.set_ylim(ylims)
+        # ax.legend()
+        # plt.colorbar(im, ax=ax, label="count")
+        # ax.set_title(co2.label.sel(station=station).values)
+        fw = ax.xaxis.label.get_fontweight()
+        ax.text(
+            0.5,
+            1.06,
+            f"{model.code.sel(station=station).values} "
+            f"{model['height'].sel(station=station).values}m",
+            transform=ax.transAxes,
+            va="center",
+            ha="center",
+            # rotation=-90,
+            fontsize=12,
+            fontweight=fw,
+        )
+        # Linewidth of spines
+        lw = ax.spines["left"].get_linewidth()
+        offwhite = "#F8F8FF"
+        box = patches.FancyBboxPatch(
+            (0.0, 1.0),
+            1.0,
+            0.12,
+            boxstyle="square,pad=0.0",
+            transform=ax.transAxes,
+            edgecolor="lightgray",
+            facecolor=offwhite,
+            lw=lw,
+            zorder=-10,
+        )
+        fig.patches.extend([box])
+
+    # Set axis labels
+    for r in range(n_rows):
+        axs[r, 0].set_ylabel(ylabel)
+    for c in range(col_wrap):
+        axs[-1, c].set_xlabel(xlabel)  # type: ignore
+    # Delete splines of empty plots
+    for i in range(n_plots, len(axs.flatten())):
+        axs.flatten()[i].axis("off")
+    # One legend for all plots
+    handles, labels = axs[0, 0].get_legend_handles_labels()
+    axs.flatten()[n_plots].legend(handles, labels, loc="upper left", title="Legend")
+
+
+def plot_cycles_per_station(
+    fig_path: str | Path,
+    loss_type: str,
+    prior: str,
+    time_slice: str | slice,
+    time_str: str,
+    groupby: str,
+):
+    background, co2, co2_model = cache_data(loss_type=loss_type)
+    stations = co2_model.station.values
+    model_data = [
+        co2_model.reset_coords(drop=True).sel(
+            prior=prior,
+            best_sim_id=0,
+            station=s,
+            time=time_slice,
+        )
+        for s in stations
+    ]
+    measurement_data = [
+        co2["co2"].reset_coords(drop=True).sel(station=s, time=time_slice)
+        for s in stations
+    ]
+    background_data = [
+        background.co2.drop_vars("station").sel(time=time_slice) for s in stations
+    ]
+    labels = ["Model", "Measurement", "Background"]
+
+    ylabel = "CO2 [ppm]"
+    ylims = (410, 460)
+    suptitle = f"CO2 vs. {groupby} ({prior}, {loss_type}) {time_str}"
+
+    col_wrap = 10
+    station_line_plot(
+        model=co2_model.sel(station=stations),
+        model_data=model_data,
+        measurement_data=measurement_data,
+        background_data=background_data,
+        labels=labels,
+        groupby=groupby,
+        suptitle=suptitle,
+        stations=stations,
+        ylabel=ylabel,
+        ylims=ylims,
+        col_wrap=col_wrap,
+    )
+    plt.savefig(
+        fig_path,
+        metadata=get_metadata(suptitle),
+        bbox_inches="tight",
+    )
+    plt.close()
