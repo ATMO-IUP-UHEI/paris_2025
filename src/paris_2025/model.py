@@ -15,7 +15,7 @@ GRAL_CO2_TIMESERIES_FILE = CO2_DATA_PATH / "rmse_co2_timeseries.nc"
 GRAL_METEO_FILE = Path(CONFIG["gral_meteo_path"]) / "meteo.nc"
 
 
-def get_gramm_meteo_data():
+def get_gramm_meteo_data() -> xr.Dataset:
     if not GRAMM_METEO_FILE.exists():
         raise FileNotFoundError(f"Meteo data file not found: {GRAMM_METEO_FILE}")
 
@@ -43,7 +43,7 @@ def get_gramm_meteo_data():
     return meteo_gramm
 
 
-def get_gral_meteo_data():
+def get_gral_meteo_data() -> xr.Dataset:
     """Load meteorological data from GRAL."""
     if not GRAL_METEO_FILE.exists():
         raise FileNotFoundError(f"Meteo data file not found: {GRAL_METEO_FILE}")
@@ -62,6 +62,27 @@ def get_gral_meteo_data():
         meteo_gral.ux, meteo_gral.vy
     )
     return meteo_gral
+
+
+def get_model_meteo_data() -> xr.Dataset:
+    gramm_meteo = get_gramm_meteo_data()
+    gral_meteo = get_gral_meteo_data()
+    config = CONFIG
+    logging.info("Constructing meteorological measurement mask...")
+    model_selection = {
+        "gramm": gramm_meteo,
+        "gral": gral_meteo,
+    }
+    model_meteo = xr.concat(
+        [
+            model_selection[m].sel(station=s)
+            for s, m in config["matching"]["stations"].items()
+        ],
+        dim="station",
+        coords="different",
+        compat="equals",
+    )
+    return model_meteo
 
 
 def get_co2_data():
