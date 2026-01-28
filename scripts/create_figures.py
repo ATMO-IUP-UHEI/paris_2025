@@ -375,8 +375,16 @@ if __name__ == "__main__":
     # Diurnal, weekly, and annual cycles
     for lt in ["rmse - filter: True"]:
         for prior in ["Origins.earth", "TNO"]:
-            for groupby in ["hour", "day", "week"]:
-                for time_slice in ["2023", "2024", slice(None)]:
+            for groupby_iterator in [
+                "hour",
+                "hour-spring",
+                "hour-summer",
+                "hour-fall",
+                "hour-winter",
+                "day",
+                "week",
+            ]:
+                for time_slice in ["2023", "2024", slice("2023", "2024")]:
                     time_str = (
                         time_slice
                         if isinstance(time_slice, str)
@@ -387,12 +395,19 @@ if __name__ == "__main__":
                     )
 
                     # stations = ["CDS_34", "JUS_30", "JUS_40", "MEU_45", "ROV_103"]
+                    if len(groupby_iterator.split("-")) == 2:
+                        groupby, season = groupby_iterator.split("-")
+                        season_str = "_" + season
+                    else:
+                        groupby = groupby_iterator
+                        season = ""
+                        season_str = ""
 
                     fig_path = (
                         FIGURE_PATH / DIR / f"cycle_{groupby}_"
                         f"{prior.replace('.', '_')}_"
                         f"{loss_type_string}_"
-                        f"{time_str}.png"
+                        f"{time_str}{season_str}.png"
                     )
                     create_figures_if_missing(
                         fig_path,
@@ -402,6 +417,7 @@ if __name__ == "__main__":
                         time_slice=time_slice,
                         time_str=time_str,
                         groupby=groupby,
+                        season=season,
                     )
 
     # Full time series plots

@@ -568,7 +568,6 @@ def station_line_plot(
     labels: list[str],
     groupby: str,
     suptitle: str,
-    stations: list[str],
     ylabel: str,
     ylims: tuple,
     col_wrap=4,
@@ -736,11 +735,23 @@ def plot_cycles_per_station(
     time_slice: str | slice,
     time_str: str,
     groupby: str,
+    season: str,
 ):
     background, co2, co2_model = cache_data(loss_type=loss_type)
     stations = co2_model.station.values
+
+    season_mask = {
+        "": xr.ones_like(co2.time),
+        "spring": co2.time.dt.month.isin([3, 4, 5]),
+        "summer": co2.time.dt.month.isin([6, 7, 8]),
+        "fall": co2.time.dt.month.isin([9, 10, 11]),
+        "winter": co2.time.dt.month.isin([12, 1, 2]),
+    }
+
     model_data = [
-        co2_model.reset_coords(drop=True).sel(
+        co2_model.reset_coords(drop=True)
+        .where(season_mask[season])
+        .sel(
             prior=prior,
             best_sim_id=0,
             station=s,
@@ -749,17 +760,23 @@ def plot_cycles_per_station(
         for s in stations
     ]
     measurement_data = [
-        co2["co2"].reset_coords(drop=True).sel(station=s, time=time_slice)
+        co2["co2"]
+        .reset_coords(drop=True)
+        .where(season_mask[season])
+        .sel(station=s, time=time_slice)
         for s in stations
     ]
     background_data = [
-        background.co2.drop_vars("station").sel(time=time_slice) for s in stations
+        background.co2.drop_vars("station")
+        .where(season_mask[season])
+        .sel(time=time_slice)
+        for s in stations
     ]
     labels = ["Model", "Measurement", "Background"]
 
     ylabel = "CO2 [ppm]"
     ylims = (410, 460)
-    suptitle = f"CO2 vs. {groupby} ({prior}, {loss_type}) {time_str}"
+    suptitle = f"CO2 vs. {groupby} ({prior}, {loss_type}) {time_str} {season}"
 
     col_wrap = 10
     station_line_plot(
@@ -770,7 +787,6 @@ def plot_cycles_per_station(
         labels=labels,
         groupby=groupby,
         suptitle=suptitle,
-        stations=stations,
         ylabel=ylabel,
         ylims=ylims,
         col_wrap=col_wrap,
