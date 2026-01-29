@@ -16,9 +16,11 @@ def get_wind_direction():
     normalized_mean_v_wind : xarray.DataArray
         Normalized mean v-wind component.
     """
-    # Get main wind direction
-    mean_u_wind, mean_v_wind, mean_wind_speed, mean_wind_direction = (
-        p.meteo.get_mean_wind_vars()
+    meteo = p.meteo.get_meteo_measurements()
+    # Only select stations used for matching
+    meteo = meteo.sel(station=list(p.CONFIG["matching"]["stations"].keys()))
+    mean_u_wind, mean_v_wind, mean_wind_speed, _ = (
+        p.meteo.get_mean_wind_vars(meteo)
     )
     # Normalize mean_u_wind and mean_v_wind
     normalized_mean_u_wind = mean_u_wind / mean_wind_speed

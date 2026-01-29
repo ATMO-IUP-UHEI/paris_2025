@@ -9,15 +9,15 @@ from windrose import WindroseAxes
 import paris_2025 as p
 from paris_2025.plotting.common import get_metadata
 
+WINDROSE_MAX_SPEED = 12
+
 
 def plot_mean_windrose(fig_path: str | Path, year: str = "2023"):
     """Plot mean wind rose for the specified year."""
-    mean_u_wind, mean_v_wind, mean_wind_speed, mean_wind_direction = (
-        p.meteo.get_mean_wind_vars()
-    )
-    mean_wind_speed = mean_wind_speed.sel(time=year)
-    mean_wind_direction = mean_wind_direction.sel(time=year)
-
+    meteo = p.meteo.get_meteo_measurements().sel(time=year)
+    # Only select stations used for matching
+    meteo = meteo.sel(station=list(p.CONFIG["matching"]["stations"].keys()))
+    _, _, mean_wind_speed, mean_wind_direction = p.meteo.get_mean_wind_vars(meteo)
     fig = plt.figure(figsize=(8, 8))
     ax = WindroseAxes.from_ax()
     ax.bar(
@@ -26,6 +26,7 @@ def plot_mean_windrose(fig_path: str | Path, year: str = "2023"):
         normed=True,
         opening=0.8,
         edgecolor="white",
+        bins=np.linspace(0, WINDROSE_MAX_SPEED, 6),
     )
     ax.set_legend()
     plt.savefig(
@@ -41,11 +42,10 @@ def plot_co2_stations_with_windrose(fig_path: str | Path, year: str = "2023"):
     co2 = p.tracers.get_co2_measurements()
     co2 = co2.sel(time=year)
 
-    mean_u_wind, mean_v_wind, mean_wind_speed, mean_wind_direction = (
-        p.meteo.get_mean_wind_vars()
-    )
-    mean_wind_speed = mean_wind_speed.sel(time=year)
-    mean_wind_direction = mean_wind_direction.sel(time=year)
+    meteo = p.meteo.get_meteo_measurements().sel(time=year)
+    # Only select stations used for matching
+    meteo = meteo.sel(station=list(p.CONFIG["matching"]["stations"].keys()))
+    _, _, mean_wind_speed, mean_wind_direction = p.meteo.get_mean_wind_vars(meteo)
 
     fig, ax = plt.subplots(figsize=(20, 10))
     p.domain.add_domain(ax)

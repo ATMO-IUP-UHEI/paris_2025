@@ -53,9 +53,16 @@ def get_meteo_measurements() -> xr.Dataset:
     return meteo
 
 
-def get_mean_wind_vars():
+def get_mean_wind_vars(
+    meteo: xr.Dataset | None = None,
+) -> tuple[xr.DataArray, xr.DataArray, xr.DataArray, xr.DataArray]:
     """
     Get the mean wind speed from the meteorological measurements.
+
+    Parameters
+    ----------
+    meteo : xarray.Dataset | None
+        The meteorological measurement dataset. If None, it will be loaded from file.
 
     Returns
     -------
@@ -68,7 +75,8 @@ def get_mean_wind_vars():
     mean_wind_direction : xarray.DataArray
         Mean wind direction across all stations.
     """
-    meteo = p.meteo.get_meteo_measurements()
+    if meteo is None:
+        meteo = p.meteo.get_meteo_measurements()
     mean_u_wind = meteo.u_wind.mean("station")
     mean_v_wind = meteo.v_wind.mean("station")
     mean_wind_speed = ggpy.processing.wind_speed_from_vector(mean_u_wind, mean_v_wind)
