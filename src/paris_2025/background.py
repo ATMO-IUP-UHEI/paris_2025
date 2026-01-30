@@ -19,9 +19,7 @@ def get_wind_direction():
     meteo = p.meteo.get_meteo_measurements()
     # Only select stations used for matching
     meteo = meteo.sel(station=list(p.CONFIG["matching"]["stations"].keys()))
-    mean_u_wind, mean_v_wind, mean_wind_speed, _ = (
-        p.meteo.get_mean_wind_vars(meteo)
-    )
+    mean_u_wind, mean_v_wind, mean_wind_speed, _ = p.meteo.get_mean_wind_vars(meteo)
     # Normalize mean_u_wind and mean_v_wind
     normalized_mean_u_wind = mean_u_wind / mean_wind_speed
     normalized_mean_v_wind = mean_v_wind / mean_wind_speed
@@ -85,7 +83,7 @@ def get_background_co2() -> xr.Dataset:
 
     # Set distances to NaN if no co2 measurements are available
     logging.info("Selecting dynamic background CO2 stations...")
-    distances = distances.where(background_co2["co2"].notnull())
+    distances = distances.where(background_co2["co2"].notnull())  # type: ignore
 
     dynamic_background_index = distances.idxmin(dim="station")
     hours_without_background = dynamic_background_index.isnull().sum().item()
