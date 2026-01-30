@@ -10,6 +10,7 @@ from matplotlib import patches as mpatches
 
 import paris_2025 as p
 from paris_2025.plotting.common import get_metadata
+from paris_2025.config import CONFIG
 
 
 def calculate_wind_rmse(sm, sm_model, dim):
@@ -96,11 +97,10 @@ def plot_meteo_model_comparison(
     if selected_operators is None:
         selected_operators = ["MeteoFrance", "NCAR", "high-cost"]
 
-    config = p.config.load_config()
     meteo = p.meteo.get_meteo_measurements()
     # Select time period
     meteo = meteo.sel(
-        time=slice(config["matching"]["time_start"], config["matching"]["time_end"])
+        time=slice(CONFIG["matching"]["time_start"], CONFIG["matching"]["time_end"])
     )
     meteo_gramm = p.model.get_gramm_meteo_data()
     meteo_gral = p.model.get_gral_meteo_data()
@@ -466,10 +466,10 @@ def plot_hodographs(
 
 def plot_stability_class_and_wind_speed_by_season(
     fig_path: str | Path,
-    gramm_meteo_timeseries_path: str | Path = p.CONFIG["output_path"]
+    gramm_meteo_timeseries_path: str | Path = CONFIG["output_path"]
     + "/"
     + ggp.config.GRAMM_METEO_TIMESERIES_FILE_NAME,
-    gral_meteo_timeseries_path: str | Path = p.CONFIG["output_path"]
+    gral_meteo_timeseries_path: str | Path = CONFIG["output_path"]
     + "/"
     + ggp.config.GRAL_METEO_TIMESERIES_FILE_NAME,
     loss_type: str = "rmse - filter: True",
@@ -492,7 +492,6 @@ def plot_stability_class_and_wind_speed_by_season(
     loss_type : str, optional
         Loss type to use for model selection. Default is "rmse - filter: True".
     """
-    config = p.config.load_config()
     gramm_meteo_timeseries = xr.open_dataset(gramm_meteo_timeseries_path).sel(
         best_sim_id=0
     )
@@ -508,7 +507,7 @@ def plot_stability_class_and_wind_speed_by_season(
     model_meteo_timeseries = xr.concat(
         [
             model_selection[m].sel(station=s)
-            for s, m in config["matching"]["stations"].items()
+            for s, m in CONFIG["matching"]["stations"].items()
         ],
         dim="station",
         coords="minimal",

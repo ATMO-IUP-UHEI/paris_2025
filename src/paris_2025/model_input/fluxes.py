@@ -11,7 +11,8 @@ import xarray as xr
 from dask.diagnostics.progress import ProgressBar
 from rasterio.enums import Resampling
 
-from paris_2025 import CONFIG, model_input
+from paris_2025.config import CONFIG
+from paris_2025 import model_input
 
 d_path = Path(CONFIG["data_path"])
 AREA_ID_NETCDF_PATH = d_path / "Fluxes/area_id.nc"

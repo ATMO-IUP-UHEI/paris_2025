@@ -3,7 +3,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 
-import paris_2025 as p
+from paris_2025.config import CONFIG
 from paris_2025.plotting import (
     matching_methods,
     meteo_from_catalog,
@@ -20,7 +20,7 @@ from paris_2025.plotting import (
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-FIGURE_PATH = Path(p.CONFIG["figures_path"])
+FIGURE_PATH = Path(CONFIG["figures_path"])
 FORCE = False  # Overwrite existing figures
 
 # Set matplotlib style like size of the figures, text size, etc. by hand

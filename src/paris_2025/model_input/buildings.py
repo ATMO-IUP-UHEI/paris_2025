@@ -8,7 +8,7 @@ import rioxarray  # noqa
 import xarray as xr
 from rasterio.enums import Resampling
 
-from paris_2025 import CONFIG
+from paris_2025.config import CONFIG
 
 
 FIGURE_PATH = Path(CONFIG["figures_path"]) / "Input/buildings.png"

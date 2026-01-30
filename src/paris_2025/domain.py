@@ -2,15 +2,13 @@ import geopandas as gpd
 import shapely
 import contextily as ctx
 import matplotlib.pyplot as plt
-from paris_2025.config import load_config
-
-CONFIG = load_config()
+from paris_2025.config import CONFIG
 
 
 def checking_domain(domain_name: str, x, y):
     """
     Checks if the given coordinates (x, y) are within the specified domain.
-    
+
     Parameters
     ----------
     domain_name : str

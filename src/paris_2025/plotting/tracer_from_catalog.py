@@ -7,6 +7,7 @@ import xarray as xr
 from matplotlib import colors as mcolors
 
 import paris_2025 as p
+from paris_2025.config import CONFIG
 from paris_2025.plotting.common import get_metadata
 
 
@@ -75,7 +76,7 @@ def plot_concentration_at_station_per_simulation(fig_path: str | Path):
 def plot_hourly_vprm_concentration(fig_path: str | Path):
     """Plot mean hourly VPRM concentration with temporal factors applied."""
     concentration_timeseries = xr.open_dataset(
-        p.CONFIG["output_path"] + "/" + ggp.config.CONCENTRATION_TIMESERIES_FILE_NAME
+        CONFIG["output_path"] + "/" + ggp.config.CONCENTRATION_TIMESERIES_FILE_NAME
     ).sel(best_sim_id=0)
 
     # Calculate hourly mean concentration

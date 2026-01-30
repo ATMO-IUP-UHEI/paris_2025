@@ -3,6 +3,7 @@ import xarray as xr
 import logging
 
 import paris_2025 as p
+from paris_2025.config import CONFIG
 
 
 def get_wind_direction():
@@ -18,7 +19,7 @@ def get_wind_direction():
     """
     meteo = p.meteo.get_meteo_measurements()
     # Only select stations used for matching
-    meteo = meteo.sel(station=list(p.CONFIG["matching"]["stations"].keys()))
+    meteo = meteo.sel(station=list(CONFIG["matching"]["stations"].keys()))
     mean_u_wind, mean_v_wind, mean_wind_speed, _ = p.meteo.get_mean_wind_vars(meteo)
     # Normalize mean_u_wind and mean_v_wind
     normalized_mean_u_wind = mean_u_wind / mean_wind_speed

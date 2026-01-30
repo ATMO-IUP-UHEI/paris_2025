@@ -4,9 +4,7 @@ from pathlib import Path
 import ggpymanager as ggpy
 import xarray as xr
 
-from paris_2025.config import load_config
-
-CONFIG = load_config()
+from paris_2025.config import CONFIG
 
 GRAMM_METEO_FILE = Path(CONFIG["gramm_meteo_path"]) / "meteo.nc"
 CO2_DATA_PATH = Path(CONFIG["gral_co2_path"])

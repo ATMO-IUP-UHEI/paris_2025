@@ -1,5 +1,5 @@
-from paris_2025.config import load_config
+from paris_2025.config import _load_config
 
 
 def test_load_config():
-    load_config()
+    _load_config()

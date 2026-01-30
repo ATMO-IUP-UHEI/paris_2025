@@ -5,7 +5,7 @@ import ggpymanager as ggp
 import xarray as xr
 
 import paris_2025 as p
-from paris_2025 import CONFIG
+from paris_2025.config import CONFIG
 
 
 def prepare_domain(

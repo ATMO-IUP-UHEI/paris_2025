@@ -7,6 +7,7 @@ import numpy as np
 import xarray as xr
 
 import paris_2025 as p
+from paris_2025.config import CONFIG
 from paris_2025.plotting.common import get_metadata
 
 
@@ -239,7 +240,7 @@ def plot_gradient_overview(status, gramm_meteo, gral_concentration, method):
 
 
 def create_figure(fig_path: str | Path, method: str):
-    catalog = ggp.Catalog(p.CONFIG["domain"]["gral"]["conf_path"], model="gral")
+    catalog = ggp.Catalog(CONFIG["domain"]["gral"]["conf_path"], model="gral")
     status = xr.load_dataset(catalog.status_log_path)
     status["concentration_vertical_profile"] = ggp.utils.ugm3_to_ppm(
         status.concentration_vertical_profile, "co2"
@@ -255,9 +256,7 @@ def create_figure(fig_path: str | Path, method: str):
     fig = plot_gradient_overview(status, gramm_meteo, gral_concentration, method)
     plt.savefig(
         fig_path,
-        metadata=get_metadata(
-            f"Gradient Overview Plot - Method: {method}"
-        ),
+        metadata=get_metadata(f"Gradient Overview Plot - Method: {method}"),
         bbox_inches="tight",
     )
     plt.close(fig)

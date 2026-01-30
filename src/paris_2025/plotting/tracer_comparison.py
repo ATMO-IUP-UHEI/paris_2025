@@ -12,13 +12,14 @@ from dask.diagnostics.progress import ProgressBar
 from matplotlib import patches
 
 import paris_2025 as p
+from paris_2025.config import CONFIG
 from paris_2025.plotting.common import get_metadata
 
 
 @lru_cache()
 def cache_data(loss_type: str | None = "rmse - filter: True"):
     conc_series = xr.open_mfdataset(
-        p.CONFIG["output_path"] + "/" + ggp.config.CONCENTRATION_TIMESERIES_FILE_NAME
+        CONFIG["output_path"] + "/" + ggp.config.CONCENTRATION_TIMESERIES_FILE_NAME
     )
     t = conc_series.type
     mask = xr.concat(

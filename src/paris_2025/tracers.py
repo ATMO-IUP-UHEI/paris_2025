@@ -13,13 +13,11 @@ import pyproj
 import xarray as xr
 
 import paris_2025 as p
-from paris_2025.config import load_config
+from paris_2025.config import CONFIG
 
 # import shapely
 # from tqdm import tqdm
 
-
-CONFIG = load_config()
 
 TRACER_PATH = Path(CONFIG["data_path"]) / "6_measurements/6_2_tracers/"
 print(f"Using tracer path: {TRACER_PATH}")

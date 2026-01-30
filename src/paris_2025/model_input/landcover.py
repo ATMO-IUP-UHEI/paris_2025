@@ -12,7 +12,7 @@ import pandas as pd
 import rioxarray  # noqa
 import xarray as xr
 
-from paris_2025 import CONFIG
+from paris_2025.config import CONFIG
 
 N_PROCESSES = 4
 TMP_FILE = Path(CONFIG["data_path"]) / "Landcover/gramm_UrbanAtlas_landcover_classes.nc"

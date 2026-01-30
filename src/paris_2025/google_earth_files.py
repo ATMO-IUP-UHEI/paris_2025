@@ -5,11 +5,11 @@ import geopandas as gpd
 import ggpymanager as ggp
 
 import paris_2025 as p
+from paris_2025.config import CONFIG
 
 
 def create_files_for_google_earth():
-    config = p.config.load_config()
-    out_path = Path(config["data_path"])
+    out_path = Path(CONFIG["data_path"])
     logging.info("Loading meteo measurements...")
     meteo = p.meteo.get_meteo_measurements()
     # Create geojson of meteo stations

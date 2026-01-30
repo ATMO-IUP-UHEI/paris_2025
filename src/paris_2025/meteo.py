@@ -10,9 +10,8 @@ from joblib import Parallel, delayed
 from tqdm import tqdm
 
 import paris_2025 as p
-from paris_2025.config import load_config
+from paris_2025.config import CONFIG
 
-CONFIG = load_config()
 METEO_PATH = Path(CONFIG["meteo_path"])
 logging.info(f"Using meteorological path: {METEO_PATH}")
 METEO_FILE = METEO_PATH / "meteo.nc"
