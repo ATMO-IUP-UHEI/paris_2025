@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 
-import ggpymanager as ggpy
+import ggpymanager as ggp
 import numpy as np
 import pandas as pd
 import pyproj
@@ -24,6 +24,49 @@ METEO_SUBPATHS = {
     "lidar": "6_1_5_Lidar/",
     "high-cost": "6_1_6_crds_co-located/",
 }
+
+
+def create_temperature_and_pressure_dataset():
+    """Create temperature and pressure datasets from meteo measurements."""
+    meteo = p.meteo.get_meteo_measurements()
+    # Drop lidar measurements
+    meteo = meteo.sel(station=meteo.operator != "lidar")
+    # Select only for matching period
+    meteo = meteo.sel(
+        time=slice(
+            CONFIG["matching"]["time_start"],
+            CONFIG["matching"]["time_end"],
+        )
+    )
+    # Select only stations in GRAL domain
+    meteo = meteo.sel(station=meteo.in_gral_domain)
+    # Select pressure and temperature measurements only
+    meteo = meteo[["temperature", "pressure"]].load()
+
+    # Select only measurements with temperature and pressure measurements
+    meteo = meteo.sel(
+        station=meteo.pressure.notnull().any("time")
+        & meteo.temperature.notnull().any("time")
+    )
+    temperature = meteo.temperature.mean("station").to_dataset(name="temperature")
+    pressure = meteo.pressure.mean("station").to_dataset(name="pressure")
+    # Add attributes
+    for ds in [temperature, pressure]:
+        ds.attrs["title"] = (
+            "Meteorological measurements averaged over stations in GRAL domain"
+        )
+        for var in ds.data_vars:
+            ds[var].attrs.update(ggp.config.NETCDF_METADATA[var])
+    assert (
+        not temperature.temperature.isnull().any().item()
+    ), "Temperature has NaN values"
+    assert not pressure.pressure.isnull().any().item(), "Pressure has NaN values"
+    temperature_file = (
+        Path(CONFIG["data_path"]) / "6_measurements/6_1_meteo/temperature.nc"
+    )
+    ggp.io.writers.save_netcdf_with_cf_check(temperature, temperature_file)
+    pressure_file = Path(CONFIG["data_path"]) / "6_measurements/6_1_meteo/pressure.nc"
+    ggp.io.writers.save_netcdf_with_cf_check(pressure, pressure_file)
 
 
 def get_meteo_measurements() -> xr.Dataset:
@@ -78,10 +121,8 @@ def get_mean_wind_vars(
         meteo = p.meteo.get_meteo_measurements()
     mean_u_wind = meteo.u_wind.mean("station")
     mean_v_wind = meteo.v_wind.mean("station")
-    mean_wind_speed = ggpy.processing.wind_speed_from_vector(mean_u_wind, mean_v_wind)
-    mean_wind_direction = ggpy.processing.direction_from_vector(
-        mean_u_wind, mean_v_wind
-    )
+    mean_wind_speed = ggp.processing.wind_speed_from_vector(mean_u_wind, mean_v_wind)
+    mean_wind_direction = ggp.processing.direction_from_vector(mean_u_wind, mean_v_wind)
     return mean_u_wind, mean_v_wind, mean_wind_speed, mean_wind_direction
 
 
@@ -110,7 +151,7 @@ def create_meteo_measurements() -> None:
     )
 
     # Add wind as vector
-    meteo["u_wind"], meteo["v_wind"] = ggpy.processing.vector_from_direction_and_speed(
+    meteo["u_wind"], meteo["v_wind"] = ggp.processing.vector_from_direction_and_speed(
         meteo["wind_direction"], meteo["wind_speed"]
     )
 
