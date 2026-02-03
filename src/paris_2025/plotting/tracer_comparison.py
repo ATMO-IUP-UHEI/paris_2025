@@ -754,7 +754,6 @@ def plot_cycles_per_station(
         .where(season_mask[season])
         .sel(
             prior=prior,
-            best_sim_id=0,
             station=s,
             time=time_slice,
         )
