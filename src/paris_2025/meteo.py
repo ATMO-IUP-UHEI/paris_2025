@@ -62,10 +62,10 @@ def create_temperature_and_pressure_dataset():
     ), "Temperature has NaN values"
     assert not pressure.pressure.isnull().any().item(), "Pressure has NaN values"
     temperature_file = (
-        Path(CONFIG["data_path"]) / "6_measurements/6_1_meteo/temperature.nc"
+        Path(CONFIG["data_path"]) / CONFIG["meteo_path"] / "temperature.nc"
     )
     ggp.io.writers.save_netcdf_with_cf_check(temperature, temperature_file)
-    pressure_file = Path(CONFIG["data_path"]) / "6_measurements/6_1_meteo/pressure.nc"
+    pressure_file = Path(CONFIG["data_path"]) / CONFIG["meteo_path"] / "pressure.nc"
     ggp.io.writers.save_netcdf_with_cf_check(pressure, pressure_file)
 
 
