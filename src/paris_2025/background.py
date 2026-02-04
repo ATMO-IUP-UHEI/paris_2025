@@ -27,7 +27,7 @@ def get_wind_direction():
     return normalized_mean_u_wind, normalized_mean_v_wind
 
 
-def get_background_co2() -> xr.Dataset:
+def get_dynamic_background_co2() -> xr.Dataset:
     """
     Get the background CO2 measurements.
 
@@ -109,4 +109,61 @@ def get_background_co2() -> xr.Dataset:
         dim="station",
     )
     dynamic_background = selection.sel(station=dynamic_background_index)
+
+    # Rename station to selected_station
+    dynamic_background = dynamic_background.rename({"station": "background_station"})
     return dynamic_background
+
+
+def get_minimum_background_co2() -> xr.DataArray:
+    """Get the minimum background CO2 levels across all stations in the GRAL domain.
+
+    Returns
+    -------
+    background_min : xarray.DataArray
+        Minimum background CO2 levels across all stations in the GRAL domain.
+    """
+
+    co2 = p.tracers.get_co2_measurements()
+    background_min = co2.co2.sel(station=co2.in_gral_domain).min("station")
+    return background_min
+
+
+def get_binned_background_co2(
+    bins: int | list[int] = [0, 40, 80, 120, 160]
+) -> xr.DataArray:
+    """
+    Get background CO2 levels binned by height.
+
+    Parameters
+    ----------
+    bins : int | list[int]
+        Number of bins or list of bin edges for height binning.
+
+    Returns
+    -------
+    background_levels : xarray.DataArray
+        Background CO2 levels corresponding to measurement heights.
+    """
+
+    co2 = p.tracers.get_co2_measurements()
+    co2_height_bins = (
+        co2.co2.where(co2.instrument == "Picarro")
+        .groupby_bins("height", bins=bins)
+        .min()
+    )
+    co2_height_bins = co2_height_bins.interpolate_na(
+        dim="height_bins",
+        method="nearest",
+        use_coordinate=False,
+        fill_value="extrapolate",
+    )
+    selected_stations = (
+        co2.co2.where(co2.instrument == "Picarro")
+        .groupby_bins("height", bins=bins)
+        .map(lambda x: x.idxmin("station"))
+    )
+    co2_height_bins = co2_height_bins.assign_coords(
+        background_station=selected_stations
+    )
+    return co2_height_bins
