@@ -38,7 +38,7 @@ def cache_data(loss_type: str | None = "rmse - filter: True"):
     )
     with ProgressBar():
         time_series = time_series.compute()  # type: ignore
-    dynamic_background = p.background.get_background_co2()
+    dynamic_background = p.background.get_dynamic_background_co2()
     co2 = p.tracers.get_co2_measurements()
     co2_model = dynamic_background.co2.reset_coords(
         drop=True
