@@ -309,6 +309,15 @@ if __name__ == "__main__":
             tracer_background.plot_co2_diff_vs_wind_direction,
             year=year,
         )
+    for background_type in ["dynamic", "minimum", "binned"]:
+        for grouper_type in ["hour", "month", "wind direction"]:
+            create_figures_if_missing(
+                FIGURE_PATH / DIR / f"background_co2_distribution_"
+                f"{background_type}_by_{grouper_type}.png",
+                tracer_background.plot_background_station_count,
+                background_type=background_type,
+                grouper_type=grouper_type,
+            )
 
     # Fluxes
     DIR = "fluxes"

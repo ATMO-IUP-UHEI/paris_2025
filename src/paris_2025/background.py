@@ -1,6 +1,7 @@
+import logging
+
 import numpy as np
 import xarray as xr
-import logging
 
 import paris_2025 as p
 from paris_2025.config import CONFIG
@@ -125,7 +126,11 @@ def get_minimum_background_co2() -> xr.DataArray:
     """
 
     co2 = p.tracers.get_co2_measurements()
-    background_min = co2.co2.sel(station=co2.in_gral_domain).min("station")
+    co2 = co2.where(co2.instrument == "Picarro")
+    # co2 = co2.sel(station=co2.in_gral_domain)
+    background_min = co2.co2.min("station")
+    background_stations = co2.co2.idxmin("station")
+    background_min["background_station"] = background_stations
     return background_min
 
 

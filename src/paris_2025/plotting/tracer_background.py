@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -132,7 +133,7 @@ def plot_background_station_counts(fig_path: str | Path, year: str = "2023"):
     dynamic_background = p.background.get_dynamic_background_co2().sel(time=year)
 
     fig, ax = plt.subplots(figsize=(10, 6))
-    dynamic_background.station.to_pandas().value_counts().plot.bar(ax=ax)
+    dynamic_background.background_station.to_pandas().value_counts().plot.bar(ax=ax)
     ax.set_xlabel("Station")
     ax.set_ylabel("Count")
     ax.set_title(f"Background Station Usage Counts for {year}")
@@ -150,7 +151,7 @@ def plot_background_station_co2_violin(fig_path: str | Path, year: str = "2023")
 
     df = pd.DataFrame(
         {
-            "station": dynamic_background.station.values,
+            "station": dynamic_background.background_station.values,
             "co2": dynamic_background.co2.values,
         }
     )
@@ -207,10 +208,10 @@ def plot_background_station_hourly_contribution(
 
     # Count occurrences of each station per hour
     station_hour_counts = {}
-    unique_stations = np.unique(dynamic_background.station.values)
+    unique_stations = np.unique(dynamic_background.background_station.values)
 
     for station in unique_stations:
-        station_mask = hourly_data.station == station
+        station_mask = hourly_data.background_station == station
         counts_per_hour = []
         for hour in range(24):
             hour_mask = hourly_data.hour == hour
@@ -266,6 +267,112 @@ def plot_background_station_hourly_contribution(
         bbox_inches="tight",
     )
     plt.close(fig)
+
+
+def get_color_map_for_stations() -> dict[str, str]:
+    tab10_colors = plt.get_cmap("tab10").colors  # type: ignore
+    color_map = {}
+    co2 = p.tracers.get_co2_measurements()
+    station_names = co2.sel(station=co2.instrument == "Picarro").station
+    grouped = station_names.groupby(station_names.str[:3])
+    for (l, g), c in zip(
+        grouped,
+        tab10_colors,
+    ):
+        for s in g.values:
+            color_map[s] = c
+    return color_map
+
+
+def plot_background_station_count(
+    fig_path: str | Path, background_type: str, grouper_type: str
+):
+
+    color_map = get_color_map_for_stations()
+
+    match background_type:
+        case "dynamic":
+            background = p.background.get_dynamic_background_co2().load().co2
+        case "minimum":
+            background = p.background.get_minimum_background_co2().load()
+        case "binned":
+            background = p.background.get_binned_background_co2().load()
+        case _:
+            raise ValueError(f"Unsupported background type: {background_type}")
+
+    match grouper_type:
+        case "hour":
+            label = "Hour of Day"
+            grouper = "time.hour"
+        case "month":
+            label = "Month"
+            grouper = "time.month"
+        case "wind direction":
+            meteo = p.meteo.get_meteo_measurements()
+            grouper = (
+                meteo.wind_direction.sel(station="TOUR EIFFEL")
+                .sel(time=background.time)
+                .load()
+            )
+            label = "Wind Direction (deg)"
+        case _:
+            raise ValueError(f"Unsupported grouper: {grouper_type}")
+
+    if background_type == "binned":
+        n_cols = len(background.height_bins)
+        fig, axs = plt.subplots(1, n_cols, figsize=(6 * n_cols, 6))
+        for ax, bin in zip(axs, background.height_bins):
+            grouped = background.sel(height_bins=bin).background_station.groupby(
+                grouper
+            )
+            df = pd.concat(
+                {
+                    name: g.to_pandas().value_counts().rename_axis(name)
+                    for name, g in grouped
+                },
+                join="outer",
+                axis="columns",
+            )
+            if df.isnull().all().all():
+                logging.info(f"No data for height bin {bin.values}, skipping plot.")
+                continue
+            # df = df.reindex(df_index)
+            df.T.plot.area(color=[color_map[i] for i in df.index], linewidth=0, ax=ax)
+            ax.legend()  # bbox_to_anchor=(1.05, 1), loc="upper left")
+            ax.set_title(f"Selected stations for height bin {bin.values}")
+            ax.set_xlabel(label)
+            ax.set_ylabel("Count")
+    else:
+        grouped = background.background_station.groupby(grouper)
+        df = pd.concat(
+            {
+                name: g.to_pandas().value_counts().rename_axis(name)
+                for name, g in grouped
+            },
+            join="outer",
+            axis="columns",
+        )
+        # Dropna in index
+        df = df[df.index != "nan"]
+        df = df.sort_index()
+        df.T.plot.area(color=[color_map[i] for i in df.index], linewidth=0)
+        plt.gca().legend(bbox_to_anchor=(1.05, 1), loc="upper left")
+        plt.xlabel(label)
+        plt.ylabel("Count")
+
+    # Save figure
+    plt.suptitle(
+        f"Background station count by {grouper_type} for {background_type} background"
+    )
+    plt.savefig(
+        fig_path,
+        metadata=get_metadata(
+            f"Background station count by {grouper_type} for "
+            f"{background_type} background."
+        ),
+        bbox_inches="tight",
+    )
+    plt.close()
 
 
 def plot_co2_diff_vs_wind_speed(fig_path: str | Path, year: str = "2023"):
