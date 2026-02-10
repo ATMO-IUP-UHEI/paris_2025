@@ -583,3 +583,75 @@ def plot_stability_class_and_wind_speed_by_season(
         bbox_inches="tight",
     )
     plt.close(fig)
+
+
+def plot_meteo_timeseries_comparison(fig_path: str | Path):
+    """
+    Plot comparison of meteorological measurements and model outputs over time.
+
+    Parameters
+    ----------
+    fig_path : str | Path
+        Path to save the output figure.
+    """
+    # gramm_meteo_timeseries = ggp.load("gramm_meteo_timeseries", CONFIG)
+
+    gral_meteo_timeseries = ggp.load("gral_meteo_timeseries", CONFIG)
+    meteo = p.meteo.get_meteo_measurements()
+    station = "Romainville"
+
+    time_period = slice("2023-07-01", "2023-10-30")
+
+    w = meteo.sel(station=station, time=time_period)
+    w_m = gral_meteo_timeseries.sel(
+        station=station,
+        loss_type="rmse - filter: True",
+        best_sim_id=range(5),
+        time=time_period,
+    ).mean("best_sim_id")
+    w_m["direction"] = ggp.processing.direction_from_vector(w_m["ux"], w_m["vy"])
+    w_m["speed"] = ggp.processing.wind_speed_from_vector(w_m["ux"], w_m["vy"])
+
+    fig, axs = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
+
+    w.wind_speed.plot(ax=axs[0], label="Observed")
+    w_m.speed.plot(ax=axs[0], label="Simulated")
+
+    w.wind_direction.plot(ax=axs[1], label="Observed")
+    w_m.direction.plot(ax=axs[1], label="Simulated")
+
+    axs[0].legend()
+    axs[0].set_title("")
+    axs[0].set_xlabel("")
+    axs[0].set_ylabel("Wind Speed [m/s]")
+    axs[0].tick_params(
+        axis="x", which="both", bottom=False, top=False, labelbottom=False
+    )
+    axs[0].grid()
+    axs[0].text(0.02, 0.98, "(a)", transform=axs[0].transAxes, 
+                fontsize=12, fontweight="bold", va="top", ha="left")
+
+    axs[1].set_title("")
+    axs[1].set_xlabel("Time")
+    axs[1].set_ylabel("Wind Direction [degrees]")
+    axs[1].grid()
+    axs[1].text(0.02, 0.98, "(b)", transform=axs[1].transAxes,
+                fontsize=12, fontweight="bold", va="top", ha="left")
+    plt.subplots_adjust(hspace=0.0)
+    rmse = np.sqrt(((w_m.speed - w.wind_speed) ** 2).mean().item())
+    mean_observed = w.wind_speed.mean().item()
+    bias = (w_m.speed - w.wind_speed).mean().item()
+    print(f"Mean observed wind speed: {mean_observed:.2f} m/s")
+    print(f"Bias for wind speed: {bias:.2f} m/s")
+    print(f"RMSE for wind speed: {rmse:.2f} m/s")
+    plt.savefig(
+        fig_path,
+        metadata=get_metadata(
+            f"Comparison of meteorological measurements and model outputs over time "
+            f" period {time_period} for station {station}. RMSE: {rmse:.2f} m/s, "
+            f"Bias: {bias:.2f} m/s for a mean observed wind speed of "
+            f"{mean_observed:.2f} m/s."
+        ),
+        bbox_inches="tight",
+    )
+    plt.close(fig)
