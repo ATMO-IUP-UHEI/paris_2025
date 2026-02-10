@@ -628,15 +628,31 @@ def plot_meteo_timeseries_comparison(fig_path: str | Path):
         axis="x", which="both", bottom=False, top=False, labelbottom=False
     )
     axs[0].grid()
-    axs[0].text(0.02, 0.98, "(a)", transform=axs[0].transAxes, 
-                fontsize=12, fontweight="bold", va="top", ha="left")
+    axs[0].text(
+        0.02,
+        0.98,
+        "(a)",
+        transform=axs[0].transAxes,
+        fontsize=12,
+        fontweight="bold",
+        va="top",
+        ha="left",
+    )
 
     axs[1].set_title("")
     axs[1].set_xlabel("Time")
     axs[1].set_ylabel("Wind Direction [degrees]")
     axs[1].grid()
-    axs[1].text(0.02, 0.98, "(b)", transform=axs[1].transAxes,
-                fontsize=12, fontweight="bold", va="top", ha="left")
+    axs[1].text(
+        0.02,
+        0.98,
+        "(b)",
+        transform=axs[1].transAxes,
+        fontsize=12,
+        fontweight="bold",
+        va="top",
+        ha="left",
+    )
     plt.subplots_adjust(hspace=0.0)
     rmse = np.sqrt(((w_m.speed - w.wind_speed) ** 2).mean().item())
     mean_observed = w.wind_speed.mean().item()
