@@ -578,7 +578,7 @@ def station_line_plot(
     fig, axs = plt.subplots(
         n_rows,
         col_wrap,
-        figsize=(18, 4 * n_rows),
+        figsize=(4.5 * col_wrap, 4 * n_rows),
         sharex=True,
         sharey=True,
         gridspec_kw={"hspace": 0.2, "wspace": 0.1},
