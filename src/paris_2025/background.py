@@ -135,7 +135,7 @@ def get_minimum_background_co2() -> xr.DataArray:
 
 
 def get_binned_background_co2(
-    bins: int | list[int] = [0, 40, 80, 120, 160]
+    bins: int | list[int] = [0, 40, 80, 120, 200]
 ) -> xr.DataArray:
     """
     Get background CO2 levels binned by height.
