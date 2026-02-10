@@ -805,7 +805,7 @@ def plot_loss_vs_max_loss_difference(
     loss_type: str = "rmse - filter: True",
     n_best: int = 25,
 ):
-    """Plot scatter of best simulation loss vs maximum loss difference.
+    """Plot hexbin of best simulation loss vs maximum loss difference.
 
     Shows how the loss of the best matching simulation relates to the spread
     in loss values across alternative matching simulations.
@@ -828,10 +828,15 @@ def plot_loss_vs_max_loss_difference(
     )
 
     fig = plt.figure(figsize=(8, 6))
-    plt.scatter(
+    plt.hexbin(
         loss.sel(best_sim_id=0),
         _calculate_difference(loss).max("best_sim_id"),
+        gridsize=30,
+        cmap="Blues",
+        mincnt=1,
+        bins="log",
     )
+    plt.colorbar(label="Log density")
     plt.xlabel("Loss of best simulation [-]")
     plt.ylabel("Max loss difference to best simulation [-]")
     plt.title("Loss of Best Simulation vs Max Loss Difference")
@@ -839,7 +844,7 @@ def plot_loss_vs_max_loss_difference(
     plt.savefig(
         fig_path,
         metadata=get_metadata(
-            "Scatter plot of best simulation loss vs maximum loss difference."
+            "Hexbin plot of best simulation loss vs maximum loss difference."
         ),
         bbox_inches="tight",
     )
@@ -857,10 +862,10 @@ def plot_loss_difference_vs_concentration_difference(
     loss_type: str = "rmse - filter: True",
     n_best: int = 25,
 ):
-    """Plot scatter of max loss difference vs max concentration difference.
+    """Plot hexbin of max loss difference vs max concentration difference.
 
     Shows how the spread in matching loss relates to the spread in predicted
-    concentrations, colored by stability class of the best simulation.
+    concentrations.
 
     Parameters
     ----------
@@ -880,13 +885,15 @@ def plot_loss_difference_vs_concentration_difference(
     )
 
     fig = plt.figure(figsize=(8, 6))
-    scatter = plt.scatter(
+    plt.hexbin(
         _calculate_difference(loss).max("best_sim_id"),
         _calculate_difference(abs(concentration)).max("best_sim_id"),
-        c=stab_class.sel(best_sim_id=0),
-        cmap="viridis",
+        gridsize=30,
+        cmap="Blues",
+        mincnt=1,
+        bins="log",
     )
-    plt.colorbar(scatter, label="Stability class of best simulation [-]")
+    plt.colorbar(label="Log density")
     plt.xlabel("Max loss difference to best simulation [-]")
     plt.ylabel("Max concentration difference to best simulation [ppm]")
     plt.title("Loss Difference vs Concentration Difference")
@@ -894,8 +901,7 @@ def plot_loss_difference_vs_concentration_difference(
     plt.savefig(
         fig_path,
         metadata=get_metadata(
-            "Scatter plot of max loss difference vs max concentration difference, "
-            "colored by stability class."
+            "Hexbin plot of max loss difference vs max concentration difference."
         ),
         bbox_inches="tight",
     )
@@ -913,7 +919,7 @@ def plot_loss_vs_max_concentration_difference(
     loss_type: str = "rmse - filter: True",
     n_best: int = 25,
 ):
-    """Plot scatter of best simulation loss vs max concentration difference.
+    """Plot hexbin of best simulation loss vs max concentration difference.
 
     Shows how the loss of the best matching simulation relates to the spread
     in predicted concentrations across alternative simulations.
@@ -936,10 +942,15 @@ def plot_loss_vs_max_concentration_difference(
     )
 
     fig = plt.figure(figsize=(8, 6))
-    plt.scatter(
+    plt.hexbin(
         loss.sel(best_sim_id=0),
         abs(_calculate_difference(concentration)).max("best_sim_id"),
+        gridsize=30,
+        cmap="Blues",
+        mincnt=1,
+        bins="log",
     )
+    plt.colorbar(label="Log density")
     plt.xlabel("Loss of best simulation [-]")
     plt.ylabel("Max concentration difference to best simulation [ppm]")
     plt.title("Best Simulation Loss vs Max Concentration Difference")
@@ -947,7 +958,7 @@ def plot_loss_vs_max_concentration_difference(
     plt.savefig(
         fig_path,
         metadata=get_metadata(
-            "Scatter plot of best simulation loss vs max concentration difference."
+            "Hexbin plot of best simulation loss vs max concentration difference."
         ),
         bbox_inches="tight",
     )
@@ -965,7 +976,7 @@ def plot_concentration_vs_max_concentration_difference(
     loss_type: str = "rmse - filter: True",
     n_best: int = 25,
 ):
-    """Plot scatter of best simulation concentration vs max conc difference.
+    """Plot hexbin of best simulation concentration vs max conc difference.
 
     Shows how the concentration predicted by the best simulation relates to
     the sensitivity of concentration to choice of matching simulation.
@@ -988,10 +999,15 @@ def plot_concentration_vs_max_concentration_difference(
     )
 
     fig = plt.figure(figsize=(8, 6))
-    plt.scatter(
+    plt.hexbin(
         concentration.sel(best_sim_id=0),
         abs(_calculate_difference(concentration)).max("best_sim_id"),
+        gridsize=30,
+        cmap="Blues",
+        mincnt=1,
+        bins="log",
     )
+    plt.colorbar(label="Log density")
     plt.xlabel("Concentration of best simulation [ppm]")
     plt.ylabel("Max concentration difference to best simulation [ppm]")
     plt.title("Best Simulation Concentration vs Max Concentration Difference")
@@ -999,7 +1015,7 @@ def plot_concentration_vs_max_concentration_difference(
     plt.savefig(
         fig_path,
         metadata=get_metadata(
-            "Scatter plot of best simulation concentration vs max "
+            "Hexbin plot of best simulation concentration vs max "
             "concentration difference."
         ),
         bbox_inches="tight",
@@ -1018,7 +1034,7 @@ def plot_wind_speed_vs_max_concentration_difference(
     loss_type: str = "rmse - filter: True",
     n_best: int = 25,
 ):
-    """Plot scatter of best simulation wind speed vs max concentration difference.
+    """Plot hexbin of best simulation wind speed vs max concentration difference.
 
     Shows how wind speed in the best matching simulation relates to the
     sensitivity of concentration predictions to choice of matching simulation.
@@ -1041,10 +1057,15 @@ def plot_wind_speed_vs_max_concentration_difference(
     )
 
     fig = plt.figure(figsize=(8, 6))
-    plt.scatter(
+    plt.hexbin(
         speed.sel(best_sim_id=0),
         abs(_calculate_difference(concentration)).max("best_sim_id"),
+        gridsize=30,
+        cmap="Blues",
+        mincnt=1,
+        bins="log",
     )
+    plt.colorbar(label="Log density")
     plt.xlabel("Wind speed of best simulation [m/s]")
     plt.ylabel("Max concentration difference to best simulation [ppm]")
     plt.title("Wind Speed vs Max Concentration Difference")
@@ -1052,7 +1073,7 @@ def plot_wind_speed_vs_max_concentration_difference(
     plt.savefig(
         fig_path,
         metadata=get_metadata(
-            "Scatter plot of wind speed vs max concentration difference."
+            "Hexbin plot of wind speed vs max concentration difference."
         ),
         bbox_inches="tight",
     )
@@ -1070,7 +1091,7 @@ def plot_wind_direction_vs_max_concentration_difference(
     loss_type: str = "rmse - filter: True",
     n_best: int = 25,
 ):
-    """Plot scatter of best simulation wind direction vs max concentration difference.
+    """Plot hexbin of best simulation wind direction vs max concentration difference.
 
     Shows how wind direction in the best matching simulation relates to the
     sensitivity of concentration predictions to choice of matching simulation.
@@ -1093,10 +1114,15 @@ def plot_wind_direction_vs_max_concentration_difference(
     )
 
     fig = plt.figure(figsize=(8, 6))
-    plt.scatter(
+    plt.hexbin(
         direction.sel(best_sim_id=0),
         abs(_calculate_difference(concentration)).max("best_sim_id"),
+        gridsize=30,
+        cmap="Blues",
+        mincnt=1,
+        bins="log",
     )
+    plt.colorbar(label="Log density")
     plt.xlabel("Wind direction of best simulation [°]")
     plt.ylabel("Max concentration difference to best simulation [ppm]")
     plt.title("Wind Direction vs Max Concentration Difference")
@@ -1104,7 +1130,7 @@ def plot_wind_direction_vs_max_concentration_difference(
     plt.savefig(
         fig_path,
         metadata=get_metadata(
-            "Scatter plot of wind direction vs max concentration difference."
+            "Hexbin plot of wind direction vs max concentration difference."
         ),
         bbox_inches="tight",
     )
@@ -1122,7 +1148,7 @@ def plot_stability_class_vs_max_concentration_difference(
     loss_type: str = "rmse - filter: True",
     n_best: int = 25,
 ):
-    """Plot scatter of best simulation stability class vs max concentration difference.
+    """Plot hexbin of best simulation stability class vs max concentration difference.
 
     Shows how atmospheric stability class in the best matching simulation relates
     to the sensitivity of concentration predictions to choice of matching simulation.
@@ -1145,10 +1171,15 @@ def plot_stability_class_vs_max_concentration_difference(
     )
 
     fig = plt.figure(figsize=(8, 6))
-    plt.scatter(
+    plt.hexbin(
         stab_class.sel(best_sim_id=0),
         abs(_calculate_difference(concentration)).max("best_sim_id"),
+        gridsize=30,
+        cmap="Blues",
+        mincnt=1,
+        bins="log",
     )
+    plt.colorbar(label="Log density")
     plt.xlabel("Stability class of best simulation [-]")
     plt.ylabel("Max concentration difference to best simulation [ppm]")
     plt.title("Stability Class vs Max Concentration Difference")
@@ -1156,7 +1187,7 @@ def plot_stability_class_vs_max_concentration_difference(
     plt.savefig(
         fig_path,
         metadata=get_metadata(
-            "Scatter plot of stability class vs max concentration difference."
+            "Hexbin plot of stability class vs max concentration difference."
         ),
         bbox_inches="tight",
     )
