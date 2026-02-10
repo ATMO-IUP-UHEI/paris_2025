@@ -236,6 +236,40 @@ if __name__ == "__main__":
             method=method,
         )
 
+    # Matching methods - sensitivity analysis
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "concentration_vs_meteo_differences.png",
+        matching_methods.plot_concentration_vs_meteo_differences,
+    )
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "loss_vs_max_loss_difference.png",
+        matching_methods.plot_loss_vs_max_loss_difference,
+    )
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "loss_difference_vs_concentration_difference.png",
+        matching_methods.plot_loss_difference_vs_concentration_difference,
+    )
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "loss_vs_max_concentration_difference.png",
+        matching_methods.plot_loss_vs_max_concentration_difference,
+    )
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "concentration_vs_max_concentration_difference.png",
+        matching_methods.plot_concentration_vs_max_concentration_difference,
+    )
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "wind_speed_vs_max_concentration_difference.png",
+        matching_methods.plot_wind_speed_vs_max_concentration_difference,
+    )
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "wind_direction_vs_max_concentration_difference.png",
+        matching_methods.plot_wind_direction_vs_max_concentration_difference,
+    )
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "stability_class_vs_max_concentration_difference.png",
+        matching_methods.plot_stability_class_vs_max_concentration_difference,
+    )
+
     # CO2 measurements
     DIR = "co2_measurements"
     (FIGURE_PATH / DIR).mkdir(parents=True, exist_ok=True)
