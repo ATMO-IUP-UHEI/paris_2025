@@ -8,6 +8,7 @@ from paris_2025.plotting import (
     matching_methods,
     meteo_from_catalog,
     meteo_measurements,
+    misc,
     tracer_background,
     tracer_comparison,
     tracer_from_catalog,
@@ -367,6 +368,14 @@ if __name__ == "__main__":
     create_figures_if_missing(
         FIGURE_PATH / DIR / "temporal_scaling_factors.png",
         fluxes.plot_temporal_scaling_factors,
+    )
+
+    # Miscellaneous
+    DIR = "misc"
+    (FIGURE_PATH / DIR).mkdir(parents=True, exist_ok=True)
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "temperature_anomaly_with_co2.png",
+        misc.plot_temperature_anomaly_with_co2,
     )
 
     # Tracer model comparison
