@@ -169,13 +169,14 @@ def add_domain(ax: plt.Axes, legend=False) -> None:  # type: ignore
             plt.Line2D([0], [0], color=colors[1], lw=2, label="GRAMM"),  # type: ignore
             plt.Line2D([0], [0], color=colors[0], lw=2, label="GRAL"),  # type: ignore
         ]
-        ax.legend(
+        legend = plt.legend(
             handles=handles,
             loc="upper left",
             fontsize=fontsize,
             frameon=False,
             ncol=2,
         )
+        ax.add_artist(legend)
     # Add buffer to axes limits for better visualization
     xlim = ax.get_xlim()
     ylim = ax.get_ylim()
