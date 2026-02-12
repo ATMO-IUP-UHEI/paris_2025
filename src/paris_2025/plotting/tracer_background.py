@@ -51,6 +51,7 @@ def plot_co2_stations_with_windrose(fig_path: str | Path, year: str = "2023"):
 
     fig, ax = plt.subplots(figsize=(20, 10))
     p.domain.add_domain(ax)
+    p.domain.add_size_bar(ax)
 
     co2.sel(station=~co2.in_gral_domain).plot.scatter(
         x="x",
