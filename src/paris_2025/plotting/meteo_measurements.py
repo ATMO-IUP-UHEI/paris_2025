@@ -3,13 +3,14 @@ from pathlib import Path
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.cm import viridis  # type: ignore
+from matplotlib.colors import Normalize
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from tqdm import tqdm
 from windrose import WindroseAxes
-from matplotlib.cm import viridis  # type: ignore
-from matplotlib.colors import Normalize
 
 import paris_2025 as p
+from paris_2025.config import CONFIG
 from paris_2025.plotting.common import get_metadata
 
 
@@ -30,9 +31,9 @@ def plot_meteo_measurements_heatmap(fig_path: str | Path):
 
 
 def plot_wind_roses_of_meteo_measurements(
-    fig_path: str | Path, year: str = "2023"
+    fig_path: str | Path, time_period: slice | str = slice("2023", "2024")
 ):
-    meteo = p.meteo.get_meteo_measurements().sel(time=str(year))
+    meteo = p.meteo.get_meteo_measurements().sel(time=time_period)
 
     fig, ax = plt.subplots()
     fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
@@ -46,7 +47,7 @@ def plot_wind_roses_of_meteo_measurements(
             "axes.linewidth": mpl.rcParams["lines.linewidth"] * 0.5,
         }
     ):
-        meteo_filtered = meteo.where(meteo.in_gramm_domain, drop=True)
+        meteo_filtered = meteo.sel(station=list(CONFIG["matching"]["stations"].keys()))
         for i, station in tqdm(
             enumerate(meteo_filtered.station), total=len(meteo_filtered.station)
         ):
@@ -73,11 +74,23 @@ def plot_wind_roses_of_meteo_measurements(
             wrax.set_ylabel("")
             wrax.set_xticklabels([])
             wrax.set_yticklabels([])
+
+            # Add station name next to windrose
+            ax.text(
+                data.x.values + 2000,
+                data.y.values + 2000,
+                station.values,
+                fontsize=8,
+                ha="right",
+                va="bottom",
+                bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.7),
+                transform=ax.transData,
+            )
     plt.savefig(
         fig_path,
         metadata=get_metadata(
             "Wind roses of meteorological measurements with more than 50% of "
-            f"measurements during {year}."
+            f"measurements during {time_period}."
         ),
     )
 
