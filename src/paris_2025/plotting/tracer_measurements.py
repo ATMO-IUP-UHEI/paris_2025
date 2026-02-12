@@ -1,8 +1,10 @@
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 
 import paris_2025 as p
+from paris_2025.config import CONFIG
 from paris_2025.plotting.common import get_metadata
 
 
@@ -167,6 +169,127 @@ def plot_picarro_co2_violin(fig_path: str | Path, year: str = "2023"):
         fig_path,
         metadata=get_metadata(
             f"CO2 concentration distribution by Picarro station for {year}."
+        ),
+        bbox_inches="tight",
+    )
+    plt.close(fig)
+
+
+def plot_co2_and_meteo_stations_map(fig_path: str | Path):
+    """Plot CO2 and meteorological measurement stations on a map.
+
+    Creates a map showing the locations of CO2 measurement stations (colored by
+    instrument type) and meteorological stations, with labels for Picarro stations.
+    Includes basemap, domain boundaries, and a size bar.
+
+    Parameters
+    ----------
+    fig_path : str | Path
+        Path to save the output figure
+    """
+    # Load data
+    co2 = p.tracers.get_co2_measurements()
+    co2 = co2.sortby("instrument", ascending=False)
+    meteo = p.meteo.get_meteo_measurements()
+    meteo = meteo.sel(station=list(CONFIG["matching"]["stations"].keys()))
+
+    # Define colors and markers for different instrument types
+    colors = {
+        "K96": "orange",
+        "HPP": "orange",
+        "Meteo": "DodgerBlue",
+        "Picarro": "maroon",
+    }
+    markers = {
+        "Picarro": "o",
+        "K96": "o",
+        "HPP": "o",
+        "Meteo": "o",
+    }
+
+    # Define legend labels
+    legends = {
+        "CRDS CO$_2$": (colors["Picarro"], markers["Picarro"]),
+        "NDIR CO$_2$": (colors["K96"], markers["K96"]),
+        "Wind Measurements": (colors["Meteo"], markers["Meteo"]),
+    }
+
+    # Create figure
+    fig, ax = plt.subplots(figsize=(12, 8))
+
+    # Plot each instrument type
+    for instrument in colors.keys():
+        if instrument == "Meteo":
+            meteo.plot.scatter(
+                x="x",
+                y="y",
+                s=100,
+                c=colors["Meteo"],
+                edgecolor="k",
+                marker=markers["Meteo"],
+                ax=ax,
+                zorder=3,
+            )
+        else:
+            co2.sel(station=co2.instrument == instrument).plot.scatter(
+                x="x",
+                y="y",
+                s=100,
+                c=colors[instrument],
+                edgecolor="k",
+                marker=markers[instrument],
+                ax=ax,
+                zorder=3,
+            )
+            # Add labels for Picarro stations
+            if instrument == "Picarro":
+                stations = co2.sel(station=co2.instrument == instrument).station
+                station_list = [s.split("_")[0] for s in stations.values]
+                station_coords = {
+                    s: (x, y)
+                    for s, x, y in zip(
+                        station_list, stations.x.values, stations.y.values
+                    )
+                }
+                for s in station_coords:
+                    ax.text(
+                        station_coords[s][0] + 1000,
+                        station_coords[s][1],
+                        s,
+                        fontsize=9,
+                        ha="left",
+                        va="center",
+                        bbox=dict(
+                            boxstyle="round,pad=0.3", facecolor="white", alpha=0.7
+                        ),
+                    )
+
+    # Add map features
+    p.domain.add_domain(ax, legend=True)
+    p.domain.add_basemap(ax=ax, provider="CartoDB")
+    p.domain.add_size_bar(ax)
+
+    # Create custom legend
+    handles = [
+        Line2D(
+            [0],
+            [0],
+            marker=marker,
+            color="none",
+            linestyle="none",
+            markerfacecolor=color,
+            markeredgecolor="k",
+            markersize=10,
+            label=instrument,
+        )
+        for instrument, (color, marker) in legends.items()
+    ]
+    ax.legend(handles=handles, title="Measurement Type", loc="upper right")
+
+    plt.savefig(
+        fig_path,
+        metadata=get_metadata(
+            "Map of CO2 and meteorological measurement stations by instrument type."
         ),
         bbox_inches="tight",
     )

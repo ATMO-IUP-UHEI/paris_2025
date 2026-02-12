@@ -291,6 +291,10 @@ if __name__ == "__main__":
         tracer_measurements.plot_co2_instruments_map,
     )
     create_figures_if_missing(
+        FIGURE_PATH / DIR / "co2_and_meteo_stations_map.png",
+        tracer_measurements.plot_co2_and_meteo_stations_map,
+    )
+    create_figures_if_missing(
         [
             FIGURE_PATH / DIR / "co2_data_availability_2023.png",
             FIGURE_PATH / DIR / "co2_data_availability_2024.png",
