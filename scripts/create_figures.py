@@ -15,6 +15,7 @@ from paris_2025.plotting import (
     fluxes,
     gradient_for_matching,
     tracer_measurements,
+    RC_PARAMS,
 )
 
 # Get the root logger
@@ -24,27 +25,11 @@ logger.setLevel(logging.INFO)
 FIGURE_PATH = Path(CONFIG["figures_path"])
 FORCE = False  # Overwrite existing figures
 
+
 # Set matplotlib style like size of the figures, text size, etc. by hand
 # sns.set_context("paper", font_scale=1)
-plt.rcParams.update(
-    {
-        "figure.figsize": (7, 5),
-        # "axes.titlesize": 16,
-        # "axes.labelsize": 14,
-        # "xtick.labelsize": 12,
-        # "ytick.labelsize": 12,
-        # "legend.fontsize": 12,
-        # "lines.linewidth": 1.5,
-        # "grid.linewidth": 0.5,
-        # "grid.alpha": 0.5,
-        # "font.family": "sans-serif",
-        # "font.sans-serif": "Arial",
-        # "axes.grid": True,
-        # "axes.spines.right": False,
-        # "axes.spines.top": False,
-        "savefig.dpi": 300,
-    }
-)
+
+plt.rcParams.update(RC_PARAMS)
 
 
 def create_figures_if_missing(fig_paths, plot_function, force=FORCE, *args, **kwargs):
