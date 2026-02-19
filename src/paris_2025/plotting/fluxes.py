@@ -35,7 +35,9 @@ def plot_flux_by_type(fig_path: str | Path):
 
 def plot_temporal_scaling_factors(fig_path: str | Path):
     """Plot temporal scaling factors over time."""
-    temporal_factor = xr.open_dataset(p.model_input.fluxes.TEMPORAL_PROFILES_NETCDF_PATH)
+    temporal_factor = xr.open_dataset(
+        p.model_input.fluxes.TEMPORAL_PROFILES_NETCDF_PATH
+    )
 
     temporal_factor.temporal.plot()
     plt.xlabel("Time")
@@ -72,7 +74,7 @@ def _load_flux_maps_data(
     Returns
     -------
     tuple
-        cadastre_emissions, source_groups, points_ds, GRAL
+        cadastre_emissions, source_groups, point_da, GRAL
     """
     GRAL = CONFIG["domain"]["gral"]["bbox"] | CONFIG["domain"]["gral"]
     source_groups = xr.open_dataset(source_groups_path)
@@ -81,16 +83,12 @@ def _load_flux_maps_data(
         source_group=cadastre_emissions["source_group"]
     ).type.load()
 
-    points = pd.read_csv(point_path, skiprows=1)
-    points.columns = points.columns.str.strip()
-    points["type"] = source_groups.sel(
-        source_group=points["source group"].values
-    ).type.values
-    points_ds = points.to_xarray()
-    # Convert from kg/h to kg/year
-    points_ds["Emission [kg/h]"] *= 365 * 24
+    point_da = ggp.io.readers.read_point_file(point_path)["Emission [kg/h]"]
+    point_da["type"] = source_groups.sel(
+        source_group=point_da["source_group"].reset_coords(drop=True)
+    ).type.load()
 
-    return cadastre_emissions, source_groups, points_ds, GRAL
+    return cadastre_emissions, source_groups, point_da, GRAL
 
 
 def plot_flux_maps(
@@ -113,7 +111,7 @@ def plot_flux_maps(
     point_path : str | Path, optional
         Path to the GRAL point.dat file
     """
-    cadastre_emissions, source_groups, points_ds, GRAL = _load_flux_maps_data(
+    cadastre_emissions, source_groups, point_da, GRAL = _load_flux_maps_data(
         cadastre_path, source_groups_path, point_path
     )
 
@@ -143,6 +141,9 @@ def plot_flux_maps(
 
     # Convert from kg/h to kg/y/m^2
     maps = maps / (GRAL["dx"] * GRAL["dy"]) * 365 * 24
+    # Convert from kg/h to kg/year
+    point_da *= 365 * 24
+
     fig, axs = plt.subplots(2, 2, sharex=True, sharey=True, figsize=(8, 5), dpi=300)
     point_size = 1e7
 
@@ -159,16 +160,16 @@ def plot_flux_maps(
             cmap = "viridis"
             scaling = 1
 
-            inv_points_ds = points_ds.where(points_ds.type.str.contains(inv), drop=True)
-            if len(inv_points_ds.index) > 0:
+            inv_point_da = point_da.where(point_da.type.str.contains(inv), drop=True)
+            if len(inv_point_da.index) > 0:
                 ax.scatter(
-                    x=inv_points_ds["x"].values,
-                    y=inv_points_ds["y"].values,
+                    x=inv_point_da["x"].values,
+                    y=inv_point_da["y"].values,
                     zorder=10,
                     color="red",
                     edgecolor="k",
                     linewidth=0.5,
-                    s=inv_points_ds["Emission [kg/h]"].values / point_size,
+                    s=inv_point_da.values / point_size,
                     label="Point sources",
                 )
         else:
