@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import xarray as xr
+from matplotlib.patches import Patch
 
 import paris_2025 as p
 from paris_2025.config import CONFIG
@@ -225,6 +226,151 @@ def plot_flux_maps(
     plt.savefig(
         fig_path,
         metadata=get_metadata("Spatial distribution of CO2 fluxes by inventory."),
+        bbox_inches="tight",
+    )
+    plt.close(fig)
+
+
+def plot_total_flux_by_inventory(
+    fig_path: str | Path,
+    cadastre_path: str | Path = Path(CONFIG["domain"]["gral"]["conf_path"])
+    / "cadastre.dat",
+    source_groups_path: str | Path = p.model_input.fluxes.SOURCE_GROUP_NETCDF_PATH,
+    point_path: str | Path = Path(CONFIG["domain"]["gral"]["conf_path"]) / "point.dat",
+):
+    """Plot stacked bar chart of total CO2 flux by inventory and source type.
+
+    Parameters
+    ----------
+    fig_path : str | Path
+        Path to save the output figure
+    cadastre_path : str | Path, optional
+        Path to the GRAL cadastre.dat file
+    source_groups_path : str | Path, optional
+        Path to the source groups NetCDF file
+    point_path : str | Path, optional
+        Path to the GRAL point.dat file
+    """
+    import logging
+
+    cadastre_emissions, source_groups, point_da, GRAL = _load_flux_maps_data(
+        cadastre_path, source_groups_path, point_path
+    )
+
+    point_da["z"] = point_da.z.astype(float)
+    if point_da.z.isnull().any():
+        logging.warning(
+            "The points contain missing values in the z coordinate. All points with "
+            "missing z values will be dropped for plotting. This may lead to missing "
+            "points in the plots."
+        )
+        total_emissions = point_da.sum().item()
+        isnull = point_da.z.isnull()
+        point_da = point_da.sel(index=~isnull)
+        dropped_emissions = total_emissions - point_da.sum().item()
+        logging.warning(
+            f"Dropped {dropped_emissions:.2f} kg/year of emissions from "
+            f"{isnull.sum().item()} points."
+        )
+
+    area_df = cadastre_emissions.sum(["x", "y"]).groupby("type").sum().to_pandas()
+    point_df = point_da.groupby("type").sum().to_pandas()
+
+    xticklabels = {
+        "Origins.earth 2023 energie": "Power",
+        "Origins.earth 2023 industrie": "Industry",
+        "Origins.earth 2023 residentiel": "Combustion",
+        "Origins.earth 2023 respiration_humaine": "Human respiration",
+        "Origins.earth 2023 tertiaire": "Services",
+        "Origins.earth 2023 transport_routier": "Traffic",
+        "TNO 2018 Combustion": "Combustion",
+        "TNO 2018 Industry": "Industry",
+        "TNO 2018 Power": "Power",
+        "TNO 2018 Traffic": "Traffic",
+        "VPRM GEE": "GEE",
+        "VPRM R": "R",
+    }
+
+    gral_fluxes = pd.DataFrame({"area": area_df, "point": point_df})
+
+    # Take mean of VPRM 2023/2024
+    gral_fluxes.loc["VPRM GEE"] = gral_fluxes.loc[
+        ["VPRM 2023 GEE", "VPRM 2024 GEE"]
+    ].mean()
+    gral_fluxes = gral_fluxes.drop(["VPRM 2023 GEE", "VPRM 2024 GEE"])
+    gral_fluxes.loc["VPRM R"] = gral_fluxes.loc[
+        ["VPRM 2023 R", "VPRM 2024 R"]
+    ].mean()
+    gral_fluxes = gral_fluxes.drop(["VPRM 2023 R", "VPRM 2024 R"])
+
+    # Negative sign for GEE (uptake)
+    gral_fluxes.loc[gral_fluxes.index.str.contains("GEE")] *= -1
+
+    # Convert from kg/h to kt/year
+    gral_fluxes *= 365 * 24 / 1e6
+
+    fig, ax = plt.subplots()
+    gral_fluxes.plot.bar(stacked=True, edgecolor="k", ax=ax)
+
+    bars = ax.patches
+    for bar in bars[len(bars) // 2 :]:
+        bar.set_hatch("///")
+        bar.set_alpha(0.5)
+
+    ax.grid(axis="y", linestyle="--", alpha=0.5)
+    ax.set_ylabel("Emissions (kt/year)")
+
+    i = 0
+    groups = ["Origins.earth", "TNO", "VPRM"]
+    colors = ["#5e32a9ff", "#C96ACE", "#527d08"]
+
+    for group, color in zip(groups, colors):
+        contains_group_identifier = gral_fluxes.index.str.contains(group)
+        total_flux = gral_fluxes[contains_group_identifier].sum().sum()
+        width = contains_group_identifier.sum()
+
+        ax.text(
+            i + width / 2 - 0.5,
+            ax.get_ylim()[1] * 0.95,
+            f"{group}\n{total_flux:.1f} kt/year",
+            ha="center",
+            va="top",
+            fontsize=10,
+        )
+        i += width
+        ax.axvline(i - 0.5, color="k", linestyle="--", alpha=0.5)
+
+        for j in range(i - width, i):
+            area_bar = bars[j]
+            point_bar = bars[len(bars) // 2 + j]
+            area_bar.set_facecolor(color)
+            point_bar.set_facecolor(color)
+            point_bar.set_hatch("///")
+            point_bar.set_alpha(0.5)
+
+    ymin, ymax = ax.get_ylim()
+    ax.set_ylim(ymin - 0.05 * (ymax - ymin), ymax)
+
+    ax.set_xticklabels(
+        [xticklabels[label] for label in gral_fluxes.index], rotation=70, ha="right"
+    )
+
+    area_patch = Patch(facecolor="grey", edgecolor="k", label="Area sources")
+    point_patch = Patch(
+        facecolor="grey", edgecolor="k", hatch="///", label="Point sources", alpha=0.5
+    )
+    ax.legend(
+        handles=[area_patch, point_patch],
+        title="Source type",
+        bbox_to_anchor=(1.05, 1),
+        loc="upper left",
+    )
+
+    plt.savefig(
+        fig_path,
+        metadata=get_metadata(
+            "Stacked bar chart of total CO2 flux by inventory and source type."
+        ),
         bbox_inches="tight",
     )
     plt.close(fig)

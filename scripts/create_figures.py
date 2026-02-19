@@ -362,6 +362,10 @@ if __name__ == "__main__":
         FIGURE_PATH / DIR / "flux_maps.png",
         fluxes.plot_flux_maps,
     )
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "total_flux_by_inventory.png",
+        fluxes.plot_total_flux_by_inventory,
+    )
 
     # Miscellaneous
     DIR = "misc"
