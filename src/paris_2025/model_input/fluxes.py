@@ -665,7 +665,7 @@ def create_tno_point_fluxes():
     tno["elevation"] = ("index", np.full(tno.sizes["index"], np.nan))
     for idx, new_coord in new_coords.items():
         if new_coord is None:
-            pass
+            tno["elevation"].loc[idx] = heights[idx]
         elif isinstance(new_coord[0], float):
             lat = new_coord[0]
             lon = new_coord[1]
@@ -693,6 +693,8 @@ def create_tno_point_fluxes():
             tno = xr.concat([tno, new_point_source], dim="index")
         else:
             raise ValueError("Unexpected type in new_coords")
+    for v in tno.variables:
+        assert not tno[v].isnull().any(), f"{v} contains NaNs"
     tno = tno.sel(
         index=(
             (tno.x >= CONFIG["domain"]["gral"]["bbox"]["x0"])
