@@ -1,3 +1,9 @@
+"""Plotting modules for paris_2025.
+
+For conventions (function signatures, data-loading helpers, saving, path
+sourcing, and registration in create_figures.py) see CLAUDE.md at the repo root.
+"""
+
 from . import (
     common,
     fluxes,
