@@ -60,3 +60,18 @@ create_figures_if_missing(
 2. `Path(CONFIG["..."]["path"]) / "filename"` — for paths derivable from config
 3. Hardcoded strings as last resort, only as default parameter values (never
    inside the function body)
+
+---
+
+## General coding conventions
+
+### Do not silently replace existing functions
+
+When a user asks to add new plotting logic, **keep existing functions intact**
+and introduce a new function with a distinct name. Only replace an existing
+function when the user explicitly asks to overwrite it.
+
+- If unsure whether to replace or extend, **ask first**.
+- Example: `plot_temporal_scaling_factors` (raw timeseries) and
+  `plot_temporal_scaling_factor_cycles` (styled diurnal/weekly/annual) coexist
+  rather than the second replacing the first.
