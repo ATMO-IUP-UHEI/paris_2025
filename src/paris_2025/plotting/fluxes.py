@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 import ggpymanager as ggp
@@ -5,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import xarray as xr
+from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
 import paris_2025 as p
@@ -201,7 +203,7 @@ def plot_flux_maps(
             lower_point_emissions = 5e7
             upper_point_emissions = lower_point_emissions * 10
             handles = [
-                plt.Line2D(
+                Line2D(
                     [0],
                     [0],
                     linestyle="none",
@@ -251,7 +253,6 @@ def plot_total_flux_by_inventory(
     point_path : str | Path, optional
         Path to the GRAL point.dat file
     """
-    import logging
 
     cadastre_emissions, source_groups, point_da, GRAL = _load_flux_maps_data(
         cadastre_path, source_groups_path, point_path
@@ -298,9 +299,7 @@ def plot_total_flux_by_inventory(
         ["VPRM 2023 GEE", "VPRM 2024 GEE"]
     ].mean()
     gral_fluxes = gral_fluxes.drop(["VPRM 2023 GEE", "VPRM 2024 GEE"])
-    gral_fluxes.loc["VPRM R"] = gral_fluxes.loc[
-        ["VPRM 2023 R", "VPRM 2024 R"]
-    ].mean()
+    gral_fluxes.loc["VPRM R"] = gral_fluxes.loc[["VPRM 2023 R", "VPRM 2024 R"]].mean()
     gral_fluxes = gral_fluxes.drop(["VPRM 2023 R", "VPRM 2024 R"])
 
     # Negative sign for GEE (uptake)
