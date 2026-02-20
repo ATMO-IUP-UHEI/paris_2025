@@ -2,8 +2,10 @@
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 import ggpymanager as ggp
+import matplotlib.figure
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns  # Remove for colormap "flare" # noqa: F401
@@ -840,3 +842,325 @@ def plot_full_timeseries_daily_mean(
             bbox_inches="tight",
         )
         plt.close()
+
+
+@lru_cache()
+def _load_sector_enhancement_data(
+    loss_type: str = "rmse - filter: True",
+) -> tuple[xr.DataArray, xr.DataArray, xr.DataArray]:
+    """Load model sector enhancement, measured CO2 and background CO2.
+
+    Loads the concentration time series retaining the ``type`` dimension so that
+    individual sector contributions remain visible, converts units to ppm, and
+    aligns everything to the availability mask of the measurements.
+
+    Parameters
+    ----------
+    loss_type : str
+        Loss-type selector passed to ``sel(loss_type=...)``.
+
+    Returns
+    -------
+    model_enhancement : xr.DataArray
+        Sector-resolved enhancement (dims: time, station, type), masked to
+        measurement availability, in ppm.
+    co2 : xr.DataArray
+        Measured CO2 (dims: time, station), in ppm.
+    background : xr.DataArray
+        Binned background CO2, broadcast to station heights (dims: time, station).
+    """
+    co2 = p.tracers.get_co2_measurements().co2
+    measurements_available = co2.notnull()
+
+    conc_ds = xr.open_dataset(
+        Path(CONFIG["output_path"]) / ggp.config.CONCENTRATION_TIMESERIES_FILE_NAME
+    )
+    model_enhancement = ggp.utils.ugm3_to_ppm(
+        conc_ds["co2_timeseries"].sel(
+            loss_type=loss_type,
+            best_sim_id=0,
+        ),
+        "co2",
+        P_local=ggp.load("pressure", p.CONFIG).pressure,
+        T_local=ggp.load("temperature", p.CONFIG).temperature,
+    )
+    model_enhancement = model_enhancement.where(measurements_available)
+
+    background = p.background.get_binned_background_co2().sel(
+        height_bins=model_enhancement.height
+    )
+    background = background.where(measurements_available)
+
+    return model_enhancement, co2, background
+
+
+def station_sector_plot(
+    model_enhancement: xr.DataArray,
+    co2: xr.DataArray,
+    background: xr.DataArray,
+    inventory: str,
+    groupby: Literal["hour", "day", "week", "month"],
+    suptitle: str,
+    ylabel: str,
+    ylims: tuple,
+    col_wrap: int = 10,
+) -> tuple[matplotlib.figure.Figure, np.ndarray]:
+    """Plot stacked sector contributions per station, grouped by a time dimension.
+
+    Mirrors the layout of :func:`station_line_plot`: a grid of subplots with one
+    panel per station, shared y-axis, titled header boxes, and a shared legend.
+    Each panel shows the anthropogenic sector contributions (stacked fill_between)
+    from *inventory* on top of background + VPRM, overlaid with the measured CO2
+    and the background line.
+
+    Parameters
+    ----------
+    model_enhancement : xr.DataArray
+        Sector-resolved enhancement with dims (time, station, type).
+    co2 : xr.DataArray
+        Measured CO2 with dims (time, station).
+    background : xr.DataArray
+        Background CO2 with dims (time, station).
+    inventory : str
+        Substring to filter ``model_enhancement.type`` for anthropogenic sectors
+        (e.g. ``"TNO"`` or ``"Origins.earth"``).
+    groupby : str
+        One of ``"hour"``, ``"day"``, ``"week"``, ``"month"``.
+    suptitle : str
+        Figure super-title.
+    ylabel : str
+        Y-axis label.
+    ylims : tuple
+        (ymin, ymax) for all subplots.
+    col_wrap : int
+        Number of columns in the subplot grid.
+
+    Returns
+    -------
+    fig, axs
+    """
+    if groupby == "hour":
+        groupby_key = "time.hour"
+        time_vals = np.arange(0, 24)
+        xticks = np.arange(0, 25, 6)
+        xlabel = "Time of day [h]"
+    elif groupby == "day":
+        groupby_key = "time.dayofweek"
+        time_vals = np.arange(0, 7)
+        xticks = np.arange(0, 7)
+        xlabel = "Day of week"
+    elif groupby == "week":
+        groupby_key = None  # handled via isocalendar below
+        time_vals = np.arange(1, 53)
+        xticks = np.arange(4, 56, 8)
+        xlabel = "Week of year"
+    elif groupby == "month":
+        groupby_key = "time.month"
+        time_vals = np.arange(1, 13)
+        xticks = np.arange(1, 13)
+        xlabel = "Month of year"
+    else:
+        raise ValueError(f"Unknown groupby: {groupby!r}")
+
+    def _groupby(da: xr.DataArray):
+        """Return a groupby object, using isocalendar for weeks."""
+        if groupby == "week":
+            week = da.time.dt.isocalendar().week.astype(int).rename("week")
+            return da.groupby(week)
+        return da.groupby(groupby_key)
+
+    def _append_mean_station(
+        da: xr.DataArray, station_name: str = "Mean"
+    ) -> xr.DataArray:
+        """Append a virtual station that is the mean across all stations."""
+        mean = da.mean(dim="station").expand_dims(station=[station_name])
+        station_coords = [
+            coord
+            for coord in da.coords
+            if coord != "station" and "station" in da[coord].dims
+        ]
+        da_clean = da.drop_vars(station_coords)
+        mean_clean = mean.drop_vars(station_coords, errors="ignore")
+        return xr.concat([da_clean, mean_clean], dim="station")
+
+    model_enhancement = _append_mean_station(model_enhancement)
+    co2 = _append_mean_station(co2)
+    background = _append_mean_station(background)
+
+    stations = model_enhancement.station.values
+    n_plots = len(stations)
+    n_rows = int(np.ceil(n_plots / col_wrap))
+
+    fig, axs = plt.subplots(
+        n_rows,
+        col_wrap,
+        figsize=(4.5 * col_wrap, 4 * n_rows),
+        sharex=True,
+        sharey=True,
+        gridspec_kw={"hspace": 0.2, "wspace": 0.1},
+    )
+    fig.suptitle(suptitle, fontsize=16)
+
+    for i, (s, ax) in enumerate(zip(stations, axs.flatten())):
+        hourly = (
+            _groupby(
+                model_enhancement.sel(
+                    type=model_enhancement.type.str.contains(inventory),
+                    station=s,
+                )
+            )
+            .mean()
+            .to_pandas()
+        )
+        vprm = (
+            _groupby(
+                model_enhancement.sel(
+                    type=model_enhancement.type.str.contains("VPRM"),
+                    station=s,
+                ).sum(dim="type")
+            )
+            .mean()
+            .to_pandas()
+        )
+        bg = _groupby(background.sel(station=s)).mean().to_pandas()
+        meas = _groupby(co2.sel(station=s)).mean().to_pandas()
+
+        x = time_vals
+        base = (bg + vprm).reindex(time_vals).values  # type: ignore[call-overload]
+        cumulative = base.copy()
+        top = cumulative.copy()
+
+        for col in hourly.columns:
+            col_vals = hourly[col].reindex(time_vals).values  # type: ignore
+            top = cumulative + col_vals  # type: ignore[operator]
+            ax.fill_between(x, cumulative, top, alpha=0.5, label=col)
+            cumulative = top
+
+        ax.plot(x, top, color="k", linewidth=0.8, label="Model total")
+        ax.plot(
+            time_vals,
+            meas.reindex(time_vals).values,  # type: ignore[call-overload]
+            color="k",
+            linestyle="-",
+            linewidth=1.5,
+            label="Measurements",
+        )
+        ax.plot(
+            time_vals,
+            bg.reindex(time_vals).values,  # type: ignore[call-overload]
+            color="gray",
+            linestyle="--",
+            linewidth=1.2,
+            label="Background",
+        )
+
+        ax.set_xticks(xticks)
+        ax.set_ylim(ylims)
+        ax.grid(alpha=0.3)
+
+        fw = ax.xaxis.label.get_fontweight()
+        station_label = str(s)
+        if "height" in model_enhancement.coords:
+            h = model_enhancement["height"].sel(station=s).values
+            station_label = f"{s} {h}m"
+        ax.text(
+            0.5,
+            1.06,
+            station_label,
+            transform=ax.transAxes,
+            va="center",
+            ha="center",
+            fontsize=10,
+            fontweight=fw,
+        )
+        lw = ax.spines["left"].get_linewidth()
+        offwhite = "#F8F8FF"
+        box = patches.FancyBboxPatch(
+            (0.0, 1.0),
+            1.0,
+            0.12,
+            boxstyle="square,pad=0.0",
+            transform=ax.transAxes,
+            edgecolor="lightgray",
+            facecolor=offwhite,
+            lw=lw,
+            zorder=-10,
+        )
+        fig.patches.extend([box])
+
+    for r in range(n_rows):
+        axs[r, 0].set_ylabel(ylabel)
+    for c in range(col_wrap):
+        axs[-1, c].set_xlabel(xlabel)  # type: ignore
+
+    for j in range(n_plots, len(axs.flatten())):
+        axs.flatten()[j].axis("off")
+
+    handles, labels = axs.flatten()[0].get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    legend_ax = (
+        axs.flatten()[n_plots] if n_plots < len(axs.flatten()) else axs.flatten()[-1]
+    )
+    legend_ax.legend(
+        by_label.values(),
+        by_label.keys(),
+        loc="upper left",
+        title="Legend",
+    )
+
+    return fig, axs
+
+
+def plot_sector_cycles_per_station(
+    fig_path: str | Path,
+    inventory: str,
+    groupby: Literal["hour", "day", "week", "month"],
+    loss_type: str = "rmse - filter: True",
+    ylabel: str = "CO2 [ppm]",
+    ylims: tuple = (410, 470),
+    col_wrap: int = 10,
+) -> None:
+    """Plot stacked sector cycles per station and save to *fig_path*.
+
+    Loads sector-resolved enhancement data via
+    :func:`_load_sector_enhancement_data`, delegates the rendering to
+    :func:`station_sector_plot`, and saves the figure.
+
+    Parameters
+    ----------
+    fig_path : str or Path
+        Destination path for the saved figure.
+    inventory : str
+        Inventory name substring, e.g. ``"TNO"`` or ``"Origins.earth"``.
+    groupby : str
+        Temporal grouping: ``"hour"``, ``"day"``, ``"week"``, or ``"month"``.
+    loss_type : str
+        Loss-type filter forwarded to :func:`_load_sector_enhancement_data`.
+    ylabel : str
+        Y-axis label.
+    ylims : tuple
+        (ymin, ymax) applied to all subplots.
+    col_wrap : int
+        Number of subplot columns.
+    """
+    model_enhancement, co2, background = _load_sector_enhancement_data(
+        loss_type=loss_type
+    )
+    suptitle = f"CO2 sector contributions — {inventory} — by {groupby}"
+    fig, axs = station_sector_plot(
+        model_enhancement=model_enhancement,
+        co2=co2,
+        background=background,
+        inventory=inventory,
+        groupby=groupby,
+        suptitle=suptitle,
+        ylabel=ylabel,
+        ylims=ylims,
+        col_wrap=col_wrap,
+    )
+    plt.savefig(
+        fig_path,
+        metadata=get_metadata(suptitle),
+        bbox_inches="tight",
+    )
+    plt.close(fig)

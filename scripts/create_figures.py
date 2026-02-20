@@ -473,6 +473,18 @@ if __name__ == "__main__":
                         season=season,
                     )
 
+    # Sector contribution cycles per station
+    for inventory in ["TNO", "Origins.earth"]:
+        for groupby in ["hour", "day", "week", "month"]:
+            create_figures_if_missing(
+                FIGURE_PATH
+                / DIR
+                / f"sector_cycles_{groupby}_{inventory.replace('.', '_')}.png",
+                tracer_comparison.plot_sector_cycles_per_station,
+                inventory=inventory,
+                groupby=groupby,
+            )
+
     # Full time series plots
     for prior in ["Origins.earth", "TNO"]:
         for afternoon_only in [True, False]:
