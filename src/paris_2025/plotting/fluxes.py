@@ -1,3 +1,4 @@
+import calendar
 import logging
 from pathlib import Path
 
@@ -7,7 +8,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from matplotlib.lines import Line2D
-from matplotlib.patches import Patch
+from matplotlib.patches import Patch, FancyBboxPatch
 
 import paris_2025 as p
 from paris_2025.config import CONFIG
@@ -55,6 +56,130 @@ def plot_temporal_scaling_factors(fig_path: str | Path):
         bbox_inches="tight",
     )
     plt.close()
+
+
+def plot_temporal_scaling_factor_cycles(fig_path: str | Path):
+    """Plot diurnal, weekly, and annual temporal scaling factor cycles by sector.
+
+    Creates a figure with two rows (one per inventory: TNO, Origins.earth) and
+    three columns (diurnal, weekly, annual cycle). Panel headers use the same
+    FancyBboxPatch style as other station plots in this package.
+
+    Parameters
+    ----------
+    fig_path : str | Path
+        Destination path for the saved figure.
+    """
+    temporal_factor = xr.open_dataset(
+        p.model_input.fluxes.TEMPORAL_PROFILES_NETCDF_PATH
+    )["temporal"].sortby("type")
+
+    inventories = ["TNO 2018", "Origins.earth 2023"]
+
+    groupby_configs = [
+        {
+            "key": "time.hour",
+            "dim": "hour",
+            "title": "Diurnal cycle",
+            "xlabel": "Hour of day",
+            "xticks": np.arange(0, 24, 6),
+            "xtick_labels": None,
+        },
+        {
+            "key": "time.dayofweek",
+            "dim": "dayofweek",
+            "title": "Weekly cycle",
+            "xlabel": "Day of week",
+            "xticks": np.arange(0, 7),
+            "xtick_labels": list(calendar.day_abbr),
+        },
+        {
+            "key": "time.month",
+            "dim": "month",
+            "title": "Annual cycle",
+            "xlabel": "Month",
+            "xticks": np.arange(1, 13),
+            "xtick_labels": list(calendar.month_abbr)[1:],
+        },
+    ]
+
+    n_rows = len(inventories)
+    n_cols = len(groupby_configs)
+    fig, axs = plt.subplots(
+        n_rows,
+        n_cols,
+        figsize=(14, 4 * n_rows),
+        sharey="row",
+        gridspec_kw={"hspace": 0.35, "wspace": 0.15},
+    )
+    fig.suptitle("Temporal scaling factors by sector", fontsize=16)
+
+    offwhite = "#F8F8FF"
+
+    for row, inventory in enumerate(inventories):
+        tf = temporal_factor.sel(type=temporal_factor.type.str.contains(inventory))
+        lw = axs[row, 0].spines["left"].get_linewidth()
+
+        for col, cfg in enumerate(groupby_configs):
+            ax = axs[row, col]
+            grouped = tf.groupby(cfg["key"]).mean()  # type: ignore[call-overload]
+            dim = cfg["dim"]
+
+            for t in grouped.type.values:
+                label = str(t).replace(inventory, "").strip()
+                ax.plot(grouped.coords[dim], grouped.sel(type=t), label=label)
+
+            ax.set_xlabel(cfg["xlabel"])
+            ax.grid(alpha=0.3)
+            ax.set_xticks(cfg["xticks"])
+            if cfg["xtick_labels"] is not None:
+                ax.set_xticklabels(cfg["xtick_labels"], rotation=45, ha="right")
+
+            # Panel title box (top row only to avoid duplication)
+            fw = ax.xaxis.label.get_fontweight()
+            if row == 0:
+                ax.text(
+                    0.5,
+                    1.06,
+                    cfg["title"],
+                    transform=ax.transAxes,
+                    va="center",
+                    ha="center",
+                    fontsize=11,
+                    fontweight=fw,
+                )
+                box = FancyBboxPatch(
+                    (0.0, 1.0),
+                    1.0,
+                    0.12,
+                    boxstyle="square,pad=0.0",
+                    transform=ax.transAxes,
+                    edgecolor="lightgray",
+                    facecolor=offwhite,
+                    lw=lw,
+                    zorder=-10,
+                )
+                fig.patches.append(box)
+
+        axs[row, 0].set_ylabel(f"{inventory}\nTemporal scaling factor")
+        handles, labels = axs[row, -1].get_legend_handles_labels()
+        axs[row, -1].legend(
+            handles,
+            labels,
+            bbox_to_anchor=(1.05, 1.0),
+            loc="upper left",
+            title="Sector",
+        )
+
+    plt.savefig(
+        fig_path,
+        metadata=get_metadata(
+            "Diurnal, weekly and annual temporal scaling factors "
+            "by sector and inventory."
+        ),
+        bbox_inches="tight",
+    )
+    plt.close(fig)
 
 
 def _load_flux_maps_data(

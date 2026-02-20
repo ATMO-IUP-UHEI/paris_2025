@@ -359,6 +359,10 @@ if __name__ == "__main__":
         fluxes.plot_temporal_scaling_factors,
     )
     create_figures_if_missing(
+        FIGURE_PATH / DIR / "temporal_scaling_factor_cycles.png",
+        fluxes.plot_temporal_scaling_factor_cycles,
+    )
+    create_figures_if_missing(
         FIGURE_PATH / DIR / "flux_maps.png",
         fluxes.plot_flux_maps,
     )
