@@ -26,27 +26,26 @@ def cache_data(loss_type: str | None = "rmse - filter: True"):
     t = conc_series.type
     mask = xr.concat(
         [
-            t.str.contains("Origins.earth") | t.str.contains("VPRM 2023"),
-            t.str.contains("TNO") | t.str.contains("VPRM 2023"),
+            t.str.contains("Origins.earth") | t.str.contains("VPRM"),
+            t.str.contains("TNO") | t.str.contains("VPRM"),
         ],
         dim="prior",
     )
     mask["prior"] = ["Origins.earth", "TNO"]
     if loss_type is not None:
         conc_series = conc_series.sel(loss_type=loss_type)
-    time_series = ggp.utils.ugm3_to_ppm(
-        conc_series.co2_timeseries.where(mask).sum("type"),
-        "co2",
-    )
+    time_series = conc_series.co2_timeseries.where(mask).sum("type")
     with ProgressBar():
         time_series = time_series.compute()  # type: ignore
-    dynamic_background = p.background.get_dynamic_background_co2()
-    co2 = p.tracers.get_co2_measurements()
-    co2_model = dynamic_background.co2.reset_coords(
-        drop=True
-    ) + time_series.reset_coords(names=["x", "y"], drop=True)
+    background = p.background.get_binned_background_co2().sel(
+        height_bins=time_series.height
+    )
+    co2 = p.tracers.get_co2_measurements().co2
+    co2_model = background.reset_coords(drop=True) + time_series.reset_coords(
+        names=["x", "y"], drop=True
+    )
 
-    return dynamic_background, co2, co2_model
+    return background, co2, co2_model
 
 
 def get_plot_data(name, afternoon_only=False, main_wind_direction_only=False):
@@ -60,7 +59,7 @@ def get_plot_data(name, afternoon_only=False, main_wind_direction_only=False):
         title = "Background CO2"
         axis_label = "Background CO2 [ppm]"
     elif name == "measured":
-        data = [co2.co2.sel(station=s) for s in co2_model.station.values]
+        data = [co2.sel(station=s) for s in co2_model.station.values]
         title = "Measured CO2"
         axis_label = "Measured CO2 [ppm]"
     elif name == "modeled_Origins.earth":
@@ -384,28 +383,24 @@ def plot_bias_rmse_by_location(fig_path: str | Path):
     high_cost_mask = co2.instrument == "Picarro"
     high_cost_stations = list(co2.station.sel(station=high_cost_mask).values)
     mid_cost_stations = list(co2.station.sel(station=~high_cost_mask).values)
-    x = co2.co2.sel(station=high_cost_stations + list(mid_cost_stations)).sel(
-        time=(12 <= co2.co2.time.dt.hour) & (co2.co2.time.dt.hour <= 16)
+    x = co2.sel(station=high_cost_stations + list(mid_cost_stations)).sel(
+        time=(12 <= co2.time.dt.hour) & (co2.time.dt.hour <= 16)
     )
     y_tno = (
         co2_model.sel(prior="TNO").sel(
             station=high_cost_stations + list(mid_cost_stations)
         )
         # + background
-    ).sel(time=(12 <= co2.co2.time.dt.hour) & (co2.co2.time.dt.hour <= 16))
+    ).sel(time=(12 <= co2.time.dt.hour) & (co2.time.dt.hour <= 16))
     y = (
         co2_model.sel(prior="Origins.earth").sel(
             station=high_cost_stations + list(mid_cost_stations)
         )
         #   + background
-    ).sel(time=(12 <= co2.co2.time.dt.hour) & (co2.co2.time.dt.hour <= 16))
+    ).sel(time=(12 <= co2.time.dt.hour) & (co2.time.dt.hour <= 16))
 
-    position_x = co2.co2.sel(
-        station=high_cost_stations + list(mid_cost_stations)
-    ).x.values
-    position_y = co2.co2.sel(
-        station=high_cost_stations + list(mid_cost_stations)
-    ).y.values
+    position_x = co2.sel(station=high_cost_stations + list(mid_cost_stations)).x.values
+    position_y = co2.sel(station=high_cost_stations + list(mid_cost_stations)).y.values
 
     bias = (y - x).mean(dim="time")
     rmse = np.sqrt(((y - x) ** 2).mean(dim="time"))
@@ -414,17 +409,17 @@ def plot_bias_rmse_by_location(fig_path: str | Path):
     bias_background = (dynamic_background.co2 - x).mean(dim="time")
     rmse_background = np.sqrt(((dynamic_background.co2 - x) ** 2).mean(dim="time"))
 
-    t = co2.co2.sel(station=high_cost_stations + list(mid_cost_stations)).type.values
+    t = co2.sel(station=high_cost_stations + list(mid_cost_stations)).type.values
 
     y_labels = ["Mean Bias", "RMSE"]
     plot_data = [(bias, bias_tno, bias_background), (rmse, rmse_tno, rmse_background)]
-    x_data = [co2.co2.height, position_x, position_y]
+    x_data = [co2.height, position_x, position_y]
     x_labels = ["Height above ground level [m]", "x position [m]", "y position [m]"]
 
     for x_label, xd in zip(x_labels, x_data):
         for y_label, yd in zip(y_labels, plot_data):
             fig, axs = plt.subplots(1, 2, figsize=(16, 6), sharex=True, sharey=True)
-            for station_type in np.unique(co2.co2.type):
+            for station_type in np.unique(co2.type):
                 scatter = axs[0].scatter(
                     xd, yd[0].where(t == station_type), label=station_type
                 )
@@ -517,7 +512,7 @@ def plot_timeseries_comparison(
         )
 
         # Measurement
-        co2["co2"].sel(station=station).sel(time=time_slice).plot(
+        co2.sel(station=station).sel(time=time_slice).plot(
             ax=ax,
             label="Measurement",
         )  # type: ignore
@@ -690,11 +685,17 @@ def station_line_plot(
         # plt.colorbar(im, ax=ax, label="count")
         # ax.set_title(co2.label.sel(station=station).values)
         fw = ax.xaxis.label.get_fontweight()
+        if "code" in model.coords:
+            station_label = (
+                f"{model.code.sel(station=station).values} "
+                f"{model['height'].sel(station=station).values}m"
+            )
+        else:
+            station_label = str(station.values)
         ax.text(
             0.5,
             1.06,
-            f"{model.code.sel(station=station).values} "
-            f"{model['height'].sel(station=station).values}m",
+            station_label,
             transform=ax.transAxes,
             va="center",
             ha="center",
@@ -751,27 +752,28 @@ def plot_cycles_per_station(
         "winter": co2.time.dt.month.isin([12, 1, 2]),
     }
 
+    co2_model = _append_mean_station(co2_model)
+    co2 = _append_mean_station(co2)
+    background = _append_mean_station(background)
     model_data = [
         co2_model.reset_coords(drop=True)
         .where(season_mask[season])
         .sel(
             prior=prior,
+            best_sim_id=0,
             station=s,
             time=time_slice,
         )
         for s in stations
     ]
     measurement_data = [
-        co2["co2"]
-        .reset_coords(drop=True)
+        co2.reset_coords(drop=True)
         .where(season_mask[season])
         .sel(station=s, time=time_slice)
         for s in stations
     ]
     background_data = [
-        background.co2.drop_vars("station")
-        .where(season_mask[season])
-        .sel(time=time_slice)
+        background.where(season_mask[season]).sel(time=time_slice, station=s)
         for s in stations
     ]
     labels = ["Model", "Measurement", "Background"]
@@ -893,6 +895,56 @@ def _load_sector_enhancement_data(
     return model_enhancement, co2, background
 
 
+def _append_mean_station(
+    da: xr.DataArray, station_name: str = "Mean", add_sunday: bool = True
+) -> xr.DataArray:
+    """Append a virtual station that is the mean across all stations.
+
+    Parameters
+    ----------
+    da : xr.DataArray
+        DataArray with a "station" dimension.
+    station_name : str
+        Name for the appended mean station.
+    add_sunday : bool
+        Whether to also append a mean station that only includes Sundays (dayofweek=6).
+
+    Returns
+    -------
+    xr.DataArray
+        Original DataArray with an additional station that is the mean across all
+        stations.
+    """
+    mean = da.mean(dim="station").expand_dims(station=[station_name])
+    station_coords = [
+        coord
+        for coord in da.coords
+        if coord != "station" and "station" in da[coord].dims
+    ]
+    da_clean = da.drop_vars(station_coords)
+    mean_clean = mean.drop_vars(station_coords, errors="ignore")
+
+    if add_sunday:
+        mean_clean_sunday = mean_clean.sel(
+            time=mean_clean.time.dt.dayofweek == 6
+        ).assign_coords(station=[f"{station_name} Sundays"])
+        return xr.concat(
+            [da_clean, mean_clean, mean_clean_sunday],
+            dim="station",
+            join="outer",
+            coords="different",
+            compat="equals",
+        )
+    else:
+        return xr.concat(
+            [da_clean, mean_clean],
+            dim="station",
+            join="outer",
+            coords="different",
+            compat="equals",
+        )
+
+
 def station_sector_plot(
     model_enhancement: xr.DataArray,
     co2: xr.DataArray,
@@ -967,20 +1019,6 @@ def station_sector_plot(
             week = da.time.dt.isocalendar().week.astype(int).rename("week")
             return da.groupby(week)
         return da.groupby(groupby_key)
-
-    def _append_mean_station(
-        da: xr.DataArray, station_name: str = "Mean"
-    ) -> xr.DataArray:
-        """Append a virtual station that is the mean across all stations."""
-        mean = da.mean(dim="station").expand_dims(station=[station_name])
-        station_coords = [
-            coord
-            for coord in da.coords
-            if coord != "station" and "station" in da[coord].dims
-        ]
-        da_clean = da.drop_vars(station_coords)
-        mean_clean = mean.drop_vars(station_coords, errors="ignore")
-        return xr.concat([da_clean, mean_clean], dim="station")
 
     model_enhancement = _append_mean_station(model_enhancement)
     co2 = _append_mean_station(co2)
