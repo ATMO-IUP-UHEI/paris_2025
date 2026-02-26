@@ -489,6 +489,16 @@ if __name__ == "__main__":
                 groupby=groupby,
             )
 
+    # Diurnal cycle by weekday
+    for inventory in ["TNO", "Origins.earth"]:
+        create_figures_if_missing(
+            FIGURE_PATH
+            / DIR
+            / f"diurnal_cycle_weekday_{inventory.replace('.', '_')}.png",
+            tracer_comparison.plot_diurnal_cycle_by_weekday,
+            inventory=inventory,
+        )
+
     # Full time series plots
     for prior in ["Origins.earth", "TNO"]:
         for afternoon_only in [True, False]:

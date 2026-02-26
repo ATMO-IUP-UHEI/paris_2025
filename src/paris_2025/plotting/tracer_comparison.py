@@ -875,16 +875,15 @@ def _load_sector_enhancement_data(
     conc_ds = xr.open_dataset(
         Path(CONFIG["output_path"]) / ggp.config.CONCENTRATION_TIMESERIES_FILE_NAME
     )
-    model_enhancement = ggp.utils.ugm3_to_ppm(
-        conc_ds["co2_timeseries"].sel(
+
+    model_enhancement = (
+        conc_ds["co2_timeseries"]
+        .sel(
             loss_type=loss_type,
             best_sim_id=0,
-        ),
-        "co2",
-        P_local=ggp.load("pressure", p.CONFIG).pressure,
-        T_local=ggp.load("temperature", p.CONFIG).temperature,
+        )
+        .where(measurements_available)
     )
-    model_enhancement = model_enhancement.where(measurements_available)
 
     background = p.background.get_binned_background_co2().sel(
         height_bins=model_enhancement.height
@@ -1163,4 +1162,89 @@ def plot_sector_cycles_per_station(
         metadata=get_metadata(suptitle),
         bbox_inches="tight",
     )
+    plt.close(fig)
+
+
+def plot_diurnal_cycle_by_weekday(
+    fig_path: str | Path,
+    inventory: str,
+    loss_type: str = "rmse - filter: True",
+    ylim: tuple = (420, 460),
+) -> None:
+    """Plot mean diurnal CO₂ cycle averaged over all high-quality stations,
+    with one subplot per day of the week.
+
+    Parameters
+    ----------
+    fig_path : str or Path
+        Path to save the figure.
+    inventory : str
+        Inventory name substring, e.g. ``"TNO"`` or ``"Origins.earth"``.
+    loss_type : str
+        Loss-type filter forwarded to :func:`_load_sector_enhancement_data`.
+    ylim : tuple
+        (ymin, ymax) for all subplots.
+    """
+    days = {
+        "Monday": [0],
+        "Tuesday": [1],
+        "Wednesday": [2],
+        "Thursday": [3],
+        "Friday": [4],
+        "Saturday": [5],
+        "Sunday": [6],
+    }
+
+    model_enhancement, co2, background = _load_sector_enhancement_data(
+        loss_type=loss_type
+    )
+
+    station_mask = co2.instrument.str.contains("Picarro|HPP") & co2.in_gral_domain
+
+    model = model_enhancement.sel(
+        type=model_enhancement.type.str.contains(f"VPRM|{inventory}")
+    ).sum("type")
+    modeled = model + background
+
+    combined = xr.Dataset(
+        {
+            "model": modeled.reset_coords(drop=True),
+            "measurement": co2.reset_coords(drop=True),
+            "background": background.reset_coords(drop=True),
+        }
+    )
+    combined = combined.where(
+        combined.model.notnull()
+        & combined.measurement.notnull()
+        & combined.background.notnull()
+    )
+    combined = combined.sel(station=station_mask)
+
+    suptitle = f"{inventory} - Diurnal cycle of CO$_2$ enhancement by day of week"
+    fig, axs = plt.subplots(1, len(days), figsize=(15, 4), sharey=True, sharex=True)
+    fig.suptitle(suptitle)
+
+    for var in combined.data_vars:
+        data = combined[var]
+        for i, (day_name, day_indices) in enumerate(days.items()):
+            diurnal_cycle = (
+                data.sel(time=data.time.dt.dayofweek.isin(day_indices))
+                .mean("station")
+                .groupby("time.hour")
+                .mean()
+            )
+            diurnal_cycle.plot(ax=axs[i])  # type: ignore
+            axs[i].set_xlabel("Hour of Day")
+            axs[i].set_ylim(ylim)
+            axs[i].set_title(day_name)
+            axs[i].grid()
+
+    axs[-1].legend(
+        ["Model + Background", "CO$_2$", "Background"],
+        bbox_to_anchor=(1.05, 1),
+        loc="upper left",
+    )
+    plt.tight_layout()
+
+    plt.savefig(fig_path, metadata=get_metadata(suptitle), bbox_inches="tight")
     plt.close(fig)
