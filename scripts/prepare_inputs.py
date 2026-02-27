@@ -114,4 +114,5 @@ if __name__ == "__main__":
     p.meteo.create_meteo_measurements()
     p.meteo.create_temperature_and_pressure_dataset()
     p.tracers.create_co2_measurements()
+    p.background.create_background_co2()
     p.google_earth_files.create_files_for_google_earth()

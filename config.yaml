@@ -38,6 +38,8 @@ domain:
 fluxes:
   nx_areas: 9
   ny_areas: 7
+background:
+  height_bins: [0, 40, 80, 120, 200]
 matching:
   stations:
     LONGCHAMP: gral
