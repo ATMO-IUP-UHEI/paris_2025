@@ -136,7 +136,9 @@ def plot_background_station_counts(fig_path: str | Path, year: str = "2023"):
     background_ds = ggp.load("background_co2", CONFIG).sel(time=year)
 
     fig, ax = plt.subplots(figsize=(10, 6))
-    background_ds["dynamic_background_station"].to_pandas().value_counts().plot.bar(ax=ax)
+    background_ds["dynamic_background_station"].to_pandas().value_counts().plot.bar(
+        ax=ax
+    )
     ax.set_xlabel("Station")
     ax.set_ylabel("Count")
     ax.set_title(f"Background Station Usage Counts for {year}")
@@ -323,9 +325,9 @@ def plot_background_station_count(
             raise ValueError(f"Unsupported grouper: {grouper_type}")
 
     if background_type == "binned":
-        n_cols = len(height_bins)
+        n_cols = len(height_bins)  # type: ignore
         fig, axs = plt.subplots(1, n_cols, figsize=(6 * n_cols, 6))
-        for ax, bin in zip(axs, height_bins):
+        for ax, bin in zip(axs, height_bins):  # type: ignore
             grouped = background_station.sel(height_bins=bin).groupby(grouper)
             df = pd.concat(
                 {
