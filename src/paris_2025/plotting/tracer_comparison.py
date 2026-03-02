@@ -40,7 +40,7 @@ def cache_data(loss_type: str | None = "rmse - filter: True"):
     background = p.background.get_binned_background_co2().sel(
         height_bins=time_series.height
     )
-    co2 = p.tracers.get_co2_measurements().co2
+    co2 = ggp.load("co2_measurements", CONFIG).co2
     co2_model = background.reset_coords(drop=True) + time_series.reset_coords(
         names=["x", "y"], drop=True
     )
@@ -871,7 +871,7 @@ def _load_sector_enhancement_data(
     background : xr.DataArray
         Binned background CO2, broadcast to station heights (dims: time, station).
     """
-    co2 = p.tracers.get_co2_measurements().co2
+    co2 = ggp.load("co2_measurements", CONFIG).co2
     measurements_available = co2.notnull()
 
     conc_ds = xr.open_dataset(

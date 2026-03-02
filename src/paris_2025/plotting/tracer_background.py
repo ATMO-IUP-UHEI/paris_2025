@@ -7,6 +7,8 @@ import pandas as pd
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from windrose import WindroseAxes
 
+import ggpymanager as ggp
+
 import paris_2025 as p
 from paris_2025.config import CONFIG
 from paris_2025.plotting.common import get_metadata
@@ -41,7 +43,7 @@ def plot_mean_windrose(fig_path: str | Path, year: str = "2023"):
 
 def plot_co2_stations_with_windrose(fig_path: str | Path, year: str = "2023"):
     """Plot CO2 measurement stations with embedded windrose."""
-    co2 = p.tracers.get_co2_measurements()
+    co2 = ggp.load("co2_measurements", CONFIG)
     co2 = co2.sel(time=year)
 
     meteo = p.meteo.get_meteo_measurements().sel(time=year)
@@ -102,7 +104,7 @@ def plot_co2_stations_with_windrose(fig_path: str | Path, year: str = "2023"):
 
 def plot_background_co2_stations(fig_path: str | Path, year: str = "2023"):
     """Plot background CO2 stations (Picarro instruments outside GRAL domain)."""
-    co2 = p.tracers.get_co2_measurements()
+    co2 = ggp.load("co2_measurements", CONFIG)
     co2 = co2.sel(time=year)
 
     fig, ax = plt.subplots(figsize=(12, 8))
@@ -273,7 +275,7 @@ def plot_background_station_hourly_contribution(
 def get_color_map_for_stations() -> dict[str, str]:
     tab10_colors = plt.get_cmap("tab10").colors  # type: ignore
     color_map = {}
-    co2 = p.tracers.get_co2_measurements()
+    co2 = ggp.load("co2_measurements", CONFIG)
     station_names = co2.sel(station=co2.instrument == "Picarro").station
     grouped = station_names.groupby(station_names.str[:3])
     for (l, g), c in zip(
@@ -386,7 +388,7 @@ def plot_co2_diff_vs_wind_speed(fig_path: str | Path, year: str = "2023"):
     percent = meteo.wind_speed.notnull().sum("time") / len(meteo.time) * 100
     meteo = meteo.sel(station=percent > 50)
 
-    co2 = p.tracers.get_co2_measurements()
+    co2 = ggp.load("co2_measurements", CONFIG)
     co2 = co2.sel(time=year)
 
     time_center = 12  # Center time at noon
@@ -445,7 +447,7 @@ def plot_co2_diff_vs_wind_direction(fig_path: str | Path, year: str = "2023"):
     percent = meteo.wind_speed.notnull().sum("time") / len(meteo.time) * 100
     meteo = meteo.sel(station=percent > 50)
 
-    co2 = p.tracers.get_co2_measurements()
+    co2 = ggp.load("co2_measurements", CONFIG)
     co2 = co2.sel(time=year)
 
     during_day = np.abs(co2.time.dt.hour - 12) < 6

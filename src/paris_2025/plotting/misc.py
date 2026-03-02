@@ -4,7 +4,10 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 
+import ggpymanager as ggp
+
 import paris_2025 as p
+from paris_2025.config import CONFIG
 from paris_2025.plotting.common import get_metadata
 
 
@@ -33,7 +36,7 @@ def plot_temperature_anomaly_with_co2(
         Station name for temperature comparison. Default is "TOUR EIFFEL"
     """
     # Load data
-    co2_data = p.tracers.get_co2_measurements()
+    co2_data = ggp.load("co2_measurements", CONFIG)
     co2_station_data = co2_data.sel(station=co2_station, time=time_period).co2
 
     temperature = p.meteo.get_meteo_measurements().sel(time=time_period).temperature
