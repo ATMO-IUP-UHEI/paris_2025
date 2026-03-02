@@ -33,7 +33,7 @@ def create_files_for_google_earth():
         kml_file=str(kml_output_path), mode="absolute", add_names=True
     )
     logging.info("Loading CO2 measurements...")
-    co2 = p.tracers.get_co2_measurements()
+    co2 = ggp.load("co2_measurements", CONFIG)
     gdf = gpd.GeoDataFrame(
         {
             "name": co2.station.values,

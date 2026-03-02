@@ -49,7 +49,7 @@ def get_dynamic_background_co2() -> xr.Dataset:
 
     # Get CO2 measurements
     logging.info("Getting background CO2 measurements...")
-    co2 = p.tracers.get_co2_measurements().load()
+    co2 = ggp.load("co2_measurements", CONFIG).load()
 
     logging.info("Filtering background CO2 stations...")
     is_high_cost = co2.instrument == "Picarro"
@@ -125,7 +125,7 @@ def get_minimum_background_co2() -> xr.DataArray:
         Minimum background CO2 levels across all stations in the GRAL domain.
     """
 
-    co2 = p.tracers.get_co2_measurements()
+    co2 = ggp.load("co2_measurements", CONFIG)
     co2 = co2.where(co2.instrument == "Picarro")
     # co2 = co2.sel(station=co2.in_gral_domain)
     background_min = co2.co2.min("station")
@@ -151,7 +151,7 @@ def get_binned_background_co2(
         Background CO2 levels corresponding to measurement heights.
     """
 
-    co2 = p.tracers.get_co2_measurements()
+    co2 = ggp.load("co2_measurements", CONFIG)
     co2_height_bins = (
         co2.co2.where(co2.instrument == "Picarro")
         .groupby_bins("height", bins=bins)
@@ -277,7 +277,7 @@ def create_background_co2() -> None:
     # Rename height_bin_center to matched_height_bin_center to avoid a naming
     # conflict when assembling the Dataset (binned_background_by_label also
     # carries a height_bin_center coordinate, but indexed by height_bins).
-    co2_stations = p.tracers.get_co2_measurements()
+    co2_stations = ggp.load("co2_measurements", CONFIG)
     binned_co2_by_station = binned_co2_by_center.sel(
         height_bin_center=co2_stations.height, method="nearest"
     ).rename({"height_bin_center": "matched_height_bin_center"})
