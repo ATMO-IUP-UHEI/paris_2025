@@ -2,7 +2,6 @@ import calendar
 import logging
 from pathlib import Path
 
-import ggpymanager as ggp
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -13,6 +12,7 @@ from matplotlib.patches import Patch, FancyBboxPatch
 import paris_2025 as p
 from paris_2025.config import CONFIG
 from paris_2025.plotting.common import get_metadata
+from paris_2025.plotting._loaders import load_flux_maps_data
 
 
 def plot_flux_by_type(fig_path: str | Path):
@@ -182,43 +182,6 @@ def plot_temporal_scaling_factor_cycles(fig_path: str | Path):
     plt.close(fig)
 
 
-def _load_flux_maps_data(
-    cadastre_path: str | Path = Path(CONFIG["domain"]["gral"]["conf_path"])
-    / "cadastre.dat",
-    source_groups_path: str | Path = p.model_input.fluxes.SOURCE_GROUP_NETCDF_PATH,
-    point_path: str | Path = Path(CONFIG["domain"]["gral"]["conf_path"]) / "point.dat",
-):
-    """Load and prepare data for flux map plots.
-
-    Parameters
-    ----------
-    cadastre_path : str | Path
-        Path to the GRAL cadastre.dat file
-    source_groups_path : str | Path
-        Path to the source groups NetCDF file
-    point_path : str | Path
-        Path to the GRAL point.dat file
-
-    Returns
-    -------
-    tuple
-        cadastre_emissions, source_groups, point_da, GRAL
-    """
-    GRAL = CONFIG["domain"]["gral"]["bbox"] | CONFIG["domain"]["gral"]
-    source_groups = xr.open_dataset(source_groups_path)
-    cadastre_emissions = ggp.io.readers.read_cadastre_file(cadastre_path, GRAL)
-    cadastre_emissions["type"] = source_groups.sel(
-        source_group=cadastre_emissions["source_group"]
-    ).type.load()
-
-    point_da = ggp.io.readers.read_point_file(point_path)["Emission [kg/h]"]
-    point_da["type"] = source_groups.sel(
-        source_group=point_da["source_group"].reset_coords(drop=True)
-    ).type.load()
-
-    return cadastre_emissions, source_groups, point_da, GRAL
-
-
 def plot_flux_maps(
     fig_path: str | Path,
     cadastre_path: str | Path = Path(CONFIG["domain"]["gral"]["conf_path"])
@@ -239,7 +202,7 @@ def plot_flux_maps(
     point_path : str | Path, optional
         Path to the GRAL point.dat file
     """
-    cadastre_emissions, source_groups, point_da, GRAL = _load_flux_maps_data(
+    cadastre_emissions, source_groups, point_da, GRAL = load_flux_maps_data(
         cadastre_path, source_groups_path, point_path
     )
 
@@ -379,7 +342,7 @@ def plot_total_flux_by_inventory(
         Path to the GRAL point.dat file
     """
 
-    cadastre_emissions, source_groups, point_da, GRAL = _load_flux_maps_data(
+    cadastre_emissions, source_groups, point_da, GRAL = load_flux_maps_data(
         cadastre_path, source_groups_path, point_path
     )
 

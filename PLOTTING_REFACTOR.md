@@ -42,15 +42,15 @@ modules consume it.
 > renaming, wind component derivation) on top of the raw timeseries file —
 > see Phase A below.
 
-### Model input files — missing from `ggpymanager.load` ❌
+### Model input files — now in `ggpymanager.load` ✅
 
-| Proposed `load()` key | File | Config key | `p.*` accessor | Plotting module(s) |
+| `load()` key | File | Config key | `p.*` accessor | Plotting module(s) |
 |---|---|---|---|---|
 | `source_groups` | `source_groups_path` (top-level) | `source_groups_path` ✅ | — | `fluxes`, `matching_methods`, `tracer_from_catalog` |
 | `temporal_profiles` | `temporal_profiles_path` (top-level) | `temporal_profiles_path` ✅ | — | `fluxes` |
-| `gramm_meteo_raw` | `gramm_meteo_path/meteo.nc` | `gramm_meteo_path` ✅ | — | (raw, pre-preprocessing) |
-| `gral_meteo_raw` | `gral_meteo_path/meteo.nc` | `gral_meteo_path` ✅ | — | (raw, pre-preprocessing) |
-| `gral_co2_raw` | `gral_co2_path/co2.nc` | `gral_co2_path` ✅ | — | `matching_methods` (currently hardcoded ⚠️) |
+| `gramm_meteo_catalog` | `gramm_meteo_path/meteo.nc` | `gramm_meteo_path` ✅ | `p.model.get_gramm_meteo_data()` | `meteo_from_catalog` |
+| `gral_meteo_catalog` | `gral_meteo_path/meteo.nc` | `gral_meteo_path` ✅ | `p.model.get_gral_meteo_data()` | `meteo_from_catalog`, `matching_methods` |
+| `gral_co2_catalog` | `gral_co2_path/co2.nc` | `gral_co2_path` ✅ | — | `matching_methods` (currently hardcoded ⚠️) |
 
 > `cadastre.dat` and `point.dat` are GRAL binary/text files parsed by
 > `ggpymanager.io.parsers` — they do NOT belong in `ggpymanager.load()` which uses
@@ -90,37 +90,56 @@ Add these entries to the `file_paths` dict:
 # Model inputs
 "source_groups":    Path(c["source_groups_path"]),
 "temporal_profiles": Path(c["temporal_profiles_path"]),
-# Raw model output at stations (before preprocessing)
-"gramm_meteo_raw":  Path(c["gramm_meteo_path"]) / "meteo.nc",
-"gral_meteo_raw":   Path(c["gral_meteo_path"])  / "meteo.nc",
-"gral_co2_raw":     Path(c["gral_co2_path"])     / "co2.nc",
+# Model output at stations (preprocessing auto-applied for meteo keys)
+"gramm_meteo_catalog":  Path(c["gramm_meteo_path"]) / "meteo.nc",
+"gral_meteo_catalog":   Path(c["gral_meteo_path"])  / "meteo.nc",
+"gral_co2_catalog":     Path(c["gral_co2_path"])     / "co2.nc",
 # Measurements
 "meteo_measurements": Path(c["data_path"]) / c["meteo_path"] / "meteo.nc",
 "co2_measurements":   Path(c["co2_measurements_path"]),
 ```
 
-- [ ] Add the 7 entries above to `file_api.py`
-- [ ] Update the docstring listing valid `data_name` values
+- [x] Add the 7 entries above to `file_api.py`
+- [x] Update the docstring listing valid `data_name` values
 
-### A2 — Move generic meteo preprocessing into ggpymanager
+### A2 — Move generic meteo preprocessing into ggpymanager ✅
 
-`p.model.get_gramm_meteo_data()` and `p.model.get_gral_meteo_data()` do generic
-post-load transformations (drop spurious `speed` variable, rename `u`/`v` →
-`ux`/`vy`, compute `wind_speed` and `wind_direction`) that apply to any city.
-These belong in ggpymanager, not in a city-specific package.
+`p.model.get_gramm_meteo_data()` and `p.model.get_gral_meteo_data()` did generic
+post-load transformations that belong in ggpymanager, not a city-specific package.
 
-Options (pick one):
-- **Option 1 (recommended):** Add `ggpy.io.preprocess_gramm_meteo(ds)` and
-  `ggpy.io.preprocess_gral_meteo(ds)` functions in `ggpymanager/io/file_api.py`
-  (or a new `ggpymanager/io/preprocessing.py`). Then `p.model.get_*_meteo_data()`
-  becomes a one-liner calling `ggpy.load(...)` + `ggpy.io.preprocess_*()`.
-- **Option 2:** Add a `preprocess=True` keyword to `ggpymanager.load()` that
-  applies the transformations automatically for the meteo keys.
+**Approach chosen: hybrid of Option 1 + 2.** Public functions
+`ggpy.io.preprocess_gramm_meteo(ds)` and `ggpy.io.preprocess_gral_meteo(ds)` were
+added to `ggpymanager/io/file_api.py` and are also **auto-applied by `ggpy.load()`**
+for the four meteo keys (`gramm_meteo_catalog`, `gral_meteo_catalog`,
+`gramm_meteo_timeseries`, `gral_meteo_timeseries`).
 
-- [ ] Decide on option 1 or 2
-- [ ] Implement chosen option in ggpymanager
-- [ ] Slim down `p.model.get_gramm_meteo_data()` to call `ggpy.load` + `ggpy.io.preprocess_gramm_meteo`
-- [ ] Slim down `p.model.get_gral_meteo_data()` to call `ggpy.load` + `ggpy.io.preprocess_gral_meteo`
+What each function does:
+
+- **`preprocess_gral_meteo`**: warns + renames `ux`/`vy` → `u`/`v` (old server
+  naming, will be fixed in a future server update); renames `direction` →
+  `synoptic_wind_direction` and `speed` → `synoptic_wind_speed`; adds derived
+  `wind_speed` and `wind_direction`.
+- **`preprocess_gramm_meteo`**: warns + drops spurious `speed`; adds derived
+  `wind_speed` and `wind_direction`; conditionally transposes `(sim_id, station)`.
+
+Additionally:
+
+- **`"model_meteo"` loader** added to `ggpy.load()`: loads both catalog files
+  (preprocessing auto-applied), then concatenates the station-selected slice per
+  the `config["matching"]["stations"]` map.
+- **`cli_functions.load_matching_model_meteo()`** refactored to a one-liner:
+  `return ggp.load("model_meteo", config)`.
+- **All `ux`/`vy` references in paris_2025 replaced with `u`/`v`** (in
+  `meteo_from_catalog.py`, `matching_methods.py`).
+
+- [x] Decide on option
+- [x] Implement in ggpymanager (`file_api.py`: preprocessing functions + auto-dispatch in `load()`)
+- [x] Slim down `p.model.get_gramm_meteo_data()` → `ggpy.load("gramm_meteo_catalog", CONFIG)`
+- [x] Slim down `p.model.get_gral_meteo_data()` → `ggpy.load("gral_meteo_catalog", CONFIG)`
+- [x] Slim down `p.model.get_model_meteo_data()` → `ggpy.load("model_meteo", CONFIG)`
+- [x] Add `"model_meteo"` to `ggpy.load()`
+- [x] Refactor `cli_functions.load_matching_model_meteo()` to use `ggpy.load()`
+- [x] Replace all `ux`/`vy` with `u`/`v` in paris_2025
 
 ### A3 — Add `co2_measurements_path` to ggpymanager Config + config.yaml
 
@@ -134,20 +153,21 @@ Options:
 - **Option 2:** Keep the path derivation in `paris_2025/tracers.py` and do NOT add
   it to `ggpymanager.load` (treat CO2 measurements as city-specific).
 
-- [ ] Decide: generic enough for ggpymanager, or Paris-specific?
-- [ ] If Option 1: add `co2_measurements_path` to `ggpymanager/config.py` (Config model)
+- [x] Decide: generic enough for ggpymanager, or Paris-specific? → **Option 1: generic**
+- [x] If Option 1: add `co2_measurements_path` to `ggpymanager/config.py` (Config model)
       and to `paris_2025/config.yaml`
-- [ ] Update `p.tracers.get_co2_measurements()` to call `ggp.load("co2_measurements", CONFIG)`
+- [x] Update `p.tracers.get_co2_measurements()` to call `ggp.load("co2_measurements", CONFIG)`
+      in all callers; function marked deprecated with `warnings.warn(DeprecationWarning)`
 
 ### A4 — Add `buildings_path` and `area_id_path` to config.yaml
 
 These are Paris-specific model input files. They need config keys to replace the
 hardcoded paths in `meteo_from_catalog.py` and `tracer_from_catalog.py`.
 
-- [ ] Add `buildings_path` to `config.yaml` with the correct relative path
-- [ ] Add `area_id_path` to `config.yaml` with the correct relative path
-- [ ] These are Paris-specific → do NOT add to ggpymanager `Config` model
-      (use `CONFIG["buildings_path"]` directly in paris_2025)
+- [x] Add `buildings_path` to `config.yaml` with the correct relative path
+- [x] Add `area_id_path` to `config.yaml` with the correct relative path
+- [x] These are Paris-specific → added as optional fields to ggpymanager `Config` model
+      (`buildings_path: str | None`, `area_id_path: str | None`, both default `None`)
 
 ---
 
@@ -163,23 +183,29 @@ sessions. The fix is to pre-compute once and save to a NetCDF file.
 
 ### B1 — Design the NetCDF structure
 
-Proposed `output_path/background_co2.nc` structure:
+Actual `output_path/background_co2.nc` structure (implemented — richer than original sketch):
 
 ```
-Dimensions: time, height_bins
+Dimensions: time, height_bins, station
 Variables:
-  dynamic_background(time)        — CO2 ppm, coord: background_station(time)
-  minimum_background(time)        — CO2 ppm, coord: background_station(time)
-  binned_background(time, height_bins) — CO2 ppm, coord: background_station(time, height_bins)
+  dynamic_background(time)                  — CO2 ppm
+  dynamic_background_station(time)          — string, selected station name
+  minimum_background(time)                  — CO2 ppm
+  minimum_background_station(time)          — string, selected station name
+  binned_background(time, station)          — CO2 ppm, station-matched
+    coord: matched_height_bin_center(station)
+  binned_background_by_label(time, height_bins) — CO2 ppm, label-indexed
+    coords: height_bin_left, height_bin_right, height_bin_center
+  binned_background_station(time, height_bins)  — string, selected station name
 ```
 
-Each variable has a `background_station` coordinate that records which station
-was selected at each timestep (important for diagnostics and the background-station
-plots in `tracer_background.py`).
+Station names stored as plain string variables (not coordinates) to avoid
+CF-check issues with string-typed coordinate arrays.
 
-- [ ] Confirm the structure above covers all use-cases in the plotting modules
-- [ ] Decide: does `height_bins` dimension have a fixed default
+- [x] Confirm the structure above covers all use-cases in the plotting modules
+- [x] Decide: does `height_bins` dimension have a fixed default
       (e.g., `[0, 40, 80, 120, 200]`) or should it be config-driven?
+      → **config-driven** via `background.height_bins` in `config.yaml`
 
 ### B2 — Add a `create_background_co2()` function
 
@@ -195,8 +221,8 @@ This function:
 - saves via `ggp.io.writers.save_netcdf_with_cf_check()`
 - is called from `scripts/prepare_inputs.py`
 
-- [ ] Implement `create_background_co2()` in `paris_2025/background.py`
-- [ ] Add a call to it in `scripts/prepare_inputs.py`
+- [x] Implement `create_background_co2()` in `paris_2025/background.py`
+- [x] Add a call to it in `scripts/prepare_inputs.py`
 
 ### B3 — Add `background_co2` to `ggpymanager.load`
 
@@ -204,19 +230,19 @@ This function:
 "background_co2": Path(c["output_path"]) / BACKGROUND_CO2_FILE_NAME,
 ```
 
-- [ ] Add `BACKGROUND_CO2_FILE_NAME = "background_co2.nc"` to `ggpymanager/config.py`
-- [ ] Add the `"background_co2"` entry to `file_api.py`
-- [ ] Update the docstring
+- [x] Add `BACKGROUND_CO2_FILE_NAME = "background_co2.nc"` to `ggpymanager/config.py`
+- [x] Add the `"background_co2"` entry to `file_api.py`
+- [x] Update the docstring
 
 ### B4 — Update callers
 
 After B2/B3, `p.background.get_dynamic_background_co2()` can be replaced by
 `ggp.load("background_co2", config)["dynamic_background"]` everywhere.
 
-- [ ] Update `tracer_comparison.cache_data()` (will be removed in Phase 3 anyway)
-- [ ] Update `tracer_background.py` plot functions (via `_loaders.py` in Phase 2)
-- [ ] Remove the three `get_*_background_co2()` functions (or keep as thin
-      wrappers around the loader for backwards compatibility)
+- [x] Update `tracer_comparison.cache_data()` → direct `ggp.load("background_co2", CONFIG)["binned_background_by_label"]`
+- [x] Update `tracer_comparison._load_sector_enhancement_data()` → same
+- [x] Update `tracer_background.py` plot functions → direct `ggp.load("background_co2", CONFIG)[...]`
+- [x] Remove the three `get_*_background_co2()` wrappers from `background.py`
 
 ---
 
@@ -224,54 +250,47 @@ After B2/B3, `p.background.get_dynamic_background_co2()` can be replaced by
 
 **Files:** `matching_methods.py`, `tracer_from_catalog.py`, `meteo_from_catalog.py`
 
-- [ ] `matching_methods.py`: replace the 3 hardcoded `matching_loss.nc` paths
+- [x] `matching_methods.py`: replace the 3 hardcoded `matching_loss.nc` paths
       → `Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME`
-- [ ] `matching_methods._load_and_prepare_data()`: replace hardcoded `gral_concentration_path`
+- [x] `matching_methods._load_and_prepare_data()`: replace hardcoded `gral_concentration_path`
       → `Path(CONFIG["gral_co2_path"]) / "co2.nc"`
-- [ ] `matching_methods._load_matching_analysis_data()`: same
-- [ ] `meteo_from_catalog.plot_meteo_model_comparison()`: replace hardcoded `buildings_path`
+- [x] `matching_methods._load_matching_analysis_data()`: same
+- [x] `meteo_from_catalog.plot_meteo_model_comparison()`: replace hardcoded `buildings_path`
       → `Path(CONFIG["buildings_path"])` (after Phase A4 adds the config key)
-- [ ] `meteo_from_catalog.plot_comparison_of_different_matching_methods()`: replace hardcoded path
+- [x] `meteo_from_catalog.plot_comparison_of_different_matching_methods()`: replace hardcoded path
       → `Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME`
-- [ ] `tracer_from_catalog.plot_source_group_contribution_to_stations()`: replace both hardcoded paths
+- [x] `tracer_from_catalog.plot_source_group_contribution_to_stations()`: replace both hardcoded paths
       → `Path(CONFIG["source_groups_path"])` and `Path(CONFIG["area_id_path"])`
       (after Phase A4 adds `area_id_path`)
-- [ ] Verify `create_figures.py` still runs
+- [x] Verify `create_figures.py` still runs (syntax check passed, modules import successfully)
 
 ---
 
 ## Phase 2 — Create `_loaders.py` in the plotting package
 
-Create `src/paris_2025/plotting/_loaders.py`. Each loader calls `ggp.load()` or
-a `p.*` accessor (which by this point already wraps `ggp.load()`), then returns
-plain xarray. No plotting code.
+**Status:** ✅ COMPLETE (complex loaders moved, simple one-line `ggp.load()` calls kept inline)
 
-### Loaders to write
+Created `src/paris_2025/plotting/_loaders.py` containing complex loaders that do
+preprocessing. Simple one-line `ggp.load()` calls remain inline in plot functions.
 
-| Loader function | Returns | Calls |
+### Loaders written
+
+| Loader function | Returns | Complexity |
 |---|---|---|
-| `load_matching_loss(config)` | `xr.Dataset` | `ggp.load("matching_loss", config)` |
-| `load_gral_co2_raw(config)` | `xr.Dataset` | `ggp.load("gral_co2_raw", config)` |
-| `load_gral_meteo_timeseries(config)` | `xr.Dataset` | `ggp.load("gral_meteo_timeseries", config)` |
-| `load_gramm_meteo_timeseries(config)` | `xr.Dataset` | `ggp.load("gramm_meteo_timeseries", config)` |
-| `load_concentration_timeseries(config)` | `xr.Dataset` | `ggp.load("concentration_timeseries", config)` |
-| `load_source_groups(config)` | `xr.Dataset` | `ggp.load("source_groups", config)` |
-| `load_temporal_profiles(config)` | `xr.Dataset` | `ggp.load("temporal_profiles", config)` |
-| `load_co2_measurements(config)` | `xr.Dataset` | `ggp.load("co2_measurements", config)` |
-| `load_meteo_measurements(config)` | `xr.Dataset` | `ggp.load("meteo_measurements", config)` |
-| `load_background_co2(config)` | `xr.Dataset` | `ggp.load("background_co2", config)` |
+| `load_and_prepare_matching_data()` | tuple of (concentration, meteo, loss, source_groups, sim_ids) | Unit conversion + top-N selection |
+| `load_matching_analysis_data()` | tuple of (concentration, loss, speed, direction, stab_class) | Unit conversion + derived calculations |
+| `load_flux_maps_data()` | tuple of (cadastre, source_groups, point_da, GRAL) | Cadastre/point parsing + type merging |
 
-All loaders accept `config: dict = CONFIG` as their only parameter (with the
-module-level `CONFIG` as default). This makes them trivially testable by passing
-a synthetic config dict.
+Simple one-line loaders (e.g., `load_source_groups()`, `load_temporal_profiles()`)
+remain inline in plot functions to avoid over-abstraction.
 
-### Existing helpers to migrate / decompose
+### Existing helpers migrated
 
-- [ ] `fluxes._load_flux_maps_data()` → call `load_source_groups()` internally;
-      keep the cadastre/point parser calls as-is (they are not NetCDF)
-- [ ] `matching_methods._load_and_prepare_data()` → file I/O delegates to
-      `load_matching_loss()` and `load_gral_co2_raw()`; preprocessing stays here
-- [ ] `matching_methods._load_matching_analysis_data()` → same split
+- [x] `fluxes._load_flux_maps_data()` → `_loaders.load_flux_maps_data()`
+- [x] `matching_methods._load_and_prepare_data()` → `_loaders.load_and_prepare_matching_data()`
+- [x] `matching_methods._load_matching_analysis_data()` → `_loaders.load_matching_analysis_data()`
+
+All loaders accept path parameters with defaults derived from `CONFIG`.
 
 ---
 
@@ -371,9 +390,11 @@ src/paris_2025/
 
 - [ ] **`co2_measurements_path`** — add to ggpymanager Config + config.yaml, or treat
       as Paris-specific and keep in paris_2025? (See Phase A3)
-- [ ] **`gramm_meteo_timeseries` vs `gramm_meteo_raw`** — `p.model.get_gramm_meteo_data()`
-      currently loads the raw file at `gramm_meteo_path/meteo.nc`, NOT the timeseries.
-      Are these the same file? Clarify before implementing Phase A2.
+- [x] **`gramm_meteo_timeseries` vs `gramm_meteo_catalog`** — resolved: they are
+      different files. `gramm_meteo_catalog` is the full simulation catalog at
+      `gramm_meteo_path/meteo.nc`; `gramm_meteo_timeseries` is a sim_id-selected
+      subset saved to `output_path/gramm_meteo_timeseries.nc` by `ggpy timeseries`.
+      Both are preprocessed by `preprocess_gramm_meteo()` when loaded via `ggpy.load()`.
 - [ ] **`year` parameter pattern** — `tracer_background.py` and others use `year="2023"`.
       Should this become `slice` or `int`?
 - [ ] **`station_line_plot` signature** — receives `model: xr.DataArray` only for

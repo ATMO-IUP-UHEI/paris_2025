@@ -10,6 +10,10 @@ import xarray as xr
 import paris_2025 as p
 from paris_2025.config import CONFIG
 from paris_2025.plotting.common import get_metadata
+from paris_2025.plotting._loaders import (
+    load_and_prepare_matching_data,
+    load_matching_analysis_data,
+)
 
 
 def plot_colormesh_of_loss(fig_path: str | Path):
@@ -97,11 +101,6 @@ def generate_frequency_distribution(
     return series
 
 
-def _mu_g_m3_to_ppm(x):
-    """Convert concentration from µg/m³ to ppm."""
-    return x * 22.71108 / 44.01 / 1000
-
-
 def _calculate_difference(
     a: xr.DataArray, circular: bool = False, n_rankings: int = 9
 ) -> xr.DataArray:
@@ -130,52 +129,6 @@ def _calculate_difference(
         diff = a.sel(best_sim_id=range(1, n_rankings + 1)) - a.sel(best_sim_id=0)
         diff = (diff + 180) % 360 - 180
         return diff
-
-
-def _load_and_prepare_data(
-    gral_concentration_path: str | Path,
-    matching_loss_path: str | Path,
-    source_groups_path: str | Path,
-    n_sim_ids: int = 10,
-):
-    """Load and prepare data for matching methods analysis.
-
-    Parameters
-    ----------
-    gral_concentration_path : str | Path
-        Path to GRAL concentration data
-    matching_loss_path : str | Path
-        Path to matching loss data
-    source_groups_path : str | Path
-        Path to source groups data
-    n_sim_ids : int, optional
-        Number of top simulation IDs to select
-
-    Returns
-    -------
-    tuple
-        gral_concentration, gral_meteo, matching_loss, source_groups, sim_ids
-    """
-    # Load data
-    gral_concentration = xr.load_dataset(gral_concentration_path)
-    gral_concentration["concentration"] = _mu_g_m3_to_ppm(
-        gral_concentration["concentration"]
-    )
-
-    gral_meteo = p.model.get_gral_meteo_data()
-    matching_loss = xr.open_dataset(matching_loss_path)
-    source_groups = xr.open_mfdataset(source_groups_path)
-
-    # Get top n simulation IDs
-    ls = []
-    ml = matching_loss.copy()
-    for i in range(n_sim_ids):
-        sim_ids = ml["matching_loss"].idxmin("sim_id")
-        ls.append(sim_ids.astype(int))
-        ml["matching_loss"].loc[dict(sim_id=sim_ids)] = np.nan
-    sim_ids = xr.concat(ls, dim="ranking")
-
-    return gral_concentration, gral_meteo, matching_loss, source_groups, sim_ids
 
 
 def plot_selected_meteo_conditions_by_variable(
@@ -213,7 +166,13 @@ def plot_selected_meteo_conditions_by_variable(
     n_sim_ids : int, optional
         Number of top simulation IDs to consider
     """
-    _, gral_meteo, matching_loss, _, sim_ids = _load_and_prepare_data(
+    (
+        _,
+        gral_meteo,
+        matching_loss,
+        _,
+        sim_ids,
+    ) = load_and_prepare_matching_data(
         gral_concentration_path, matching_loss_path, source_groups_path, n_sim_ids
     )
 
@@ -310,7 +269,13 @@ def plot_meteo_selection_frequency_by_variable(
     n_sim_ids : int, optional
         Number of top simulation IDs to consider
     """
-    _, gral_meteo, matching_loss, _, sim_ids = _load_and_prepare_data(
+    (
+        _,
+        gral_meteo,
+        matching_loss,
+        _,
+        sim_ids,
+    ) = load_and_prepare_matching_data(
         gral_concentration_path, matching_loss_path, source_groups_path, n_sim_ids
     )
 
@@ -392,7 +357,7 @@ def plot_co2_concentration_violin_by_loss_type(
         Number of top simulation IDs to consider
     """
     gral_concentration, _, matching_loss, source_groups, sim_ids = (
-        _load_and_prepare_data(
+        load_and_prepare_matching_data(
             gral_concentration_path,
             matching_loss_path,
             source_groups_path,
@@ -488,7 +453,7 @@ def plot_co2_distribution_by_meteo_variable(
         matching_loss,
         source_groups,
         sim_ids,
-    ) = _load_and_prepare_data(
+    ) = load_and_prepare_matching_data(
         gral_concentration_path,
         matching_loss_path,
         source_groups_path,
@@ -592,7 +557,13 @@ def plot_matching_loss_by_meteo_variable(
     n_sim_ids : int, optional
         Number of top simulation IDs to consider
     """
-    _, gral_meteo, matching_loss, _, sim_ids = _load_and_prepare_data(
+    (
+        _,
+        gral_meteo,
+        matching_loss,
+        _,
+        sim_ids,
+    ) = load_and_prepare_matching_data(
         gral_concentration_path, matching_loss_path, source_groups_path, n_sim_ids
     )
 
@@ -648,66 +619,6 @@ def plot_matching_loss_by_meteo_variable(
     plt.close(fig)
 
 
-def _load_matching_analysis_data(
-    gral_concentration_path: (
-        str | Path
-    ) = Path(CONFIG["gral_co2_path"]) / "co2.nc",
-    matching_loss_path: (
-        str | Path
-    ) = Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME,
-    loss_type: str = "rmse - filter: True",
-    n_best: int = 25,
-):
-    """Load and prepare data for matching sensitivity analysis.
-
-    Parameters
-    ----------
-    gral_concentration_path : str | Path
-        Path to GRAL concentration data
-    matching_loss_path : str | Path
-        Path to matching loss data
-    loss_type : str
-        Type of loss to use for selecting best simulations
-    n_best : int
-        Number of best simulations to select
-
-    Returns
-    -------
-    tuple
-        (concentration, loss, speed, direction, stab_class)
-        All with best_sim_id dimension for comparing top N simulations
-    """
-    # Load data
-    gral_concentration = xr.load_dataset(gral_concentration_path)
-    gral_concentration["concentration"] = ggp.utils.ugm3_to_ppm(
-        gral_concentration["concentration"], "co2"
-    )
-
-    matching_loss = xr.open_dataset(matching_loss_path)
-    gral_meteo = p.model.get_gral_meteo_data()
-
-    # Get top N simulation IDs
-    sim_ids = ggp.analysis.get_sim_ids(
-        matching_loss.matching_loss.sel(loss_type=loss_type), n_best=n_best
-    )
-
-    # Calculate derived quantities
-    concentration = (
-        gral_concentration.sum("source_group")
-        .mean("station")
-        .sel(sim_id=sim_ids)
-        .concentration
-    )
-    loss = matching_loss.sel(loss_type=loss_type, sim_id=sim_ids).matching_loss
-
-    avg = gral_meteo.sel(sim_id=sim_ids).mean("station")
-    speed = ggp.processing.wind_speed_from_vector(avg.u, avg.v)
-    direction = ggp.processing.direction_from_vector(avg.u, avg.v)
-    stab_class = avg.stab_class
-
-    return concentration, loss, speed, direction, stab_class
-
-
 def plot_concentration_vs_meteo_differences(
     fig_path: str | Path,
     gral_concentration_path: (
@@ -738,7 +649,7 @@ def plot_concentration_vs_meteo_differences(
     n_best : int, optional
         Number of best simulations to analyze
     """
-    concentration, loss, speed, direction, stab_class = _load_matching_analysis_data(
+    concentration, loss, speed, direction, stab_class = load_matching_analysis_data(
         gral_concentration_path, matching_loss_path, loss_type, n_best
     )
 
@@ -824,7 +735,7 @@ def plot_loss_vs_max_loss_difference(
     n_best : int, optional
         Number of best simulations to analyze
     """
-    concentration, loss, speed, direction, stab_class = _load_matching_analysis_data(
+    concentration, loss, speed, direction, stab_class = load_matching_analysis_data(
         gral_concentration_path, matching_loss_path, loss_type, n_best
     )
 
@@ -881,7 +792,7 @@ def plot_loss_difference_vs_concentration_difference(
     n_best : int, optional
         Number of best simulations to analyze
     """
-    concentration, loss, speed, direction, stab_class = _load_matching_analysis_data(
+    concentration, loss, speed, direction, stab_class = load_matching_analysis_data(
         gral_concentration_path, matching_loss_path, loss_type, n_best
     )
 
@@ -938,7 +849,7 @@ def plot_loss_vs_max_concentration_difference(
     n_best : int, optional
         Number of best simulations to analyze
     """
-    concentration, loss, speed, direction, stab_class = _load_matching_analysis_data(
+    concentration, loss, speed, direction, stab_class = load_matching_analysis_data(
         gral_concentration_path, matching_loss_path, loss_type, n_best
     )
 
@@ -995,7 +906,7 @@ def plot_concentration_vs_max_concentration_difference(
     n_best : int, optional
         Number of best simulations to analyze
     """
-    concentration, loss, speed, direction, stab_class = _load_matching_analysis_data(
+    concentration, loss, speed, direction, stab_class = load_matching_analysis_data(
         gral_concentration_path, matching_loss_path, loss_type, n_best
     )
 
@@ -1053,7 +964,7 @@ def plot_wind_speed_vs_max_concentration_difference(
     n_best : int, optional
         Number of best simulations to analyze
     """
-    concentration, loss, speed, direction, stab_class = _load_matching_analysis_data(
+    concentration, loss, speed, direction, stab_class = load_matching_analysis_data(
         gral_concentration_path, matching_loss_path, loss_type, n_best
     )
 
@@ -1110,7 +1021,7 @@ def plot_wind_direction_vs_max_concentration_difference(
     n_best : int, optional
         Number of best simulations to analyze
     """
-    concentration, loss, speed, direction, stab_class = _load_matching_analysis_data(
+    concentration, loss, speed, direction, stab_class = load_matching_analysis_data(
         gral_concentration_path, matching_loss_path, loss_type, n_best
     )
 
@@ -1167,7 +1078,7 @@ def plot_stability_class_vs_max_concentration_difference(
     n_best : int, optional
         Number of best simulations to analyze
     """
-    concentration, loss, speed, direction, stab_class = _load_matching_analysis_data(
+    concentration, loss, speed, direction, stab_class = load_matching_analysis_data(
         gral_concentration_path, matching_loss_path, loss_type, n_best
     )
 
