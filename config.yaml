@@ -6,6 +6,8 @@ output_path: ./Output/
 # Model input
 temporal_profiles_path: ./Input/Fluxes/temporal_profiles.nc
 source_groups_path: ./Input/Fluxes/source_groups.nc
+buildings_path: ./Input/Buildings/buildings.nc
+area_id_path: ./Input/Fluxes/area_id.nc
 # Measurements
 meteo_path: ./Input/6_measurements/6_1_meteo/
 co2_measurements_path: ./Input/6_measurements/6_2_tracers/co2.nc
