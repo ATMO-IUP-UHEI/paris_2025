@@ -41,7 +41,7 @@ def plot_gral_wind_components_by_stability_class(
     gral_meteo = p.model.get_gral_meteo_data()
 
     # Filter out Lidar stations
-    non_lidar_meteo = gral_meteo.where(gral_meteo.operator != "lidar", drop=True)
+    non_lidar_meteo = gral_meteo.where(gral_meteo.operator.load() != "lidar", drop=True)
 
     # Create facet plot
     n_rows = int(np.ceil(len(non_lidar_meteo.station) / 3))
