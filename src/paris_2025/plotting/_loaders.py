@@ -5,11 +5,13 @@ preprocessing. Simple one-line ggp.load() calls remain inline in plot functions
 to avoid over-abstraction.
 """
 
+from functools import lru_cache
 from pathlib import Path
 
 import ggpymanager as ggp
 import numpy as np
 import xarray as xr
+from dask.diagnostics.progress import ProgressBar
 
 import paris_2025 as p
 from paris_2025.config import CONFIG
@@ -168,3 +170,103 @@ def load_flux_maps_data(
     ).type.load()
 
     return cadastre_emissions, source_groups, point_da, GRAL
+
+
+@lru_cache()
+def cache_data(loss_type: str | None = "rmse - filter: True"):
+    """Load and cache modeled/measured CO2 data with background.
+
+    Loads concentration timeseries, applies masking for Origins.earth and TNO
+    priors, sums across source types, and combines with background CO2 and
+    measurements. Results are cached to avoid repeated disk access.
+
+    Parameters
+    ----------
+    loss_type : str, optional
+        Loss-type filter for the concentration data. If None, all loss types
+        are included. Default: "rmse - filter: True"
+
+    Returns
+    -------
+    background : xr.DataArray
+        Binned background CO2, dims: (time, height_bins, station)
+    co2 : xr.DataArray
+        Measured CO2, dims: (time, station)
+    co2_model : xr.DataArray
+        Modeled CO2 (background + model enhancement), dims: (time, height, station, prior)
+    """
+    conc_series = xr.open_mfdataset(
+        CONFIG["output_path"] + "/" + ggp.config.CONCENTRATION_TIMESERIES_FILE_NAME
+    )
+    t = conc_series.type
+    mask = xr.concat(
+        [
+            t.str.contains("Origins.earth") | t.str.contains("VPRM"),
+            t.str.contains("TNO") | t.str.contains("VPRM"),
+        ],
+        dim="prior",
+    )
+    mask["prior"] = ["Origins.earth", "TNO"]
+    if loss_type is not None:
+        conc_series = conc_series.sel(loss_type=loss_type)
+    time_series = conc_series.co2_timeseries.where(mask).sum("type")
+    with ProgressBar():
+        time_series = time_series.compute()  # type: ignore
+    background = ggp.load("background_co2", CONFIG)["binned_background_by_label"].sel(
+        height_bins=time_series.height
+    )
+    co2 = ggp.load("co2_measurements", CONFIG).co2
+    co2_model = background.reset_coords(drop=True) + time_series.reset_coords(
+        names=["x", "y"], drop=True
+    )
+
+    return background, co2, co2_model
+
+
+@lru_cache()
+def load_sector_enhancement_data(
+    loss_type: str = "rmse - filter: True",
+) -> tuple[xr.DataArray, xr.DataArray, xr.DataArray]:
+    """Load model sector enhancement, measured CO2 and background CO2.
+
+    Loads the concentration time series retaining the ``type`` dimension so that
+    individual sector contributions remain visible, converts units to ppm, and
+    aligns everything to the availability mask of the measurements.
+
+    Parameters
+    ----------
+    loss_type : str
+        Loss-type selector passed to ``sel(loss_type=...)``.
+
+    Returns
+    -------
+    model_enhancement : xr.DataArray
+        Sector-resolved enhancement (dims: time, station, type), masked to
+        measurement availability, in ppm.
+    co2 : xr.DataArray
+        Measured CO2 (dims: time, station), in ppm.
+    background : xr.DataArray
+        Binned background CO2, broadcast to station heights (dims: time, station).
+    """
+    co2 = ggp.load("co2_measurements", CONFIG).co2
+    measurements_available = co2.notnull()
+
+    conc_ds = xr.open_dataset(
+        Path(CONFIG["output_path"]) / ggp.config.CONCENTRATION_TIMESERIES_FILE_NAME
+    )
+
+    model_enhancement = (
+        conc_ds["co2_timeseries"]
+        .sel(
+            loss_type=loss_type,
+            best_sim_id=0,
+        )
+        .where(measurements_available)
+    )
+
+    background = ggp.load("background_co2", CONFIG)["binned_background_by_label"].sel(
+        height_bins=model_enhancement.height
+    )
+    background = background.where(measurements_available)
+
+    return model_enhancement, co2, background

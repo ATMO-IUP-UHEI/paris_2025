@@ -1,6 +1,5 @@
 """Plotting functions for comparing modeled and measured CO2 concentrations."""
 
-from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
@@ -10,42 +9,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns  # Remove for colormap "flare" # noqa: F401
 import xarray as xr
-from dask.diagnostics.progress import ProgressBar
 from matplotlib import patches
 
 import paris_2025 as p
 from paris_2025.config import CONFIG
 from paris_2025.plotting.common import get_metadata
-
-
-@lru_cache()
-def cache_data(loss_type: str | None = "rmse - filter: True"):
-    conc_series = xr.open_mfdataset(
-        CONFIG["output_path"] + "/" + ggp.config.CONCENTRATION_TIMESERIES_FILE_NAME
-    )
-    t = conc_series.type
-    mask = xr.concat(
-        [
-            t.str.contains("Origins.earth") | t.str.contains("VPRM"),
-            t.str.contains("TNO") | t.str.contains("VPRM"),
-        ],
-        dim="prior",
-    )
-    mask["prior"] = ["Origins.earth", "TNO"]
-    if loss_type is not None:
-        conc_series = conc_series.sel(loss_type=loss_type)
-    time_series = conc_series.co2_timeseries.where(mask).sum("type")
-    with ProgressBar():
-        time_series = time_series.compute()  # type: ignore
-    background = ggp.load("background_co2", CONFIG)["binned_background_by_label"].sel(
-        height_bins=time_series.height
-    )
-    co2 = ggp.load("co2_measurements", CONFIG).co2
-    co2_model = background.reset_coords(drop=True) + time_series.reset_coords(
-        names=["x", "y"], drop=True
-    )
-
-    return background, co2, co2_model
+from paris_2025.plotting._loaders import cache_data, load_sector_enhancement_data
 
 
 def get_plot_data(name, afternoon_only=False, main_wind_direction_only=False):
@@ -846,55 +815,6 @@ def plot_full_timeseries_daily_mean(
         plt.close()
 
 
-@lru_cache()
-def _load_sector_enhancement_data(
-    loss_type: str = "rmse - filter: True",
-) -> tuple[xr.DataArray, xr.DataArray, xr.DataArray]:
-    """Load model sector enhancement, measured CO2 and background CO2.
-
-    Loads the concentration time series retaining the ``type`` dimension so that
-    individual sector contributions remain visible, converts units to ppm, and
-    aligns everything to the availability mask of the measurements.
-
-    Parameters
-    ----------
-    loss_type : str
-        Loss-type selector passed to ``sel(loss_type=...)``.
-
-    Returns
-    -------
-    model_enhancement : xr.DataArray
-        Sector-resolved enhancement (dims: time, station, type), masked to
-        measurement availability, in ppm.
-    co2 : xr.DataArray
-        Measured CO2 (dims: time, station), in ppm.
-    background : xr.DataArray
-        Binned background CO2, broadcast to station heights (dims: time, station).
-    """
-    co2 = ggp.load("co2_measurements", CONFIG).co2
-    measurements_available = co2.notnull()
-
-    conc_ds = xr.open_dataset(
-        Path(CONFIG["output_path"]) / ggp.config.CONCENTRATION_TIMESERIES_FILE_NAME
-    )
-
-    model_enhancement = (
-        conc_ds["co2_timeseries"]
-        .sel(
-            loss_type=loss_type,
-            best_sim_id=0,
-        )
-        .where(measurements_available)
-    )
-
-    background = ggp.load("background_co2", CONFIG)["binned_background_by_label"].sel(
-        height_bins=model_enhancement.height
-    )
-    background = background.where(measurements_available)
-
-    return model_enhancement, co2, background
-
-
 def _append_mean_station(
     da: xr.DataArray, station_name: str = "Mean", add_sunday: bool = True
 ) -> xr.DataArray:
@@ -1160,7 +1080,7 @@ def plot_sector_cycles_per_station(
     """Plot stacked sector cycles per station and save to *fig_path*.
 
     Loads sector-resolved enhancement data via
-    :func:`_load_sector_enhancement_data`, delegates the rendering to
+    :func:`load_sector_enhancement_data`, delegates the rendering to
     :func:`station_sector_plot`, and saves the figure.
 
     Parameters
@@ -1172,7 +1092,7 @@ def plot_sector_cycles_per_station(
     groupby : str
         Temporal grouping: ``"hour"``, ``"day"``, ``"week"``, or ``"month"``.
     loss_type : str
-        Loss-type filter forwarded to :func:`_load_sector_enhancement_data`.
+        Loss-type filter forwarded to :func:`load_sector_enhancement_data`.
     ylabel : str
         Y-axis label.
     ylims : tuple
@@ -1180,7 +1100,7 @@ def plot_sector_cycles_per_station(
     col_wrap : int
         Number of subplot columns.
     """
-    model_enhancement, co2, background = _load_sector_enhancement_data(
+    model_enhancement, co2, background = load_sector_enhancement_data(
         loss_type=loss_type
     )
     suptitle = f"CO2 sector contributions — {inventory} — by {groupby}"
@@ -1219,7 +1139,7 @@ def plot_diurnal_cycle_by_weekday(
     inventory : str
         Inventory name substring, e.g. ``"TNO"`` or ``"Origins.earth"``.
     loss_type : str
-        Loss-type filter forwarded to :func:`_load_sector_enhancement_data`.
+        Loss-type filter forwarded to :func:`load_sector_enhancement_data`.
     ylim : tuple
         (ymin, ymax) for all subplots.
     """
@@ -1233,7 +1153,7 @@ def plot_diurnal_cycle_by_weekday(
         "Sunday": [6],
     }
 
-    model_enhancement, co2, background = _load_sector_enhancement_data(
+    model_enhancement, co2, background = load_sector_enhancement_data(
         loss_type=loss_type
     )
 
