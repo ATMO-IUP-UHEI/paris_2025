@@ -3,24 +3,19 @@
 from pathlib import Path
 from typing import Literal
 
-import ggpymanager as ggp
-import matplotlib.figure
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns  # Remove for colormap "flare" # noqa: F401
 import xarray as xr
-from matplotlib import patches
 
-import paris_2025 as p
-from paris_2025.config import CONFIG
-from paris_2025.plotting.common import (
-    get_metadata,
-    station_scatter_plot,
-    station_line_plot,
-    station_sector_plot,
-    _append_mean_station,
-)
 from paris_2025.plotting._loaders import cache_data, load_sector_enhancement_data
+from paris_2025.plotting.common import (
+    _append_mean_station,
+    get_metadata,
+    station_line_plot,
+    station_scatter_plot,
+    station_sector_plot,
+)
 
 
 def get_plot_data(name, afternoon_only=False, main_wind_direction_only=False):
