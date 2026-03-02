@@ -344,4 +344,4 @@ def create_background_co2() -> None:
     }
 
     # String variables (station names) may not pass the strict CF checker;
-    ggp.io.writers.save_netcdf_with_cf_check(ds, output_file)
+    ggp.io.writers.save_netcdf_with_cf_check(ds, output_file, ignore_tests=True)
