@@ -10,15 +10,20 @@ import paris_2025 as p
 from paris_2025.config import CONFIG
 from paris_2025.plotting.common import get_metadata
 
+# Default paths from config
+_DEFAULT_SOURCE_GROUPS_PATH = Path(CONFIG["source_groups_path"])
+_DEFAULT_AREA_ID_PATH = Path(CONFIG["area_id_path"])
+
 
 def plot_source_group_contribution_to_stations(
-    fig_path_1: str | Path, fig_path_2: str | Path
+    fig_path_1: str | Path,
+    fig_path_2: str | Path,
+    source_groups_path: str | Path = _DEFAULT_SOURCE_GROUPS_PATH,
+    area_id_path: str | Path = _DEFAULT_AREA_ID_PATH,
 ):
     """Plot contribution of source groups to stations."""
-    source_groups = xr.open_dataset(
-        "/Users/rmaiwald/Levante/Paris/Input/Fluxes/source_groups.nc"
-    )
-    area_id = xr.open_dataset("/Users/rmaiwald/Levante/Paris/Input/Fluxes/area_id.nc")
+    source_groups = xr.open_dataset(source_groups_path)
+    area_id = xr.open_dataset(area_id_path)
     co2 = p.model.get_co2_data()
     ppm = ggp.utils.ugm3_to_ppm(co2["concentration"], gas="CO2")
     ppm = ppm.where(ppm > 0)  # type: ignore

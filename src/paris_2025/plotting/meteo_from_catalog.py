@@ -9,8 +9,8 @@ from matplotlib import colors as mcolors
 from matplotlib import patches as mpatches
 
 import paris_2025 as p
-from paris_2025.plotting.common import get_metadata
 from paris_2025.config import CONFIG
+from paris_2025.plotting.common import get_metadata
 
 
 def calculate_wind_rmse(sm, sm_model, dim):
@@ -69,7 +69,7 @@ def plot_meteo_model_comparison(
     fig_path: str | Path,
     buildings_path: (
         str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Input/Buildings/buildings.nc",
+    ) = Path(CONFIG["buildings_path"]),
     selected_operators: list[str] | None = None,
     max_wind_speed: float = 20.0,
 ):
@@ -227,7 +227,7 @@ def plot_comparison_of_different_matching_methods(
     fig_path: str | Path,
     matching_loss_filepath: (
         str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Output/matching_loss.nc",
+    ) = Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME,
     station: str = "LONGCHAMP",
 ):
     """

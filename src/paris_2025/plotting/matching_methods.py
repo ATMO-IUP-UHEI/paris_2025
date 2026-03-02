@@ -8,13 +8,14 @@ import pandas as pd
 import xarray as xr
 
 import paris_2025 as p
+from paris_2025.config import CONFIG
 from paris_2025.plotting.common import get_metadata
 
 
 def plot_colormesh_of_loss(fig_path: str | Path):
     """Plot colormesh of matching loss for different loss types."""
     matching_loss = xr.open_dataset(
-        "/Users/rmaiwald/Levante/Paris/Output/matching_loss.nc"
+        Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME
     )
     matching_loss.matching_loss.plot(col="loss_type", col_wrap=3)
 
@@ -28,7 +29,7 @@ def plot_colormesh_of_loss(fig_path: str | Path):
 def plot_matching_loss_distribution(fig_path: str | Path):
     """Plot distribution of best matching simulations."""
     matching_loss = xr.open_dataset(
-        "/Users/rmaiwald/Levante/Paris/Output/matching_loss.nc"
+        Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME
     )
 
     n_sim_ids = 10
@@ -70,7 +71,7 @@ def plot_matching_loss_distribution(fig_path: str | Path):
 def plot_n_stations_per_time(fig_path: str | Path):
     """Plot number of stations per time from matching loss."""
     matching_loss = xr.open_dataset(
-        "/Users/rmaiwald/Levante/Paris/Output/matching_loss.nc"
+        Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME
     )
 
     plt.figure(figsize=(12, 6))
@@ -182,13 +183,13 @@ def plot_selected_meteo_conditions_by_variable(
     variable: str = "synoptic_wind_speed",
     gral_concentration_path: (
         str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Output/gral_16_paper/data_at_stations/co2.nc",
+    ) = Path(CONFIG["gral_co2_path"]) / "co2.nc",
     matching_loss_path: (
         str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Output/matching_loss.nc",
+    ) = Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME,
     source_groups_path: (
         str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Input/Fluxes/source_groups.nc",
+    ) = Path(CONFIG["source_groups_path"]),
     n_sim_ids: int = 10,
 ):
     """Plot which meteorological conditions are selected grouped by variable.
@@ -280,13 +281,13 @@ def plot_meteo_selection_frequency_by_variable(
     variable: str = "synoptic_wind_speed",
     gral_concentration_path: (
         str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Output/gral_16_paper/data_at_stations/co2.nc",
+    ) = Path(CONFIG["gral_co2_path"]) / "co2.nc",
     matching_loss_path: (
         str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Output/matching_loss.nc",
+    ) = Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME,
     source_groups_path: (
         str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Input/Fluxes/source_groups.nc",
+    ) = Path(CONFIG["source_groups_path"]),
     n_sim_ids: int = 10,
 ):
     """Plot how often meteorological conditions are selected grouped by variable.
@@ -363,13 +364,13 @@ def plot_co2_concentration_violin_by_loss_type(
     fig_path: str | Path,
     gral_concentration_path: (
         str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Output/gral_16_paper/data_at_stations/co2.nc",
+    ) = Path(CONFIG["gral_co2_path"]) / "co2.nc",
     matching_loss_path: (
         str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Output/matching_loss.nc",
+    ) = Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME,
     source_groups_path: (
         str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Input/Fluxes/source_groups.nc",
+    ) = Path(CONFIG["source_groups_path"]),
     n_sim_ids: int = 10,
 ):
     """Plot violin plots of CO2 concentration distributions by loss type.
@@ -452,13 +453,13 @@ def plot_co2_distribution_by_meteo_variable(
     variable: str = "synoptic_wind_speed",
     gral_concentration_path: (
         str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Output/gral_16_paper/data_at_stations/co2.nc",
+    ) = Path(CONFIG["gral_co2_path"]) / "co2.nc",
     matching_loss_path: (
         str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Output/matching_loss.nc",
+    ) = Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME,
     source_groups_path: (
         str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Input/Fluxes/source_groups.nc",
+    ) = Path(CONFIG["source_groups_path"]),
     n_sim_ids: int = 10,
 ):
     """Plot CO2 concentration distributions grouped by meteorological variable.
@@ -562,13 +563,13 @@ def plot_matching_loss_by_meteo_variable(
     variable: str = "synoptic_wind_speed",
     gral_concentration_path: (
         str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Output/gral_16_paper/data_at_stations/co2.nc",
+    ) = Path(CONFIG["gral_co2_path"]) / "co2.nc",
     matching_loss_path: (
         str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Output/matching_loss.nc",
+    ) = Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME,
     source_groups_path: (
         str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Input/Fluxes/source_groups.nc",
+    ) = Path(CONFIG["source_groups_path"]),
     n_sim_ids: int = 10,
 ):
     """Plot matching loss distributions grouped by meteorological variable.
@@ -650,10 +651,10 @@ def plot_matching_loss_by_meteo_variable(
 def _load_matching_analysis_data(
     gral_concentration_path: (
         str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Output/gral_16_paper/data_at_stations/co2.nc",
+    ) = Path(CONFIG["gral_co2_path"]) / "co2.nc",
     matching_loss_path: (
         str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Output/matching_loss.nc",
+    ) = Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME,
     loss_type: str = "rmse - filter: True",
     n_best: int = 25,
 ):
@@ -711,10 +712,10 @@ def plot_concentration_vs_meteo_differences(
     fig_path: str | Path,
     gral_concentration_path: (
         str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Output/gral_16_paper/data_at_stations/co2.nc",
+    ) = Path(CONFIG["gral_co2_path"]) / "co2.nc",
     matching_loss_path: (
         str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Output/matching_loss.nc",
+    ) = Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME,
     loss_type: str = "rmse - filter: True",
     n_best: int = 25,
 ):
@@ -798,10 +799,10 @@ def plot_loss_vs_max_loss_difference(
     fig_path: str | Path,
     gral_concentration_path: (
         str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Output/gral_16_paper/data_at_stations/co2.nc",
+    ) = Path(CONFIG["gral_co2_path"]) / "co2.nc",
     matching_loss_path: (
         str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Output/matching_loss.nc",
+    ) = Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME,
     loss_type: str = "rmse - filter: True",
     n_best: int = 25,
 ):
@@ -855,10 +856,10 @@ def plot_loss_difference_vs_concentration_difference(
     fig_path: str | Path,
     gral_concentration_path: (
         str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Output/gral_16_paper/data_at_stations/co2.nc",
+    ) = Path(CONFIG["gral_co2_path"]) / "co2.nc",
     matching_loss_path: (
         str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Output/matching_loss.nc",
+    ) = Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME,
     loss_type: str = "rmse - filter: True",
     n_best: int = 25,
 ):
@@ -912,10 +913,10 @@ def plot_loss_vs_max_concentration_difference(
     fig_path: str | Path,
     gral_concentration_path: (
         str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Output/gral_16_paper/data_at_stations/co2.nc",
+    ) = Path(CONFIG["gral_co2_path"]) / "co2.nc",
     matching_loss_path: (
         str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Output/matching_loss.nc",
+    ) = Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME,
     loss_type: str = "rmse - filter: True",
     n_best: int = 25,
 ):
@@ -969,10 +970,10 @@ def plot_concentration_vs_max_concentration_difference(
     fig_path: str | Path,
     gral_concentration_path: (
         str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Output/gral_16_paper/data_at_stations/co2.nc",
+    ) = Path(CONFIG["gral_co2_path"]) / "co2.nc",
     matching_loss_path: (
         str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Output/matching_loss.nc",
+    ) = Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME,
     loss_type: str = "rmse - filter: True",
     n_best: int = 25,
 ):
@@ -1027,10 +1028,10 @@ def plot_wind_speed_vs_max_concentration_difference(
     fig_path: str | Path,
     gral_concentration_path: (
         str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Output/gral_16_paper/data_at_stations/co2.nc",
+    ) = Path(CONFIG["gral_co2_path"]) / "co2.nc",
     matching_loss_path: (
         str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Output/matching_loss.nc",
+    ) = Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME,
     loss_type: str = "rmse - filter: True",
     n_best: int = 25,
 ):
@@ -1084,10 +1085,10 @@ def plot_wind_direction_vs_max_concentration_difference(
     fig_path: str | Path,
     gral_concentration_path: (
         str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Output/gral_16_paper/data_at_stations/co2.nc",
+    ) = Path(CONFIG["gral_co2_path"]) / "co2.nc",
     matching_loss_path: (
         str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Output/matching_loss.nc",
+    ) = Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME,
     loss_type: str = "rmse - filter: True",
     n_best: int = 25,
 ):
@@ -1141,10 +1142,10 @@ def plot_stability_class_vs_max_concentration_difference(
     fig_path: str | Path,
     gral_concentration_path: (
         str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Output/gral_16_paper/data_at_stations/co2.nc",
+    ) = Path(CONFIG["gral_co2_path"]) / "co2.nc",
     matching_loss_path: (
         str | Path
-    ) = "/Users/rmaiwald/Levante/Paris/Output/matching_loss.nc",
+    ) = Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME,
     loss_type: str = "rmse - filter: True",
     n_best: int = 25,
 ):
