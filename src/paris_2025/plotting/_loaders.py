@@ -16,8 +16,7 @@ from paris_2025.config import CONFIG
 
 
 def load_and_prepare_matching_data(
-    gral_concentration_path: str | Path = Path(CONFIG["gral_co2_path"])
-    / "co2.nc",
+    gral_concentration_path: str | Path = Path(CONFIG["gral_co2_path"]) / "co2.nc",
     matching_loss_path: str | Path = (
         Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME
     ),
@@ -47,8 +46,8 @@ def load_and_prepare_matching_data(
     """
     # Load data
     gral_concentration = xr.load_dataset(gral_concentration_path)
-    gral_concentration["concentration"] = _mu_g_m3_to_ppm(
-        gral_concentration["concentration"]
+    gral_concentration["concentration"] = ggp.utils.ugm3_to_ppm(
+        gral_concentration["concentration"], "co2"
     )
 
     gral_meteo = p.model.get_gral_meteo_data()
@@ -68,8 +67,7 @@ def load_and_prepare_matching_data(
 
 
 def load_matching_analysis_data(
-    gral_concentration_path: str | Path = Path(CONFIG["gral_co2_path"])
-    / "co2.nc",
+    gral_concentration_path: str | Path = Path(CONFIG["gral_co2_path"]) / "co2.nc",
     matching_loss_path: str | Path = (
         Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME
     ),
@@ -170,8 +168,3 @@ def load_flux_maps_data(
     ).type.load()
 
     return cadastre_emissions, source_groups, point_da, GRAL
-
-
-def _mu_g_m3_to_ppm(x):
-    """Convert concentration from µg/m³ to ppm."""
-    return x * 22.71108 / 44.01 / 1000
