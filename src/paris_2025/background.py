@@ -43,9 +43,6 @@ def get_dynamic_background_co2() -> xr.Dataset:
     # Get mean wind direction
     logging.info("Getting wind direction for background CO2 computation...")
     normalized_mean_u_wind, normalized_mean_v_wind = get_wind_direction()
-    normalized_mean_u_wind = normalized_mean_u_wind
-    normalized_mean_v_wind = normalized_mean_v_wind
-
     # Get GRAL domain centroid
     logging.info("Getting GRAL domain centroid...")
     centroid_x, centroid_y = p.domain.get_centroid_of_domain("gral")
@@ -200,9 +197,14 @@ def create_background_co2() -> None:
       nearest to the GRAL domain centroid at each timestep.
     * ``minimum_background`` (time) — minimum CO2 across all Picarro stations
       outside the GRAL domain at each timestep.
-    * ``binned_background`` (time, height_bins) — minimum CO2 across Picarro
-      stations grouped by measurement height, using the bin edges from
-      ``config.yaml`` → ``background.height_bins``.
+    * ``binned_background`` (time, station) — minimum CO2 across Picarro
+      stations grouped by measurement height, pre-selected to the bin closest
+      to each station's measurement height. Can be added directly to the model
+      output without any additional height selection.
+    * ``binned_background_by_label`` (time, height_bins) — same data as
+      ``binned_background`` but indexed by string labels (e.g. ``"0-40m"``),
+      carrying ``height_bin_left``, ``height_bin_right``, and
+      ``height_bin_center`` as non-dimension coordinates.
 
     Each variable has a companion ``*_station`` string variable recording which
     station was selected (empty string when no station is available).
@@ -250,6 +252,35 @@ def create_background_co2() -> None:
         .reset_coords(drop=True)
         .assign_coords(height_bins=bin_labels)
     )
+    # Add a coordinate for the lower and upper bin edges and the center of the bin
+
+    binned_co2.coords["height_bin_left"] = (
+        "height_bins",
+        [iv.left for iv in intervals],
+    )
+    binned_co2.coords["height_bin_right"] = (
+        "height_bins",
+        [iv.right for iv in intervals],
+    )
+    binned_co2.coords["height_bin_center"] = (
+        "height_bins",
+        [iv.mid for iv in intervals],
+    )
+
+    # Center-indexed intermediate: swap dim to height_bin_center for selection.
+    binned_co2_by_center = binned_co2.swap_dims(
+        {"height_bins": "height_bin_center"}
+    ).drop_vars(["height_bins", "height_bin_left", "height_bin_right"])
+
+    # Station-matched version: select bin closest to each station's measurement
+    # height → dims (time, station), ready to add to the model output directly.
+    # Rename height_bin_center to matched_height_bin_center to avoid a naming
+    # conflict when assembling the Dataset (binned_background_by_label also
+    # carries a height_bin_center coordinate, but indexed by height_bins).
+    co2_stations = p.tracers.get_co2_measurements()
+    binned_co2_by_station = binned_co2_by_center.sel(
+        height_bin_center=co2_stations.height, method="nearest"
+    ).rename({"height_bin_center": "matched_height_bin_center"})
 
     # ------------------------------------------------------------------
     # 3. Extract selected station names as plain string arrays
@@ -267,7 +298,8 @@ def create_background_co2() -> None:
         {
             "dynamic_background": dynamic_co2,
             "minimum_background": minimum_co2,
-            "binned_background": binned_co2,
+            "binned_background": binned_co2_by_station,
+            "binned_background_by_label": binned_co2,
             "dynamic_background_station": xr.DataArray(
                 dynamic_station_str, dims=["time"], coords=time_coord
             ),
@@ -302,10 +334,23 @@ def create_background_co2() -> None:
         ),
     }
     ds["binned_background"].attrs = {
-        "long_name": "Height-binned background CO2",
+        "long_name": "Height-binned background CO2 (station-matched)",
         "units": "ppm",
         "description": (
-            "Minimum CO2 across Picarro stations grouped by measurement height bin."
+            "Minimum CO2 across Picarro stations grouped by measurement height bin, "
+            "pre-selected to the bin closest to each station's measurement height. "
+            "Dimensions: (time, station). Can be added to model output directly."
+        ),
+        "height_bin_edges_m_agl": str(bins),
+    }
+    ds["binned_background_by_label"].attrs = {
+        "long_name": "Height-binned background CO2 (label-indexed)",
+        "units": "ppm",
+        "description": (
+            "Minimum CO2 across Picarro stations grouped by measurement height bin. "
+            "Indexed by string height_bins labels (e.g. '0-40m'). "
+            "Carries height_bin_left, height_bin_right, height_bin_center as "
+            "non-dimension coordinates."
         ),
         "height_bin_edges_m_agl": str(bins),
     }
@@ -326,11 +371,37 @@ def create_background_co2() -> None:
             "Station with the minimum CO2 for each height bin and timestep."
         ),
     }
-    ds["binned_background"].coords["height_bins"].attrs = {
+    ds["binned_background"].coords["matched_height_bin_center"].attrs = {
+        "long_name": "Matched height bin center",
+        "units": "m agl",
+        "description": (
+            "Center of the height bin selected for each station, i.e. the bin "
+            "whose center is closest to the station's measurement height."
+        ),
+    }
+    ds["binned_background_by_label"].coords["height_bins"].attrs = {
         "long_name": "Measurement height bin",
         "units": "m agl",
         "description": "Height bin label (lower-upper bound above ground level).",
         "bin_edges_m_agl": str(bins),
+    }
+    ds["binned_background_by_label"].coords["height_bin_left"].attrs = {
+        "long_name": "Height bin lower edge",
+        "units": "m agl",
+        "description": "Lower edge of the measurement height bin (above ground level).",
+    }
+    ds["binned_background_by_label"].coords["height_bin_right"].attrs = {
+        "long_name": "Height bin upper edge",
+        "units": "m agl",
+        "description": "Upper edge of the measurement height bin (above ground level).",
+    }
+    ds["binned_background_by_label"].coords["height_bin_center"].attrs = {
+        "long_name": "Height bin center",
+        "units": "m agl",
+        "description": (
+            "Center of the measurement height bin (above ground level). "
+            "Use with method='nearest' to select the closest bin for a given height."
+        ),
     }
 
     ds.attrs = {
