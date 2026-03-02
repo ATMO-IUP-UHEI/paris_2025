@@ -64,9 +64,21 @@ def create_temperature_and_pressure_dataset():
     temperature_file = (
         Path(CONFIG["data_path"]) / CONFIG["meteo_path"] / "temperature.nc"
     )
-    ggp.io.writers.save_netcdf_with_cf_check(temperature, temperature_file)
+    if temperature_file.exists():
+        logging.info(
+            f"Temperature file {temperature_file} already exists. Please delete it to "
+            "recreate it."
+        )
+    else:
+        ggp.io.writers.save_netcdf_with_cf_check(temperature, temperature_file)
     pressure_file = Path(CONFIG["data_path"]) / CONFIG["meteo_path"] / "pressure.nc"
-    ggp.io.writers.save_netcdf_with_cf_check(pressure, pressure_file)
+    if pressure_file.exists():
+        logging.info(
+            f"Pressure file {pressure_file} already exists. Please delete it to "
+            "recreate it."
+        )
+    else:
+        ggp.io.writers.save_netcdf_with_cf_check(pressure, pressure_file)
 
 
 def get_meteo_measurements() -> xr.Dataset:
