@@ -18,8 +18,8 @@ def calculate_wind_rmse(sm, sm_model, dim):
     return np.sqrt(
         np.mean(
             (
-                (sm_model["ux"] - sm["u_wind"]) ** 2
-                + (sm_model["vy"] - sm["v_wind"]) ** 2
+                (sm_model["u"] - sm["u_wind"]) ** 2
+                + (sm_model["v"] - sm["v_wind"]) ** 2
             ).min(dim)
         )
     )
@@ -29,7 +29,7 @@ def calculate_wind_mae(sm, sm_model, dim):
     """Calculate mean absolute error for wind components."""
     return np.mean(
         np.abs(
-            (sm_model["ux"] - sm["u_wind"]) ** 2 + (sm_model["vy"] - sm["v_wind"]) ** 2
+            (sm_model["u"] - sm["u_wind"]) ** 2 + (sm_model["v"] - sm["v_wind"]) ** 2
         ).min(dim)
     )
 
@@ -37,7 +37,7 @@ def calculate_wind_mae(sm, sm_model, dim):
 def plot_gral_wind_components_by_stability_class(
     fig_path: str | Path, year: str = "2023"
 ):
-    """Plot wind components (ux vs vy) by stability class for non-Lidar stations."""
+    """Plot wind components (u vs v) by stability class for non-Lidar stations."""
     gral_meteo = p.model.get_gral_meteo_data()
 
     # Filter out Lidar stations
@@ -46,8 +46,8 @@ def plot_gral_wind_components_by_stability_class(
     # Create facet plot
     n_rows = int(np.ceil(len(non_lidar_meteo.station) / 3))
     g = non_lidar_meteo.plot.scatter(
-        x="ux",
-        y="vy",
+        x="u",
+        y="v",
         hue="stab_class",
         col="station",
         col_wrap=3,
@@ -131,7 +131,7 @@ def plot_meteo_model_comparison(
         # GRAMM model
         if s in meteo_gramm["station"]:
             sm_gramm = meteo_gramm.sel(station=s)
-            sm_gramm.plot.scatter(x="ux", y="vy", ax=axs[i, 1], alpha=0.5)
+            sm_gramm.plot.scatter(x="u", y="v", ax=axs[i, 1], alpha=0.5)
             rmse = {
                 dim: calculate_wind_rmse(sm, sm_gramm, dim).values
                 for dim in ["time", "sim_id"]
@@ -152,7 +152,7 @@ def plot_meteo_model_comparison(
         # GRAL model
         if s in meteo_gral["station"]:
             sm_gral = meteo_gral.sel(station=s)
-            sm_gral.plot.scatter(x="ux", y="vy", ax=axs[i, 2], alpha=0.5)
+            sm_gral.plot.scatter(x="u", y="v", ax=axs[i, 2], alpha=0.5)
             rmse = {
                 dim: calculate_wind_rmse(sm, sm_gral, dim).values
                 for dim in ["time", "sim_id"]
@@ -252,8 +252,8 @@ def plot_comparison_of_different_matching_methods(
     matched = gramm_meteo.sel(
         station=station, sim_id=matching_loss.idxmin("sim_id")["matching_loss"]
     )
-    wind_speed = ggp.processing.wind_speed_from_vector(matched["ux"], matched["vy"])
-    wind_direction = ggp.processing.direction_from_vector(matched["ux"], matched["vy"])
+    wind_speed = ggp.processing.wind_speed_from_vector(matched["u"], matched["v"])
+    wind_direction = ggp.processing.direction_from_vector(matched["u"], matched["v"])
 
     fig, axs = plt.subplots(2, 1, figsize=(64, 6), dpi=300)
     wind_speed.plot(hue="loss_type", ax=axs[0], lw=0.5)
@@ -299,7 +299,7 @@ def plot_model_wind_speed_vs_synoptic(
         if model == "gramm":
             ax.scatter(
                 ggp.processing.wind_speed_from_vector(
-                    gramm_meteo["ux"], gramm_meteo["vy"]
+                    gramm_meteo["u"], gramm_meteo["v"]
                 ).mean("station"),
                 gral_meteo["synoptic_wind_speed"],
                 c=gral_meteo["stab_class"],
@@ -307,7 +307,7 @@ def plot_model_wind_speed_vs_synoptic(
         elif model == "gral":
             ax.scatter(
                 ggp.processing.wind_speed_from_vector(
-                    gral_meteo["ux"], gral_meteo["vy"]
+                    gral_meteo["u"], gral_meteo["v"]
                 ).mean("station"),
                 gral_meteo["synoptic_wind_speed"],
                 c=gral_meteo["stab_class"],
@@ -323,7 +323,7 @@ def plot_model_wind_speed_vs_synoptic(
         )
         # Plot 1:1 line
         max_speed = max(
-            ggp.processing.wind_speed_from_vector(gral_meteo["ux"], gral_meteo["vy"])
+            ggp.processing.wind_speed_from_vector(gral_meteo["u"], gral_meteo["v"])
             .mean("station")
             .max(),
             gral_meteo["synoptic_wind_speed"].max(),
@@ -404,8 +404,8 @@ def plot_hodographs(
     for sim_id, ax in zip(sim_ids, axs.flatten()):
         # Plot GRAMM data (green)
         gramm_data.isel(sim_id=sim_id).plot.scatter(
-            x="ux",
-            y="vy",
+            x="u",
+            y="v",
             hue="altitude",
             cmap="Greens",
             add_colorbar=False,
@@ -415,8 +415,8 @@ def plot_hodographs(
         )
         # Plot GRAL data (red)
         gral_data.isel(sim_id=sim_id).plot.scatter(
-            x="ux",
-            y="vy",
+            x="u",
+            y="v",
             hue="altitude",
             cmap="Reds",
             add_colorbar=False,
@@ -492,12 +492,12 @@ def plot_stability_class_and_wind_speed_by_season(
     loss_type : str, optional
         Loss type to use for model selection. Default is "rmse - filter: True".
     """
-    gramm_meteo_timeseries = xr.open_dataset(gramm_meteo_timeseries_path).sel(
-        best_sim_id=0
-    )
-    gral_meteo_timeseries = xr.open_dataset(gral_meteo_timeseries_path).sel(
-        best_sim_id=0
-    )
+    gramm_meteo_timeseries = ggp.io.preprocess_gramm_meteo(
+        xr.open_dataset(gramm_meteo_timeseries_path)
+    ).sel(best_sim_id=0)
+    gral_meteo_timeseries = ggp.io.preprocess_gral_meteo(
+        xr.open_dataset(gral_meteo_timeseries_path)
+    ).sel(best_sim_id=0)
 
     # Select matched model for each station
     model_selection = {
@@ -513,10 +513,6 @@ def plot_stability_class_and_wind_speed_by_season(
         coords="minimal",
         compat="override",
     )
-    model_meteo_timeseries["speed"] = ggp.processing.wind_speed_from_vector(
-        model_meteo_timeseries["ux"], model_meteo_timeseries["vy"]
-    )
-
     # Define seasons
     time_periods = {
         "spring": [3, 4, 5],
@@ -542,7 +538,7 @@ def plot_stability_class_and_wind_speed_by_season(
                 .sort_index()
                 .reindex(range(1, 8), fill_value=0)
             )
-            speed_data[label] = group.speed.mean()
+            speed_data[label] = group.wind_speed.mean()
 
         pd.DataFrame(stab_class_data).T.plot.area(ax=axs[i], legend=False)
         twin_ax = axs[i].twinx()
@@ -609,8 +605,8 @@ def plot_meteo_timeseries_comparison(fig_path: str | Path):
         best_sim_id=range(5),
         time=time_period,
     ).mean("best_sim_id")
-    w_m["direction"] = ggp.processing.direction_from_vector(w_m["ux"], w_m["vy"])
-    w_m["speed"] = ggp.processing.wind_speed_from_vector(w_m["ux"], w_m["vy"])
+    w_m["direction"] = ggp.processing.direction_from_vector(w_m["u"], w_m["v"])
+    w_m["speed"] = ggp.processing.wind_speed_from_vector(w_m["u"], w_m["v"])
 
     fig, axs = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
 

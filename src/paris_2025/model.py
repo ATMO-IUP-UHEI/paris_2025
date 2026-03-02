@@ -1,4 +1,3 @@
-import logging
 from pathlib import Path
 
 import ggpymanager as ggpy
@@ -14,73 +13,16 @@ GRAL_METEO_FILE = Path(CONFIG["gral_meteo_path"]) / "meteo.nc"
 
 
 def get_gramm_meteo_data() -> xr.Dataset:
-    if not GRAMM_METEO_FILE.exists():
-        raise FileNotFoundError(f"Meteo data file not found: {GRAMM_METEO_FILE}")
-
-    meteo_gramm = xr.open_dataset(GRAMM_METEO_FILE)
-    # Fix some issues with the dataset
-    # Drop var "speed" and rename "u" and "v" to "ux" and "vy" respectively
-    if "speed" in meteo_gramm.variables:
-        logging.warning("'speed' variable found in GRAMM meteo data. Dropping it.")
-        meteo_gramm = meteo_gramm.drop_vars(["speed"])
-    if ("u" in meteo_gramm.variables) and ("v" in meteo_gramm.variables):
-        logging.warning(
-            "'u' and 'v' variables found in GRAMM meteo data. "
-            "Renaming to 'ux' and 'vy'."
-        )
-        meteo_gramm = meteo_gramm.rename({"u": "ux", "v": "vy"})
-    # Add "wind_speed" and "wind_direction" variables
-    meteo_gramm["wind_speed"] = ggpy.processing.wind_speed_from_vector(
-        meteo_gramm.ux, meteo_gramm.vy
-    )
-    meteo_gramm["wind_direction"] = ggpy.processing.direction_from_vector(
-        meteo_gramm.ux, meteo_gramm.vy
-    )
-    # Reorder dimensions
-    meteo_gramm = meteo_gramm.transpose("sim_id", "station")
-    return meteo_gramm
+    return ggpy.load("gramm_meteo_catalog", CONFIG)
 
 
 def get_gral_meteo_data() -> xr.Dataset:
     """Load meteorological data from GRAL."""
-    if not GRAL_METEO_FILE.exists():
-        raise FileNotFoundError(f"Meteo data file not found: {GRAL_METEO_FILE}")
-
-    meteo_gral = xr.open_dataset(GRAL_METEO_FILE)
-    # Fix some issues with the dataset
-    # Rename "direction" and "speed" to "synoptic_wind_direction" and
-    # "synoptic_wind_speed"
-    meteo_gral = meteo_gral.rename({"direction": "synoptic_wind_direction"})
-    meteo_gral = meteo_gral.rename({"speed": "synoptic_wind_speed"})
-    # Add "wind_speed" and "wind_direction" variables
-    meteo_gral["wind_speed"] = ggpy.processing.wind_speed_from_vector(
-        meteo_gral.ux, meteo_gral.vy
-    )
-    meteo_gral["wind_direction"] = ggpy.processing.direction_from_vector(
-        meteo_gral.ux, meteo_gral.vy
-    )
-    return meteo_gral
+    return ggpy.load("gral_meteo_catalog", CONFIG)
 
 
 def get_model_meteo_data() -> xr.Dataset:
-    gramm_meteo = get_gramm_meteo_data()
-    gral_meteo = get_gral_meteo_data()
-    config = CONFIG
-    logging.info("Constructing meteorological measurement mask...")
-    model_selection = {
-        "gramm": gramm_meteo,
-        "gral": gral_meteo,
-    }
-    model_meteo = xr.concat(
-        [
-            model_selection[m].sel(station=s)
-            for s, m in config["matching"]["stations"].items()
-        ],
-        dim="station",
-        coords="different",
-        compat="equals",
-    )
-    return model_meteo
+    return ggpy.load("model_meteo", CONFIG)
 
 
 def get_co2_data():

@@ -700,8 +700,8 @@ def _load_matching_analysis_data(
     loss = matching_loss.sel(loss_type=loss_type, sim_id=sim_ids).matching_loss
 
     avg = gral_meteo.sel(sim_id=sim_ids).mean("station")
-    speed = ggp.processing.wind_speed_from_vector(avg.ux, avg.vy)
-    direction = ggp.processing.direction_from_vector(avg.ux, avg.vy)
+    speed = ggp.processing.wind_speed_from_vector(avg.u, avg.v)
+    direction = ggp.processing.direction_from_vector(avg.u, avg.v)
     stab_class = avg.stab_class
 
     return concentration, loss, speed, direction, stab_class
