@@ -133,10 +133,10 @@ def plot_background_co2_stations(fig_path: str | Path, year: str = "2023"):
 
 def plot_background_station_counts(fig_path: str | Path, year: str = "2023"):
     """Plot bar chart of background station usage counts."""
-    dynamic_background = p.background.get_dynamic_background_co2().sel(time=year)
+    background_ds = ggp.load("background_co2", CONFIG).sel(time=year)
 
     fig, ax = plt.subplots(figsize=(10, 6))
-    dynamic_background.background_station.to_pandas().value_counts().plot.bar(ax=ax)
+    background_ds["dynamic_background_station"].to_pandas().value_counts().plot.bar(ax=ax)
     ax.set_xlabel("Station")
     ax.set_ylabel("Count")
     ax.set_title(f"Background Station Usage Counts for {year}")
@@ -150,12 +150,12 @@ def plot_background_station_counts(fig_path: str | Path, year: str = "2023"):
 
 def plot_background_station_co2_violin(fig_path: str | Path, year: str = "2023"):
     """Plot violin plot of CO2 concentrations by background station."""
-    dynamic_background = p.background.get_dynamic_background_co2().sel(time=year)
+    background_ds = ggp.load("background_co2", CONFIG).sel(time=year)
 
     df = pd.DataFrame(
         {
-            "station": dynamic_background.background_station.values,
-            "co2": dynamic_background.co2.values,
+            "station": background_ds["dynamic_background_station"].values,
+            "co2": background_ds["dynamic_background"].values,
         }
     )
     # Drop nans
@@ -204,20 +204,19 @@ def plot_background_station_hourly_contribution(
     Plot stacked area chart showing relative contribution of each
     background station by hour of day.
     """
-    dynamic_background = p.background.get_dynamic_background_co2().sel(time=year)
-
-    # Extract hour of day
-    hourly_data = dynamic_background.assign_coords(hour=dynamic_background.time.dt.hour)
+    background_ds = ggp.load("background_co2", CONFIG).sel(time=year)
+    dynamic_station = background_ds["dynamic_background_station"]
 
     # Count occurrences of each station per hour
     station_hour_counts = {}
-    unique_stations = np.unique(dynamic_background.background_station.values)
+    hours = dynamic_station.time.dt.hour
+    unique_stations = np.unique(dynamic_station.values)
 
     for station in unique_stations:
-        station_mask = hourly_data.background_station == station
+        station_mask = dynamic_station == station
         counts_per_hour = []
         for hour in range(24):
-            hour_mask = hourly_data.hour == hour
+            hour_mask = hours == hour
             count = (station_mask & hour_mask).sum().values
             counts_per_hour.append(count)
         station_hour_counts[station] = counts_per_hour
@@ -293,13 +292,15 @@ def plot_background_station_count(
 
     color_map = get_color_map_for_stations()
 
+    background_ds = ggp.load("background_co2", CONFIG)
     match background_type:
         case "dynamic":
-            background = p.background.get_dynamic_background_co2().load().co2
+            background_station = background_ds["dynamic_background_station"]
         case "minimum":
-            background = p.background.get_minimum_background_co2().load()
+            background_station = background_ds["minimum_background_station"]
         case "binned":
-            background = p.background.get_binned_background_co2().load()
+            background_station = background_ds["binned_background_station"]
+            height_bins = background_ds["binned_background_by_label"].height_bins
         case _:
             raise ValueError(f"Unsupported background type: {background_type}")
 
@@ -314,7 +315,7 @@ def plot_background_station_count(
             meteo = p.meteo.get_meteo_measurements()
             grouper = (
                 meteo.wind_direction.sel(station="TOUR EIFFEL")
-                .sel(time=background.time)
+                .sel(time=background_station.time)
                 .load()
             )
             label = "Wind Direction (deg)"
@@ -322,12 +323,10 @@ def plot_background_station_count(
             raise ValueError(f"Unsupported grouper: {grouper_type}")
 
     if background_type == "binned":
-        n_cols = len(background.height_bins)
+        n_cols = len(height_bins)
         fig, axs = plt.subplots(1, n_cols, figsize=(6 * n_cols, 6))
-        for ax, bin in zip(axs, background.height_bins):
-            grouped = background.sel(height_bins=bin).background_station.groupby(
-                grouper
-            )
+        for ax, bin in zip(axs, height_bins):
+            grouped = background_station.sel(height_bins=bin).groupby(grouper)
             df = pd.concat(
                 {
                     name: g.to_pandas().value_counts().rename_axis(name)
@@ -346,7 +345,7 @@ def plot_background_station_count(
             ax.set_xlabel(label)
             ax.set_ylabel("Count")
     else:
-        grouped = background.background_station.groupby(grouper)
+        grouped = background_station.groupby(grouper)
         df = pd.concat(
             {
                 name: g.to_pandas().value_counts().rename_axis(name)

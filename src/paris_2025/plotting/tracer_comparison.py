@@ -37,7 +37,7 @@ def cache_data(loss_type: str | None = "rmse - filter: True"):
     time_series = conc_series.co2_timeseries.where(mask).sum("type")
     with ProgressBar():
         time_series = time_series.compute()  # type: ignore
-    background = p.background.get_binned_background_co2().sel(
+    background = ggp.load("background_co2", CONFIG)["binned_background_by_label"].sel(
         height_bins=time_series.height
     )
     co2 = ggp.load("co2_measurements", CONFIG).co2
@@ -887,7 +887,7 @@ def _load_sector_enhancement_data(
         .where(measurements_available)
     )
 
-    background = p.background.get_binned_background_co2().sel(
+    background = ggp.load("background_co2", CONFIG)["binned_background_by_label"].sel(
         height_bins=model_enhancement.height
     )
     background = background.where(measurements_available)
