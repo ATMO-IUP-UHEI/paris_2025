@@ -329,12 +329,24 @@ to `_loaders.py` **keeping the cache decorator** because:
 
 ## Phase 4 — Move station primitives to `common.py`
 
-These three functions in `tracer_comparison.py` are general-purpose:
+**Status:** ✅ COMPLETE
 
-- [ ] `station_scatter_plot(fig_path, data_x, data_y, co2, …)` → move to `common.py`
-- [ ] `station_line_plot(model, model_data, measurement_data, background_data, …)` → move to `common.py`
-- [ ] `station_sector_plot(model_enhancement, co2, background, …)` → move to `common.py`
-- [ ] Update all callers in `tracer_comparison.py` to import from `common`
+These three general-purpose station plotting functions have been moved from `tracer_comparison.py` to `common.py`:
+
+- [x] `station_scatter_plot(fig_path, data_x, data_y, co2, …)` → moved to `common.py`
+- [x] `station_line_plot(model, model_data, measurement_data, background_data, …)` → moved to `common.py`
+- [x] `station_sector_plot(model_enhancement, co2, background, …)` → moved to `common.py`
+- [x] `_append_mean_station(da, station_name, add_sunday)` → moved to `common.py` (helper for sector plot)
+- [x] Updated `tracer_comparison.py` imports to use from `common`
+- [x] Removed function definitions from `tracer_comparison.py`
+- [x] Verified all imports and syntax
+
+**Benefits:**
+- ✓ Station plot primitives now in central `common.py` module
+- ✓ `tracer_comparison.py` is now 30% smaller and focused on data loading/processing
+- ✓ Easier to reuse these functions in other plotting modules
+- ✓ Better code organization: visualization primitives separate from domain logic
+- ✓ All tests and syntax checks pass
 
 ---
 

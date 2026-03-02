@@ -1,7 +1,12 @@
 import datetime
 import sys
+from typing import Literal
 
+import matplotlib.figure
 import matplotlib.pyplot as plt
+import numpy as np
+import xarray as xr
+from matplotlib import patches
 
 
 def get_metadata(description=None):
@@ -109,3 +114,629 @@ def save_table_as_png(df, filename, caption="", figsize=None):
     plt.savefig(filename, dpi=150, bbox_inches="tight", facecolor="white")
     plt.close()
     print(f"Table saved to {filename}")
+
+
+def station_scatter_plot(
+    fig_path,
+    data_x,
+    data_y,
+    co2,
+    suptitle,
+    xlabel,
+    ylabel,
+    xlims,
+    ylims,
+    bins=(50, 50),
+    cmap="flare",
+    col_wrap=4,
+    plot_one_to_one=True,
+    plot_mean_std=False,
+    show_infos=True,
+    aspect_equal=True,
+    norm="log",
+):
+    """Create scatter plots comparing measured and modeled CO2 at multiple stations.
+
+    Parameters
+    ----------
+    fig_path : str or Path
+        Path to save the figure
+    data_x : list of xr.DataArray
+        Measured CO2 data for each station
+    data_y : list of xr.DataArray
+        Modeled CO2 data for each station
+    co2 : xr.Dataset
+        Dataset containing station metadata (code, height, etc.)
+    suptitle : str
+        Super title for the figure
+    xlabel : str
+        X-axis label
+    ylabel : str
+        Y-axis label
+    xlims : tuple
+        X-axis limits
+    ylims : tuple
+        Y-axis limits
+    bins : tuple, optional
+        Number of bins for 2D histogram
+    cmap : str, optional
+        Colormap name
+    col_wrap : int, optional
+        Number of columns in subplot grid
+    plot_one_to_one : bool, optional
+        Whether to plot 1:1 line
+    plot_mean_std : bool, optional
+        Whether to plot mean and std deviation
+    show_infos : bool, optional
+        Whether to show RMSE, bias, and correlation info
+    aspect_equal : bool, optional
+        Whether to set equal aspect ratio
+    norm : str or mpl.colors.Normalize, optional
+        Normalization for color scale, either 'log' or 'linear'
+    """
+    n_plots = len(data_x)
+    n_rows = int(np.ceil(n_plots / col_wrap))
+    fig, axs = plt.subplots(
+        n_rows,
+        col_wrap,
+        figsize=(18, 4 * n_rows),
+        sharex=True,
+        sharey=True,
+        gridspec_kw={"hspace": 0.2, "wspace": 0.2},
+    )
+
+    fig.suptitle(suptitle, fontsize=16)
+
+    im = None  # Initialize for type checking
+    for i in range(len(data_x)):
+        ax = axs.flatten()[i]
+        ds = xr.Dataset({"x_plot": data_x[i], "y_plot": data_y[i]})
+        ds = ds.dropna(dim="time")
+        station = data_x[i].station
+
+        # Check if there is enough data
+        N = len(ds.time)
+        if N < 100:
+            station_code = co2["code"].sel(station=station).values
+            print(f"Skipping {station_code} due to insufficient data")
+            ax.axis("off")
+            continue
+
+        # Plot 2d histogram
+        h, xedges, yedges, im = ax.hist2d(
+            ds["x_plot"],
+            ds["y_plot"],
+            bins=bins,
+            cmap=cmap,
+            range=[xlims, ylims],
+            norm=norm,
+            density=True,
+            cmin=1 / N,
+        )
+
+        if plot_one_to_one:
+            ax.plot(xlims, ylims, "k--")
+
+        if plot_mean_std:
+            # Plot rmse, bias, and std
+            diff = ds["y_plot"]
+            diff["x"] = data_x[i]
+            # Round x to bins of 2d histogram
+            diff["x"] = (
+                (np.floor(diff["x"] / xlims[1] * h.shape[0]) % h.shape[0])
+                * xlims[1]
+                / h.shape[0]
+            )
+            count = diff.groupby("x").count()
+            rmse = diff.groupby("x").apply(lambda x: np.sqrt((x**2).mean()))
+            bias = diff.groupby("x").mean()
+            std = diff.groupby("x").std()
+
+            ax.plot(
+                bias["x"],
+                (bias).where(count > 20),
+                color="k",
+                linewidth=2,
+            )
+            ax.plot(
+                bias["x"],
+                (bias - std).where(count > 20),
+                color="k",
+                linewidth=2,
+                linestyle="--",
+            )
+            ax.plot(
+                bias["x"],
+                (bias + std).where(count > 20),
+                color="k",
+                linewidth=2,
+                linestyle="--",
+            )
+
+        if show_infos:
+            # Calculate RMSE, bias, and R-value
+            rmse = np.sqrt(np.mean((ds["x_plot"] - ds["y_plot"]) ** 2))
+            bias = np.mean(ds["x_plot"] - ds["y_plot"])
+            corr = np.corrcoef(ds["x_plot"], ds["y_plot"])[0, 1]
+
+            # Add RMSE and correlation to plot
+            ax.text(
+                0.05,
+                0.95,
+                f"RMSE: {rmse:.1f} ppm\nBias: {bias:.1f} ppm\nR: {corr:.2f}\nN: {N}",
+                transform=ax.transAxes,
+                verticalalignment="top",
+                horizontalalignment="left",
+                fontsize=12,
+                bbox=dict(facecolor="white", alpha=1.0, edgecolor="lightgray"),
+            )
+
+        if aspect_equal:
+            ax.set_aspect("equal")
+        ax.set_xlim(xlims)
+        ax.set_ylim(ylims)
+
+        fw = ax.xaxis.label.get_fontweight()
+        station_code = co2.code.sel(station=station).values
+        station_height = co2["height"].sel(station=station).values
+        ax.text(
+            0.5,
+            1.06,
+            f"{station_code} {station_height}m",
+            transform=ax.transAxes,
+            va="center",
+            ha="center",
+            fontsize=15,
+            fontweight=fw,
+        )
+
+        # Add fancy box for title
+        lw = ax.spines["left"].get_linewidth()
+        offwhite = "#F8F8FF"
+        box = patches.FancyBboxPatch(
+            (0.0, 1.0),
+            1.0,
+            0.12,
+            boxstyle="square,pad=0.0",
+            transform=ax.transAxes,
+            edgecolor="lightgray",
+            facecolor=offwhite,
+            lw=lw,
+            zorder=-10,
+        )
+        fig.patches.extend([box])
+
+    # Set axis labels
+    for r in range(n_rows):
+        axs[r, 0].set_ylabel(ylabel)
+    for c in range(col_wrap):
+        axs[-1, c].set_xlabel(xlabel)
+
+    # Delete empty plots
+    for i in range(n_plots, len(axs.flatten())):
+        fig.delaxes(axs.flatten()[i])
+
+    # One colorbar for all plots
+    if im is None:
+        raise ValueError("No valid data was plotted")
+
+    x0, y0, dx, dy = axs[-1, -2].get_position().bounds
+    new_ax = fig.add_axes((x0 + dx + 0.04, y0, 0.02, dy))
+    label = "Log density" if norm == "log" else "Density"
+    cbar = fig.colorbar(im, cax=new_ax, label=label)
+    cbar.set_ticks([])
+
+    plt.savefig(
+        fig_path,
+        metadata=get_metadata(suptitle),
+        bbox_inches="tight",
+    )
+    plt.close(fig)
+
+
+def station_line_plot(
+    model: xr.DataArray,
+    model_data: list[xr.DataArray],
+    measurement_data: list[xr.DataArray],
+    background_data: list[xr.DataArray],
+    labels: list[str],
+    groupby: str,
+    suptitle: str,
+    ylabel: str,
+    ylims: tuple,
+    col_wrap=4,
+):
+    n_plots = len(model_data)
+    n_rows = int(np.ceil(n_plots / col_wrap))
+    fig, axs = plt.subplots(
+        n_rows,
+        col_wrap,
+        figsize=(4.5 * col_wrap, 4 * n_rows),
+        sharex=True,
+        sharey=True,
+        gridspec_kw={"hspace": 0.2, "wspace": 0.1},
+    )
+
+    fig.suptitle(suptitle, fontsize=16)
+
+    for i, station in enumerate(model.station):
+        ax = axs.flatten()[i]
+
+        ds = xr.Dataset(
+            {
+                "model": model_data[i],
+                "measurement": measurement_data[i],
+                "background": background_data[i],
+            }
+        )
+        ds = ds.dropna(dim="time")
+
+        N = len(ds.time)
+        if N < 100:
+            print(f"Skipping {station.values} due to insufficient data")
+            ax.axis("off")
+            continue
+
+        if groupby == "hour":
+            ds[groupby] = ds["time"].dt.hour
+            time = xr.DataArray(
+                np.arange(0, 24),
+                dims=["hour"],
+                coords={"hour": np.arange(0, 24)},
+            )
+            xticks = np.arange(0, 30, 6)
+            xlabel = "Time of day [h]"
+        elif groupby == "day":
+            ds[groupby] = ds["time"].dt.dayofweek
+            time = xr.DataArray(
+                np.arange(0, 7),
+                dims=["day"],
+                coords={"day": np.arange(0, 7)},
+            )
+            xticks = np.arange(1, 7, 1)
+            xlabel = "Day of week"
+        elif groupby == "week":
+            ds[groupby] = ds["time"].dt.isocalendar().week
+            time = xr.DataArray(
+                np.arange(1, 53),
+                dims=["week"],
+                coords={"week": np.arange(1, 53)},
+            )
+            xticks = np.arange(4, 56, 8)
+            xlabel = "Week of year"
+        elif groupby == "month":
+            ds[groupby] = ds["time"].dt.month
+            time = xr.DataArray(
+                np.arange(1, 13),
+                dims=["month"],
+                coords={"month": np.arange(1, 13)},
+            )
+            xticks = np.arange(1, 13, 1)
+            xlabel = "Month of year"
+        else:
+            raise ValueError(f"Unknown groupby: {groupby}")
+
+        ds = ds.set_coords(groupby)
+        for j, var in enumerate(["model", "measurement", "background"]):
+            # data = ds.groupby(groupby).median()[var]
+            data = ds.groupby(groupby).mean()[var]
+            # Set missing times to nan but confirm to time
+            data = data.reindex({groupby: time}, method=None)
+            ax.plot(
+                time,
+                data,
+                label=labels[j],
+            )
+            if not var == "background":
+                lower_q = ds.groupby(groupby).quantile(0.25)[var]
+                lower_q = lower_q.reindex({groupby: time}, method=None)
+                upper_q = ds.groupby(groupby).quantile(0.75)[var]
+                upper_q = upper_q.reindex({groupby: time}, method=None)
+                ax.fill_between(
+                    time,
+                    lower_q,
+                    upper_q,
+                    alpha=0.2,
+                    label=f"{labels[j]} 25-75% quantile",
+                )
+        ax.set_xticks(xticks)
+
+        ax.set_ylim(ylims)
+        fw = ax.xaxis.label.get_fontweight()
+        if "code" in model.coords:
+            station_label = (
+                f"{model.code.sel(station=station).values} "
+                f"{model['height'].sel(station=station).values}m"
+            )
+        else:
+            station_label = str(station.values)
+        ax.text(
+            0.5,
+            1.06,
+            station_label,
+            transform=ax.transAxes,
+            va="center",
+            ha="center",
+            fontsize=12,
+            fontweight=fw,
+        )
+        # Linewidth of spines
+        lw = ax.spines["left"].get_linewidth()
+        offwhite = "#F8F8FF"
+        box = patches.FancyBboxPatch(
+            (0.0, 1.0),
+            1.0,
+            0.12,
+            boxstyle="square,pad=0.0",
+            transform=ax.transAxes,
+            edgecolor="lightgray",
+            facecolor=offwhite,
+            lw=lw,
+            zorder=-10,
+        )
+        fig.patches.extend([box])
+
+    # Set axis labels
+    for r in range(n_rows):
+        axs[r, 0].set_ylabel(ylabel)
+    for c in range(col_wrap):
+        axs[-1, c].set_xlabel(xlabel)  # type: ignore
+    # Delete splines of empty plots
+    for i in range(n_plots, len(axs.flatten())):
+        axs.flatten()[i].axis("off")
+    # One legend for all plots
+    handles, labels = axs[0, 0].get_legend_handles_labels()
+    axs.flatten()[n_plots].legend(handles, labels, loc="upper left", title="Legend")
+
+
+def _append_mean_station(
+    da: xr.DataArray, station_name: str = "Mean", add_sunday: bool = True
+) -> xr.DataArray:
+    """Append a virtual station that is the mean across all stations.
+
+    Parameters
+    ----------
+    da : xr.DataArray
+        DataArray with a "station" dimension.
+    station_name : str
+        Name for the appended mean station.
+    add_sunday : bool
+        Whether to also append a mean station that only includes Sundays (dayofweek=6).
+
+    Returns
+    -------
+    xr.DataArray
+        Original DataArray with an additional station that is the mean across all
+        stations.
+    """
+    mean = da.mean(dim="station").expand_dims(station=[station_name])
+    station_coords = [
+        coord
+        for coord in da.coords
+        if coord != "station" and "station" in da[coord].dims
+    ]
+    da_clean = da.drop_vars(station_coords)
+    mean_clean = mean.drop_vars(station_coords, errors="ignore")
+
+    if add_sunday:
+        mean_clean_sunday = mean_clean.sel(
+            time=mean_clean.time.dt.dayofweek == 6
+        ).assign_coords(station=[f"{station_name} Sundays"])
+        return xr.concat(
+            [da_clean, mean_clean, mean_clean_sunday],
+            dim="station",
+            join="outer",
+            coords="different",
+            compat="equals",
+        )
+    else:
+        return xr.concat(
+            [da_clean, mean_clean],
+            dim="station",
+            join="outer",
+            coords="different",
+            compat="equals",
+        )
+
+
+def station_sector_plot(
+    model_enhancement: xr.DataArray,
+    co2: xr.DataArray,
+    background: xr.DataArray,
+    inventory: str,
+    groupby: Literal["hour", "day", "week", "month"],
+    suptitle: str,
+    ylabel: str,
+    ylims: tuple,
+    col_wrap: int = 10,
+) -> tuple[matplotlib.figure.Figure, np.ndarray]:
+    """Plot stacked sector contributions per station, grouped by a time dimension.
+
+    Mirrors the layout of :func:`station_line_plot`: a grid of subplots with one
+    panel per station, shared y-axis, titled header boxes, and a shared legend.
+    Each panel shows the anthropogenic sector contributions (stacked fill_between)
+    from *inventory* on top of background + VPRM, overlaid with the measured CO2
+    and the background line.
+
+    Parameters
+    ----------
+    model_enhancement : xr.DataArray
+        Sector-resolved enhancement with dims (time, station, type).
+    co2 : xr.DataArray
+        Measured CO2 with dims (time, station).
+    background : xr.DataArray
+        Background CO2 with dims (time, station).
+    inventory : str
+        Substring to filter ``model_enhancement.type`` for anthropogenic sectors
+        (e.g. ``"TNO"`` or ``"Origins.earth"``).
+    groupby : str
+        One of ``"hour"``, ``"day"``, ``"week"``, ``"month"``.
+    suptitle : str
+        Figure super-title.
+    ylabel : str
+        Y-axis label.
+    ylims : tuple
+        (ymin, ymax) for all subplots.
+    col_wrap : int
+        Number of columns in the subplot grid.
+
+    Returns
+    -------
+    fig, axs
+    """
+    if groupby == "hour":
+        groupby_key = "time.hour"
+        time_vals = np.arange(0, 24)
+        xticks = np.arange(0, 25, 6)
+        xlabel = "Time of day [h]"
+    elif groupby == "day":
+        groupby_key = "time.dayofweek"
+        time_vals = np.arange(0, 7)
+        xticks = np.arange(0, 7)
+        xlabel = "Day of week"
+    elif groupby == "week":
+        groupby_key = None  # handled via isocalendar below
+        time_vals = np.arange(1, 53)
+        xticks = np.arange(4, 56, 8)
+        xlabel = "Week of year"
+    elif groupby == "month":
+        groupby_key = "time.month"
+        time_vals = np.arange(1, 13)
+        xticks = np.arange(1, 13)
+        xlabel = "Month of year"
+    else:
+        raise ValueError(f"Unknown groupby: {groupby!r}")
+
+    def _groupby(da: xr.DataArray):
+        """Return a groupby object, using isocalendar for weeks."""
+        if groupby == "week":
+            week = da.time.dt.isocalendar().week.astype(int).rename("week")
+            return da.groupby(week)
+        return da.groupby(groupby_key)
+
+    model_enhancement = _append_mean_station(model_enhancement)
+    co2 = _append_mean_station(co2)
+    background = _append_mean_station(background)
+
+    stations = model_enhancement.station.values
+    n_plots = len(stations)
+    n_rows = int(np.ceil(n_plots / col_wrap))
+
+    fig, axs = plt.subplots(
+        n_rows,
+        col_wrap,
+        figsize=(4.5 * col_wrap, 4 * n_rows),
+        sharex=True,
+        sharey=True,
+        gridspec_kw={"hspace": 0.2, "wspace": 0.1},
+    )
+    fig.suptitle(suptitle, fontsize=16)
+
+    for i, (s, ax) in enumerate(zip(stations, axs.flatten())):
+        hourly = (
+            _groupby(
+                model_enhancement.sel(
+                    type=model_enhancement.type.str.contains(inventory),
+                    station=s,
+                )
+            )
+            .mean()
+            .to_pandas()
+        )
+        vprm = (
+            _groupby(
+                model_enhancement.sel(
+                    type=model_enhancement.type.str.contains("VPRM"),
+                    station=s,
+                ).sum(dim="type")
+            )
+            .mean()
+            .to_pandas()
+        )
+        bg = _groupby(background.sel(station=s)).mean().to_pandas()
+        meas = _groupby(co2.sel(station=s)).mean().to_pandas()
+
+        x = time_vals
+        base = (bg + vprm).reindex(time_vals).values  # type: ignore[call-overload]
+        cumulative = base.copy()
+        top = cumulative.copy()
+
+        for col in hourly.columns:
+            col_vals = hourly[col].reindex(time_vals).values  # type: ignore
+            top = cumulative + col_vals  # type: ignore[operator]
+            ax.fill_between(x, cumulative, top, alpha=0.5, label=col)
+            cumulative = top
+
+        ax.plot(x, top, color="k", linewidth=0.8, label="Model total")
+        ax.plot(
+            time_vals,
+            meas.reindex(time_vals).values,  # type: ignore[call-overload]
+            color="k",
+            linestyle="-",
+            linewidth=1.5,
+            label="Measurements",
+        )
+        ax.plot(
+            time_vals,
+            bg.reindex(time_vals).values,  # type: ignore[call-overload]
+            color="gray",
+            linestyle="--",
+            linewidth=1.2,
+            label="Background",
+        )
+
+        ax.set_xticks(xticks)
+        ax.set_ylim(ylims)
+        ax.grid(alpha=0.3)
+
+        fw = ax.xaxis.label.get_fontweight()
+        station_label = str(s)
+        if "height" in model_enhancement.coords:
+            h = model_enhancement["height"].sel(station=s).values
+            station_label = f"{s} {h}m"
+        ax.text(
+            0.5,
+            1.06,
+            station_label,
+            transform=ax.transAxes,
+            va="center",
+            ha="center",
+            fontsize=10,
+            fontweight=fw,
+        )
+        lw = ax.spines["left"].get_linewidth()
+        offwhite = "#F8F8FF"
+        box = patches.FancyBboxPatch(
+            (0.0, 1.0),
+            1.0,
+            0.12,
+            boxstyle="square,pad=0.0",
+            transform=ax.transAxes,
+            edgecolor="lightgray",
+            facecolor=offwhite,
+            lw=lw,
+            zorder=-10,
+        )
+        fig.patches.extend([box])
+
+    for r in range(n_rows):
+        axs[r, 0].set_ylabel(ylabel)
+    for c in range(col_wrap):
+        axs[-1, c].set_xlabel(xlabel)  # type: ignore
+
+    for j in range(n_plots, len(axs.flatten())):
+        axs.flatten()[j].axis("off")
+
+    handles, labels = axs.flatten()[0].get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    legend_ax = (
+        axs.flatten()[n_plots] if n_plots < len(axs.flatten()) else axs.flatten()[-1]
+    )
+    legend_ax.legend(
+        by_label.values(),
+        by_label.keys(),
+        loc="upper left",
+        title="Legend",
+    )
+
+    return fig, axs
