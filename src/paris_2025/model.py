@@ -1,6 +1,6 @@
 from pathlib import Path
 
-import ggpymanager as ggpy
+import ggpymanager as ggp
 import xarray as xr
 
 from paris_2025.config import CONFIG
@@ -13,16 +13,16 @@ GRAL_METEO_FILE = Path(CONFIG["gral_meteo_path"]) / "meteo.nc"
 
 
 def get_gramm_meteo_data() -> xr.Dataset:
-    return ggpy.load("gramm_meteo_catalog", CONFIG)
+    return ggp.load("gramm_meteo_catalog", CONFIG)
 
 
 def get_gral_meteo_data() -> xr.Dataset:
     """Load meteorological data from GRAL."""
-    return ggpy.load("gral_meteo_catalog", CONFIG)
+    return ggp.load("gral_meteo_catalog", CONFIG)
 
 
 def get_model_meteo_data() -> xr.Dataset:
-    return ggpy.load("model_meteo", CONFIG)
+    return ggp.load("model_meteo", CONFIG)
 
 
 def get_co2_data():
