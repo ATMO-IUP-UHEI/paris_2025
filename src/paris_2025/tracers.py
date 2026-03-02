@@ -28,11 +28,21 @@ def get_co2_measurements() -> xr.Dataset:
     """
     Load the CO2 measurement dataset from file, if it exists and is not empty.
 
+    .. deprecated::
+        Use ``ggpymanager.load("co2_measurements", CONFIG)`` instead.
+        This function will be removed once all callers have been migrated.
+
     Returns
     -------
     xr.Dataset
         The CO2 measurement dataset.
     """
+    warnings.warn(
+        "p.tracers.get_co2_measurements() is deprecated. "
+        "Use ggp.load('co2_measurements', CONFIG) instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     if not TRACER_CO2_FILE.exists():
         raise FileNotFoundError(
             "CO2 measurement file not found. Please run the script to create it "
