@@ -67,9 +67,7 @@ def plot_gral_wind_components_by_stability_class(
 
 def plot_meteo_model_comparison(
     fig_path: str | Path,
-    buildings_path: (
-        str | Path
-    ) = Path(CONFIG["buildings_path"]),
+    buildings_path: str | Path = Path(CONFIG["buildings_path"]),
     selected_operators: list[str] | None = None,
     max_wind_speed: float = 20.0,
 ):
@@ -180,7 +178,7 @@ def plot_meteo_model_comparison(
                 )
                 - sm_gral["height"]
             )
-            vmax = abs(height_diff).max()
+            vmax = abs(height_diff).max().compute()
             vmin = -vmax
             height_diff.plot(
                 cmap="bwr", vmin=vmin, vmax=vmax, ax=axs[i, 3]
@@ -225,9 +223,6 @@ def plot_meteo_model_comparison(
 
 def plot_comparison_of_different_matching_methods(
     fig_path: str | Path,
-    matching_loss_filepath: (
-        str | Path
-    ) = Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME,
     station: str = "LONGCHAMP",
 ):
     """
@@ -241,16 +236,13 @@ def plot_comparison_of_different_matching_methods(
     ----------
     fig_path : str | Path
         Path to save the output figure.
-    matching_loss_filepath : str | Path
-        Path to the matching loss NetCDF file containing loss metrics for different
-        methods.
     station : str, optional
         Name of the station to analyze. Default is "LONGCHAMP".
     """
-    gramm_meteo = p.model.get_gramm_meteo_data()
-    matching_loss = xr.open_dataset(matching_loss_filepath)
+    gramm_meteo = ggp.load("gramm_meteo_catalog", CONFIG)
+    matching_loss = ggp.load("matching_loss", CONFIG)
     matched = gramm_meteo.sel(
-        station=station, sim_id=matching_loss.idxmin("sim_id")["matching_loss"]
+        station=station, sim_id=matching_loss["matching_loss"].idxmin("sim_id")
     )
     wind_speed = ggp.processing.wind_speed_from_vector(matched["u"], matched["v"])
     wind_direction = ggp.processing.direction_from_vector(matched["u"], matched["v"])
