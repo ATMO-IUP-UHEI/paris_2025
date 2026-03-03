@@ -6,14 +6,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import xarray as xr
+from tqdm import tqdm
 
-import paris_2025 as p
 from paris_2025.config import CONFIG
-from paris_2025.plotting.common import get_metadata
 from paris_2025.plotting._loaders import (
     load_and_prepare_matching_data,
     load_matching_analysis_data,
 )
+from paris_2025.plotting.common import get_metadata
 
 
 def plot_colormesh_of_loss(fig_path: str | Path):
@@ -134,15 +134,10 @@ def _calculate_difference(
 def plot_selected_meteo_conditions_by_variable(
     fig_path: str | Path,
     variable: str = "synoptic_wind_speed",
-    gral_concentration_path: (
-        str | Path
-    ) = Path(CONFIG["gral_co2_path"]) / "co2.nc",
-    matching_loss_path: (
-        str | Path
-    ) = Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME,
-    source_groups_path: (
-        str | Path
-    ) = Path(CONFIG["source_groups_path"]),
+    gral_concentration_path: str | Path = Path(CONFIG["gral_co2_path"]) / "co2.nc",
+    matching_loss_path: str | Path = Path(CONFIG["output_path"])
+    / ggp.config.MATCHING_LOSS_FILE_NAME,
+    source_groups_path: str | Path = Path(CONFIG["source_groups_path"]),
     n_sim_ids: int = 10,
 ):
     """Plot which meteorological conditions are selected grouped by variable.
@@ -238,15 +233,10 @@ def plot_selected_meteo_conditions_by_variable(
 def plot_meteo_selection_frequency_by_variable(
     fig_path: str | Path,
     variable: str = "synoptic_wind_speed",
-    gral_concentration_path: (
-        str | Path
-    ) = Path(CONFIG["gral_co2_path"]) / "co2.nc",
-    matching_loss_path: (
-        str | Path
-    ) = Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME,
-    source_groups_path: (
-        str | Path
-    ) = Path(CONFIG["source_groups_path"]),
+    gral_concentration_path: str | Path = Path(CONFIG["gral_co2_path"]) / "co2.nc",
+    matching_loss_path: str | Path = Path(CONFIG["output_path"])
+    / ggp.config.MATCHING_LOSS_FILE_NAME,
+    source_groups_path: str | Path = Path(CONFIG["source_groups_path"]),
     n_sim_ids: int = 10,
 ):
     """Plot how often meteorological conditions are selected grouped by variable.
@@ -327,15 +317,10 @@ def plot_meteo_selection_frequency_by_variable(
 
 def plot_co2_concentration_violin_by_loss_type(
     fig_path: str | Path,
-    gral_concentration_path: (
-        str | Path
-    ) = Path(CONFIG["gral_co2_path"]) / "co2.nc",
-    matching_loss_path: (
-        str | Path
-    ) = Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME,
-    source_groups_path: (
-        str | Path
-    ) = Path(CONFIG["source_groups_path"]),
+    gral_concentration_path: str | Path = Path(CONFIG["gral_co2_path"]) / "co2.nc",
+    matching_loss_path: str | Path = Path(CONFIG["output_path"])
+    / ggp.config.MATCHING_LOSS_FILE_NAME,
+    source_groups_path: str | Path = Path(CONFIG["source_groups_path"]),
     n_sim_ids: int = 10,
 ):
     """Plot violin plots of CO2 concentration distributions by loss type.
@@ -416,15 +401,10 @@ def plot_co2_concentration_violin_by_loss_type(
 def plot_co2_distribution_by_meteo_variable(
     fig_path: str | Path,
     variable: str = "synoptic_wind_speed",
-    gral_concentration_path: (
-        str | Path
-    ) = Path(CONFIG["gral_co2_path"]) / "co2.nc",
-    matching_loss_path: (
-        str | Path
-    ) = Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME,
-    source_groups_path: (
-        str | Path
-    ) = Path(CONFIG["source_groups_path"]),
+    gral_concentration_path: str | Path = Path(CONFIG["gral_co2_path"]) / "co2.nc",
+    matching_loss_path: str | Path = Path(CONFIG["output_path"])
+    / ggp.config.MATCHING_LOSS_FILE_NAME,
+    source_groups_path: str | Path = Path(CONFIG["source_groups_path"]),
     n_sim_ids: int = 10,
 ):
     """Plot CO2 concentration distributions grouped by meteorological variable.
@@ -475,8 +455,10 @@ def plot_co2_distribution_by_meteo_variable(
     for lt, ax in zip(matching_loss["loss_type"], axs.flatten()):
         for ranking, side in zip([[0], range(n_sim_ids)], ["low", "high"]):
             con_subset = con_data.sel(sim_id=sim_ids.sel(loss_type=lt, ranking=ranking))
-            gral_meteo_subset = gral_meteo[variable].sel(
-                sim_id=sim_ids.sel(loss_type=lt, ranking=ranking)
+            gral_meteo_subset = (
+                gral_meteo[variable]
+                .sel(sim_id=sim_ids.sel(loss_type=lt, ranking=ranking))
+                .compute()
             )
 
             parts = ax.violinplot(
@@ -526,15 +508,10 @@ def plot_co2_distribution_by_meteo_variable(
 def plot_matching_loss_by_meteo_variable(
     fig_path: str | Path,
     variable: str = "synoptic_wind_speed",
-    gral_concentration_path: (
-        str | Path
-    ) = Path(CONFIG["gral_co2_path"]) / "co2.nc",
-    matching_loss_path: (
-        str | Path
-    ) = Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME,
-    source_groups_path: (
-        str | Path
-    ) = Path(CONFIG["source_groups_path"]),
+    gral_concentration_path: str | Path = Path(CONFIG["gral_co2_path"]) / "co2.nc",
+    matching_loss_path: str | Path = Path(CONFIG["output_path"])
+    / ggp.config.MATCHING_LOSS_FILE_NAME,
+    source_groups_path: str | Path = Path(CONFIG["source_groups_path"]),
     n_sim_ids: int = 10,
 ):
     """Plot matching loss distributions grouped by meteorological variable.
@@ -566,12 +543,17 @@ def plot_matching_loss_by_meteo_variable(
     ) = load_and_prepare_matching_data(
         gral_concentration_path, matching_loss_path, source_groups_path, n_sim_ids
     )
+    gral_meteo.load()
+    matching_loss.load()
+    sim_ids.load()
 
     fig, axs = plt.subplots(2, 3, figsize=(14, 8), sharex=True, sharey=True)
-    for lt, ax in zip(matching_loss["loss_type"], axs.flatten()):
+    for lt, ax in tqdm(zip(matching_loss["loss_type"], axs.flatten())):
         for ranking, side in zip([[0], range(n_sim_ids)], ["low", "high"]):
-            gral_meteo_subset = gral_meteo[variable].sel(
-                sim_id=sim_ids.sel(loss_type=lt, ranking=ranking)
+            gral_meteo_subset = (
+                gral_meteo[variable]
+                .sel(sim_id=sim_ids.sel(loss_type=lt, ranking=ranking))
+                .compute()
             )
             loss_subset = matching_loss["matching_loss"].sel(
                 loss_type=lt, sim_id=sim_ids.sel(loss_type=lt, ranking=ranking)
@@ -621,12 +603,9 @@ def plot_matching_loss_by_meteo_variable(
 
 def plot_concentration_vs_meteo_differences(
     fig_path: str | Path,
-    gral_concentration_path: (
-        str | Path
-    ) = Path(CONFIG["gral_co2_path"]) / "co2.nc",
-    matching_loss_path: (
-        str | Path
-    ) = Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME,
+    gral_concentration_path: str | Path = Path(CONFIG["gral_co2_path"]) / "co2.nc",
+    matching_loss_path: str | Path = Path(CONFIG["output_path"])
+    / ggp.config.MATCHING_LOSS_FILE_NAME,
     loss_type: str = "rmse - filter: True",
     n_best: int = 25,
 ):
@@ -708,12 +687,9 @@ def plot_concentration_vs_meteo_differences(
 
 def plot_loss_vs_max_loss_difference(
     fig_path: str | Path,
-    gral_concentration_path: (
-        str | Path
-    ) = Path(CONFIG["gral_co2_path"]) / "co2.nc",
-    matching_loss_path: (
-        str | Path
-    ) = Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME,
+    gral_concentration_path: str | Path = Path(CONFIG["gral_co2_path"]) / "co2.nc",
+    matching_loss_path: str | Path = Path(CONFIG["output_path"])
+    / ggp.config.MATCHING_LOSS_FILE_NAME,
     loss_type: str = "rmse - filter: True",
     n_best: int = 25,
 ):
@@ -735,9 +711,10 @@ def plot_loss_vs_max_loss_difference(
     n_best : int, optional
         Number of best simulations to analyze
     """
-    concentration, loss, speed, direction, stab_class = load_matching_analysis_data(
+    _, loss, _, _, _ = load_matching_analysis_data(
         gral_concentration_path, matching_loss_path, loss_type, n_best
     )
+    loss.load()
 
     fig = plt.figure(figsize=(8, 6))
     plt.hexbin(
@@ -765,12 +742,9 @@ def plot_loss_vs_max_loss_difference(
 
 def plot_loss_difference_vs_concentration_difference(
     fig_path: str | Path,
-    gral_concentration_path: (
-        str | Path
-    ) = Path(CONFIG["gral_co2_path"]) / "co2.nc",
-    matching_loss_path: (
-        str | Path
-    ) = Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME,
+    gral_concentration_path: str | Path = Path(CONFIG["gral_co2_path"]) / "co2.nc",
+    matching_loss_path: str | Path = Path(CONFIG["output_path"])
+    / ggp.config.MATCHING_LOSS_FILE_NAME,
     loss_type: str = "rmse - filter: True",
     n_best: int = 25,
 ):
@@ -792,9 +766,11 @@ def plot_loss_difference_vs_concentration_difference(
     n_best : int, optional
         Number of best simulations to analyze
     """
-    concentration, loss, speed, direction, stab_class = load_matching_analysis_data(
+    concentration, loss, _, _, _ = load_matching_analysis_data(
         gral_concentration_path, matching_loss_path, loss_type, n_best
     )
+    concentration.load()
+    loss.load()
 
     fig = plt.figure(figsize=(8, 6))
     plt.hexbin(
@@ -822,12 +798,9 @@ def plot_loss_difference_vs_concentration_difference(
 
 def plot_loss_vs_max_concentration_difference(
     fig_path: str | Path,
-    gral_concentration_path: (
-        str | Path
-    ) = Path(CONFIG["gral_co2_path"]) / "co2.nc",
-    matching_loss_path: (
-        str | Path
-    ) = Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME,
+    gral_concentration_path: str | Path = Path(CONFIG["gral_co2_path"]) / "co2.nc",
+    matching_loss_path: str | Path = Path(CONFIG["output_path"])
+    / ggp.config.MATCHING_LOSS_FILE_NAME,
     loss_type: str = "rmse - filter: True",
     n_best: int = 25,
 ):
@@ -849,9 +822,12 @@ def plot_loss_vs_max_concentration_difference(
     n_best : int, optional
         Number of best simulations to analyze
     """
-    concentration, loss, speed, direction, stab_class = load_matching_analysis_data(
+    concentration, loss, _, _, _ = load_matching_analysis_data(
         gral_concentration_path, matching_loss_path, loss_type, n_best
     )
+
+    concentration.load()
+    loss.load()
 
     fig = plt.figure(figsize=(8, 6))
     plt.hexbin(
@@ -879,12 +855,9 @@ def plot_loss_vs_max_concentration_difference(
 
 def plot_concentration_vs_max_concentration_difference(
     fig_path: str | Path,
-    gral_concentration_path: (
-        str | Path
-    ) = Path(CONFIG["gral_co2_path"]) / "co2.nc",
-    matching_loss_path: (
-        str | Path
-    ) = Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME,
+    gral_concentration_path: str | Path = Path(CONFIG["gral_co2_path"]) / "co2.nc",
+    matching_loss_path: str | Path = Path(CONFIG["output_path"])
+    / ggp.config.MATCHING_LOSS_FILE_NAME,
     loss_type: str = "rmse - filter: True",
     n_best: int = 25,
 ):
@@ -906,9 +879,11 @@ def plot_concentration_vs_max_concentration_difference(
     n_best : int, optional
         Number of best simulations to analyze
     """
-    concentration, loss, speed, direction, stab_class = load_matching_analysis_data(
+    concentration, _, _, _, _ = load_matching_analysis_data(
         gral_concentration_path, matching_loss_path, loss_type, n_best
     )
+
+    concentration.load()
 
     fig = plt.figure(figsize=(8, 6))
     plt.hexbin(
@@ -937,12 +912,9 @@ def plot_concentration_vs_max_concentration_difference(
 
 def plot_wind_speed_vs_max_concentration_difference(
     fig_path: str | Path,
-    gral_concentration_path: (
-        str | Path
-    ) = Path(CONFIG["gral_co2_path"]) / "co2.nc",
-    matching_loss_path: (
-        str | Path
-    ) = Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME,
+    gral_concentration_path: str | Path = Path(CONFIG["gral_co2_path"]) / "co2.nc",
+    matching_loss_path: str | Path = Path(CONFIG["output_path"])
+    / ggp.config.MATCHING_LOSS_FILE_NAME,
     loss_type: str = "rmse - filter: True",
     n_best: int = 25,
 ):
@@ -964,9 +936,11 @@ def plot_wind_speed_vs_max_concentration_difference(
     n_best : int, optional
         Number of best simulations to analyze
     """
-    concentration, loss, speed, direction, stab_class = load_matching_analysis_data(
+    concentration, _, speed, _, _ = load_matching_analysis_data(
         gral_concentration_path, matching_loss_path, loss_type, n_best
     )
+    concentration.load()
+    speed.load()
 
     fig = plt.figure(figsize=(8, 6))
     plt.hexbin(
@@ -994,12 +968,9 @@ def plot_wind_speed_vs_max_concentration_difference(
 
 def plot_wind_direction_vs_max_concentration_difference(
     fig_path: str | Path,
-    gral_concentration_path: (
-        str | Path
-    ) = Path(CONFIG["gral_co2_path"]) / "co2.nc",
-    matching_loss_path: (
-        str | Path
-    ) = Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME,
+    gral_concentration_path: str | Path = Path(CONFIG["gral_co2_path"]) / "co2.nc",
+    matching_loss_path: str | Path = Path(CONFIG["output_path"])
+    / ggp.config.MATCHING_LOSS_FILE_NAME,
     loss_type: str = "rmse - filter: True",
     n_best: int = 25,
 ):
@@ -1021,9 +992,12 @@ def plot_wind_direction_vs_max_concentration_difference(
     n_best : int, optional
         Number of best simulations to analyze
     """
-    concentration, loss, speed, direction, stab_class = load_matching_analysis_data(
+    concentration, _, _, direction, _ = load_matching_analysis_data(
         gral_concentration_path, matching_loss_path, loss_type, n_best
     )
+
+    concentration.load()
+    direction.load()
 
     fig = plt.figure(figsize=(8, 6))
     plt.hexbin(
@@ -1051,12 +1025,9 @@ def plot_wind_direction_vs_max_concentration_difference(
 
 def plot_stability_class_vs_max_concentration_difference(
     fig_path: str | Path,
-    gral_concentration_path: (
-        str | Path
-    ) = Path(CONFIG["gral_co2_path"]) / "co2.nc",
-    matching_loss_path: (
-        str | Path
-    ) = Path(CONFIG["output_path"]) / ggp.config.MATCHING_LOSS_FILE_NAME,
+    gral_concentration_path: str | Path = Path(CONFIG["gral_co2_path"]) / "co2.nc",
+    matching_loss_path: str | Path = Path(CONFIG["output_path"])
+    / ggp.config.MATCHING_LOSS_FILE_NAME,
     loss_type: str = "rmse - filter: True",
     n_best: int = 25,
 ):
@@ -1078,9 +1049,12 @@ def plot_stability_class_vs_max_concentration_difference(
     n_best : int, optional
         Number of best simulations to analyze
     """
-    concentration, loss, speed, direction, stab_class = load_matching_analysis_data(
+    concentration, _, _, _, stab_class = load_matching_analysis_data(
         gral_concentration_path, matching_loss_path, loss_type, n_best
     )
+
+    concentration.load()
+    stab_class.load()
 
     fig = plt.figure(figsize=(8, 6))
     plt.hexbin(

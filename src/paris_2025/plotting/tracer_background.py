@@ -109,7 +109,8 @@ def plot_background_co2_stations(fig_path: str | Path, year: str = "2023"):
 
     fig, ax = plt.subplots(figsize=(12, 8))
     background_stations = co2.where(
-        (co2.instrument == "Picarro") & ~co2.in_gral_domain, drop=True
+        (co2.instrument.compute() == "Picarro") & ~co2.in_gral_domain.compute(),
+        drop=True,
     )
     background_stations.plot.scatter(
         x="x",
@@ -277,7 +278,7 @@ def get_color_map_for_stations() -> dict[str, str]:
     tab10_colors = plt.get_cmap("tab10").colors  # type: ignore
     color_map = {}
     co2 = ggp.load("co2_measurements", CONFIG)
-    station_names = co2.sel(station=co2.instrument == "Picarro").station
+    station_names = co2.sel(station=co2.instrument == "Picarro").station.compute()
     grouped = station_names.groupby(station_names.str[:3])
     for (l, g), c in zip(
         grouped,
@@ -337,6 +338,8 @@ def plot_background_station_count(
                 join="outer",
                 axis="columns",
             )
+            # Drop NaN station
+            df = df[df.index != ""]
             if df.isnull().all().all():
                 logging.info(f"No data for height bin {bin.values}, skipping plot.")
                 continue
@@ -356,8 +359,8 @@ def plot_background_station_count(
             join="outer",
             axis="columns",
         )
-        # Dropna in index
-        df = df[df.index != "nan"]
+        # Drop NaN station
+        df = df[df.index != ""]
         df = df.sort_index()
         df.T.plot.area(color=[color_map[i] for i in df.index], linewidth=0)
         plt.gca().legend(bbox_to_anchor=(1.05, 1), loc="upper left")

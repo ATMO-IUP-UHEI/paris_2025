@@ -249,8 +249,9 @@ def create_figure(fig_path: str | Path, method: str):
     gral_concentration["concentration"] = ggp.utils.ugm3_to_ppm(
         gral_concentration.concentration, "co2"
     )
-    gramm_meteo = p.model.get_gramm_meteo_data()
+    gramm_meteo = ggp.load("gramm_meteo_catalog", CONFIG)
     gramm_meteo = gramm_meteo.sel(station=gramm_meteo.operator.str.find("lidar") < 0)
+    gramm_meteo.load()
     # meteo = p.model.get_gral_meteo_data()
     # gral_meteo = p.model.get_gral_meteo_data()
     fig = plot_gradient_overview(status, gramm_meteo, gral_concentration, method)

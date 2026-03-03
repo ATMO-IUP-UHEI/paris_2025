@@ -1,13 +1,16 @@
 """Plotting functions for comparing modeled and measured CO2 concentrations."""
 
+import logging
 from pathlib import Path
 from typing import Literal
 
+import ggpymanager as ggp
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns  # Remove for colormap "flare" # noqa: F401
 import xarray as xr
 
+from paris_2025.config import CONFIG
 from paris_2025.plotting._loaders import cache_data, load_sector_enhancement_data
 from paris_2025.plotting.common import (
     _append_mean_station,
@@ -19,13 +22,10 @@ from paris_2025.plotting.common import (
 
 
 def get_plot_data(name, afternoon_only=False, main_wind_direction_only=False):
-    dynamic_background, co2, co2_model = cache_data()
-    co2_model = co2_model.sel(best_sim_id=0)
+    background, co2, co2_model = cache_data()
+    co2_model = co2_model
     if name == "background":
-        data = [
-            dynamic_background.co2.reset_coords(drop=True).assign_coords(station=s)
-            for s in co2_model.station.values
-        ]
+        data = [background.sel(station=s) for s in co2_model.station.values]
         title = "Background CO2"
         axis_label = "Background CO2 [ppm]"
     elif name == "measured":
@@ -52,13 +52,18 @@ def get_plot_data(name, afternoon_only=False, main_wind_direction_only=False):
         data = [
             d.where(
                 (d.time.dt.hour >= 12) & (d.time.dt.hour < 16),
-                drop=True,
+                # drop=True,
             )
             for d in data
         ]
     if main_wind_direction_only:
         main_wind_code = "SAC"
-        time_mask = (dynamic_background.code == main_wind_code).reset_coords(drop=True)
+        background_station = (
+            ggp.load("background_co2", CONFIG)
+            .dynamic_background_station.str.contains(main_wind_code)
+            .compute()
+        )
+        time_mask = (background_station).reset_coords(drop=True)
         data = [d.where(time_mask, drop=True) for d in data]
     return data, title, axis_label
 
@@ -97,6 +102,7 @@ def plot_tracer_model_scatter_plots(fig_path: str | Path):
                     f"{x_title} vs. {y_title} (rmse - filter: True) "
                     f"{afternoon_title}{wind_title}"
                 )
+                logging.info(suptitle)
 
                 from_template = str(fig_path).format(
                     x_title=x_title,
@@ -128,8 +134,8 @@ def plot_bias_rmse_by_location(fig_path: str | Path):
     fig_path : str or Path
         Path to save the figure
     """
-    dynamic_background, co2, co2_model = cache_data()
-    co2_model = co2_model.sel(best_sim_id=0)
+    background, co2, co2_model = cache_data()
+    co2_model = co2_model
     # Filter out stations outside the GRAL domain
     co2 = co2.sel(station=co2.in_gral_domain)
     high_cost_mask = co2.instrument == "Picarro"
@@ -158,8 +164,8 @@ def plot_bias_rmse_by_location(fig_path: str | Path):
     rmse = np.sqrt(((y - x) ** 2).mean(dim="time"))
     bias_tno = (y_tno - x).mean(dim="time")
     rmse_tno = np.sqrt(((y_tno - x) ** 2).mean(dim="time"))
-    bias_background = (dynamic_background.co2 - x).mean(dim="time")
-    rmse_background = np.sqrt(((dynamic_background.co2 - x) ** 2).mean(dim="time"))
+    bias_background = (background - x).mean(dim="time")
+    rmse_background = np.sqrt(((background - x) ** 2).mean(dim="time"))
 
     t = co2.sel(station=high_cost_stations + list(mid_cost_stations)).type.values
 
@@ -219,8 +225,8 @@ def plot_timeseries_comparison(
     rolling=3,
 ):
     """Plot time series comparison of modeled vs measured CO2."""
-    dynamic_background, co2, co2_model = cache_data()
-    gral_co2 = co2_model.sel(prior=inventory).sel(best_sim_id=slice(0, n_best))
+    background, co2, co2_model = cache_data()
+    gral_co2 = co2_model.sel(prior=inventory)
     time_slice = slice(
         start_time, np.datetime64(start_time) + np.timedelta64(duration, "D")
     )
@@ -238,30 +244,28 @@ def plot_timeseries_comparison(
 
     for i, (ax, station) in enumerate(zip(axs, stations)):
         # Model
-        (
-            gral_co2.isel(best_sim_id=0)
-            .sel(station=station)
-            .rolling(time=rolling)
-            .mean()
-        ).sel(time=time_slice).plot(
+        (gral_co2.sel(station=station).rolling(time=rolling).mean()).sel(
+            time=time_slice
+        ).plot(
             ax=ax,
             label="Model",
         )
 
         # Model uncertainty
-        extended_co2 = (
-            gral_co2.sel(station=station)
-            .isel(best_sim_id=slice(0, 10))
-            .rolling(time=rolling)
-            .mean()
-        ).sel(time=time_slice)
-        ax.fill_between(
-            extended_co2.time,
-            extended_co2.min(dim="best_sim_id"),
-            extended_co2.max(dim="best_sim_id"),
-            alpha=0.3,
-            label="Model uncertainty",
-        )
+        # TODO: Fix using ensemble method
+        # extended_co2 = (
+        #     gral_co2.sel(station=station)
+        #     .isel(best_sim_id=slice(0, 10))
+        #     .rolling(time=rolling)
+        #     .mean()
+        # ).sel(time=time_slice)
+        # ax.fill_between(
+        #     extended_co2.time,
+        #     extended_co2.min(dim="best_sim_id"),
+        #     extended_co2.max(dim="best_sim_id"),
+        #     alpha=0.3,
+        #     label="Model uncertainty",
+        # )
 
         # Measurement
         co2.sel(station=station).sel(time=time_slice).plot(
@@ -270,10 +274,10 @@ def plot_timeseries_comparison(
         )  # type: ignore
 
         # Background
-        dynamic_background.co2.sel(time=time_slice).plot(
+        background.sel(station=station, time=time_slice).plot(
             ax=ax,
             label="Background",
-        )
+        )  # type: ignore
 
         # Set axis labels
         ax.set_ylabel(r"CO$_2$ [ppm]")
@@ -338,7 +342,6 @@ def plot_cycles_per_station(
         .where(season_mask[season])
         .sel(
             prior=prior,
-            best_sim_id=0,
             station=s,
             time=time_slice,
         )
@@ -395,15 +398,17 @@ def plot_full_timeseries_daily_mean(
 
     for station in co2_model.station.values:
         plt.figure(figsize=(18, 6))
-        (co2_model.sel(prior=prior, best_sim_id=0)).sel(
-            station=station, time=afternoon_mask
-        ).resample(time="1D").mean().plot(add_legend=False)
-        co2.sel(station=co2_model.station).co2.sel(
-            station=station, time=afternoon_mask
-        ).resample(time="1D").mean().plot(add_legend=False)
-        background.co2.sel(time=afternoon_mask).resample(time="1D").mean().plot(
+        (co2_model.sel(prior=prior)).sel(station=station, time=afternoon_mask).resample(
+            time="1D"
+        ).mean().plot(add_legend=False)
+        co2.sel(station=station, time=afternoon_mask).resample(time="1D").mean().plot(
             add_legend=False
         )
+        background.sel(station=station, time=afternoon_mask).resample(
+            time="1D"
+        ).mean().plot(
+            add_legend=False
+        )  # type: ignore
         plt.legend(["Modeled", "Measured", "Background"])
         if afternoon_only:
             title = (

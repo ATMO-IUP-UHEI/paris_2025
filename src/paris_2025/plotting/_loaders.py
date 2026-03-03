@@ -172,7 +172,7 @@ def load_flux_maps_data(
     return cadastre_emissions, source_groups, point_da, GRAL
 
 
-@lru_cache()
+@lru_cache(maxsize=1)
 def cache_data(loss_type: str | None = "rmse - filter: True"):
     """Load and cache modeled/measured CO2 data with background.
 
@@ -193,29 +193,34 @@ def cache_data(loss_type: str | None = "rmse - filter: True"):
     co2 : xr.DataArray
         Measured CO2, dims: (time, station)
     co2_model : xr.DataArray
-        Modeled CO2 (background + model enhancement), dims: (time, height, station, prior)
+        Modeled CO2 (background + model enhancement), dims: (time, height, station,
+        prior)
     """
-    conc_series = xr.open_mfdataset(
-        CONFIG["output_path"] + "/" + ggp.config.CONCENTRATION_TIMESERIES_FILE_NAME
-    )
+    conc_series = ggp.load("concentration_timeseries", CONFIG)
     t = conc_series.type
-    mask = xr.concat(
-        [
-            t.str.contains("Origins.earth") | t.str.contains("VPRM"),
-            t.str.contains("TNO") | t.str.contains("VPRM"),
-        ],
-        dim="prior",
+    mask = (
+        xr.concat(
+            [
+                t.str.contains("Origins.earth|VPRM"),
+                t.str.contains("TNO|VPRM"),
+            ],
+            dim="prior",
+        )
+        .assign_coords({"prior": ["Origins.earth", "TNO"]})
+        .compute()
     )
-    mask["prior"] = ["Origins.earth", "TNO"]
-    if loss_type is not None:
-        conc_series = conc_series.sel(loss_type=loss_type)
-    time_series = conc_series.co2_timeseries.where(mask).sum("type")
+    time_series = (
+        conc_series.co2_timeseries.sel(loss_type=loss_type).where(mask).sum("type")
+    )
+    time_series = time_series.where(time_series.loss_diff < 0.1).mean("best_sim_id")
     with ProgressBar():
-        time_series = time_series.compute()  # type: ignore
-    background = ggp.load("background_co2", CONFIG)["binned_background_by_label"].sel(
-        height_bins=time_series.height
+        time_series = time_series.compute()
+    background = (
+        ggp.load("background_co2", CONFIG)["binned_background"]
+        .sel(station=time_series.station)
+        .load()
     )
-    co2 = ggp.load("co2_measurements", CONFIG).co2
+    co2 = ggp.load("co2_measurements", CONFIG).co2.load()
     co2_model = background.reset_coords(drop=True) + time_series.reset_coords(
         names=["x", "y"], drop=True
     )
@@ -248,24 +253,25 @@ def load_sector_enhancement_data(
     background : xr.DataArray
         Binned background CO2, broadcast to station heights (dims: time, station).
     """
-    co2 = ggp.load("co2_measurements", CONFIG).co2
+    co2 = ggp.load("co2_measurements", CONFIG).co2.load()
     measurements_available = co2.notnull()
 
-    conc_ds = xr.open_dataset(
-        Path(CONFIG["output_path"]) / ggp.config.CONCENTRATION_TIMESERIES_FILE_NAME
-    )
+    conc_series = ggp.load("concentration_timeseries", CONFIG)
 
     model_enhancement = (
-        conc_ds["co2_timeseries"]
-        .sel(
-            loss_type=loss_type,
-            best_sim_id=0,
-        )
+        conc_series.co2_timeseries.sel(loss_type=loss_type)
         .where(measurements_available)
     )
+    model_enhancement = model_enhancement.where(model_enhancement.loss_diff < 0.1).mean(
+        "best_sim_id"
+    )
+    with ProgressBar():
+        model_enhancement = model_enhancement.compute()
 
-    background = ggp.load("background_co2", CONFIG)["binned_background_by_label"].sel(
-        height_bins=model_enhancement.height
+    background = (
+        ggp.load("background_co2", CONFIG)["binned_background"]
+        .sel(station=model_enhancement.station)
+        .load()
     )
     background = background.where(measurements_available)
 

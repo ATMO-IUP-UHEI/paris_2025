@@ -129,7 +129,7 @@ def plot_picarro_co2_violin(fig_path: str | Path, year: str = "2023"):
     co2 = co2.sel(time=year)
 
     # Filter for Picarro instruments only
-    picarro_co2 = co2.where(co2.instrument == "Picarro", drop=True)
+    picarro_co2 = co2.where(co2.instrument.compute() == "Picarro", drop=True)
 
     fig, ax = plt.subplots(figsize=(14, 6))
 

@@ -255,8 +255,8 @@ def station_scatter_plot(
 
         if show_infos:
             # Calculate RMSE, bias, and R-value
-            rmse = np.sqrt(np.mean((ds["x_plot"] - ds["y_plot"]) ** 2))
-            bias = np.mean(ds["x_plot"] - ds["y_plot"])
+            rmse = np.sqrt(np.mean((ds["x_plot"] - ds["y_plot"]) ** 2)).compute()
+            bias = (ds["x_plot"] - ds["y_plot"]).mean().compute()
             corr = np.corrcoef(ds["x_plot"], ds["y_plot"])[0, 1]
 
             # Add RMSE and correlation to plot

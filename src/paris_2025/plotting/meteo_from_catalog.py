@@ -457,14 +457,7 @@ def plot_hodographs(
 
 
 def plot_stability_class_and_wind_speed_by_season(
-    fig_path: str | Path,
-    gramm_meteo_timeseries_path: str | Path = CONFIG["output_path"]
-    + "/"
-    + ggp.config.GRAMM_METEO_TIMESERIES_FILE_NAME,
-    gral_meteo_timeseries_path: str | Path = CONFIG["output_path"]
-    + "/"
-    + ggp.config.GRAL_METEO_TIMESERIES_FILE_NAME,
-    loss_type: str = "rmse - filter: True",
+    fig_path: str | Path, loss_type: str = "rmse - filter: True"
 ):
     """
     Plot stability class distribution and wind speed by season and hour of day.
@@ -484,12 +477,8 @@ def plot_stability_class_and_wind_speed_by_season(
     loss_type : str, optional
         Loss type to use for model selection. Default is "rmse - filter: True".
     """
-    gramm_meteo_timeseries = ggp.io.preprocess_gramm_meteo(
-        xr.open_dataset(gramm_meteo_timeseries_path)
-    ).sel(best_sim_id=0)
-    gral_meteo_timeseries = ggp.io.preprocess_gral_meteo(
-        xr.open_dataset(gral_meteo_timeseries_path)
-    ).sel(best_sim_id=0)
+    gramm_meteo_timeseries = ggp.load("gramm_meteo_timeseries", CONFIG)
+    gral_meteo_timeseries = ggp.load("gral_meteo_timeseries", CONFIG)
 
     # Select matched model for each station
     model_selection = {
@@ -594,9 +583,8 @@ def plot_meteo_timeseries_comparison(fig_path: str | Path):
     w_m = gral_meteo_timeseries.sel(
         station=station,
         loss_type="rmse - filter: True",
-        best_sim_id=range(5),
         time=time_period,
-    ).mean("best_sim_id")
+    )
     w_m["direction"] = ggp.processing.direction_from_vector(w_m["u"], w_m["v"])
     w_m["speed"] = ggp.processing.wind_speed_from_vector(w_m["u"], w_m["v"])
 
@@ -642,9 +630,9 @@ def plot_meteo_timeseries_comparison(fig_path: str | Path):
         ha="left",
     )
     plt.subplots_adjust(hspace=0.0)
-    rmse = np.sqrt(((w_m.speed - w.wind_speed) ** 2).mean().item())
-    mean_observed = w.wind_speed.mean().item()
-    bias = (w_m.speed - w.wind_speed).mean().item()
+    rmse = np.sqrt(((w_m.speed - w.wind_speed) ** 2).mean().compute().item())
+    mean_observed = w.wind_speed.mean().compute().item()
+    bias = (w_m.speed - w.wind_speed).mean().compute().item()
     print(f"Mean observed wind speed: {mean_observed:.2f} m/s")
     print(f"Bias for wind speed: {bias:.2f} m/s")
     print(f"RMSE for wind speed: {rmse:.2f} m/s")
