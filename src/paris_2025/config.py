@@ -18,3 +18,6 @@ def _load_config():
 
 
 CONFIG = _load_config()
+"""
+The CONFIG contains the data from the config.yaml file.
+"""
