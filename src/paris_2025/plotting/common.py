@@ -7,6 +7,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 from matplotlib import patches
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
+
+from paris_2025.plotting._loaders import load_combined_data
 
 
 def get_metadata(description=None):
@@ -749,3 +753,275 @@ def station_sector_plot(
     )
 
     return fig, axs
+
+
+def plot_station_hist2d(x: xr.DataArray, y: xr.DataArray, ax: Axes) -> Axes:
+    # Test if data has the right dimensions
+    assert isinstance(x, xr.DataArray)
+    assert isinstance(y, xr.DataArray)
+
+    # Add the plot to ax
+    bins = 100
+    cmap = "inferno"
+    N = len(x)
+    xlims = (300, 600)
+    ylims = (300, 600)
+    ax.hist2d(
+        x,
+        y,
+        bins=bins,
+        cmap=cmap,
+        range=[xlims, ylims],
+        # norm=norm,
+        density=True,
+        cmin=1 / N,
+    )
+
+    return ax
+
+
+def plot_station_groupby(
+    co2_model: xr.DataArray,
+    background: xr.DataArray,
+    co2: xr.DataArray,
+    groupby: str,
+    ax: Axes,
+) -> Axes:
+    for da in [co2_model, background, co2]:
+        if groupby == "hour":
+            da[groupby] = da["time"].dt.hour
+            xticks = np.arange(0, 30, 6)
+            xlabel = "Time of day [h]"
+        else:
+            raise KeyError()
+
+        mean = da.groupby(groupby).mean()
+
+        ax.plot(mean[groupby], mean)
+        ax.set_xticks(xticks)
+        ax.set_xlabel(xlabel)
+
+    return ax
+
+
+def plot_station_groupby_sector(
+    da: xr.DataArray,
+    background: xr.DataArray,
+    co2: xr.DataArray,
+    inventory: str,
+    groupby: str,
+    ax: Axes,
+) -> Axes:
+    if groupby == "hour":
+        da[groupby] = da["time"].dt.hour
+        xticks = np.arange(0, 30, 6)
+        time_vals = np.arange(0, 24)
+        xlabel = "Time of day [h]"
+    else:
+        raise KeyError()
+    mean = (
+        da.sel(type=da.type.str.contains(inventory)).groupby(groupby).mean().to_pandas()
+    )
+    vprm = (
+        da.sel(type=da.type.str.contains("VPRM"))
+        .sum("type")
+        .groupby(groupby)
+        .mean()
+        .to_pandas()
+    )
+    bg = background.groupby(da[groupby]).mean().to_pandas()
+    meas = co2.groupby(da[groupby]).mean().to_pandas()
+
+    x = time_vals
+    base = (bg + vprm).values  # type: ignore[call-overload]
+    cumulative = base.copy()
+    top = cumulative.copy()
+
+    for col in mean.columns:
+        col_vals = mean[col].values  # type: ignore
+        top = cumulative + col_vals  # type: ignore[operator]
+        ax.fill_between(x, cumulative, top, alpha=0.5, label=col)  # type: ignore
+        cumulative = top
+
+    ax.plot(x, top, color="k", linewidth=0.8, label="Model total")  # type: ignore
+    ax.plot(
+        x,
+        meas.values,  # type: ignore[call-overload]
+        color="k",
+        linestyle="-",
+        linewidth=1.5,
+        label="Measurements",
+    )
+    ax.plot(
+        x,
+        bg.values,  # type: ignore[call-overload]
+        color="gray",
+        linestyle="--",
+        linewidth=1.2,
+        label="Background",
+    )
+
+    ax.set_xticks(xticks)
+    ax.set_xlabel(xlabel)
+    return ax
+
+
+def add_title(ax: Axes, fig, title):
+    # Get font size and weight from axes
+    fs = ax.title.get_fontsize()
+    fw = ax.xaxis.label.get_fontweight()
+    # Add title as text to allow for better positioning
+    ax.text(
+        0.5,
+        1.06,
+        title,
+        transform=ax.transAxes,
+        va="center",
+        ha="center",
+        fontsize=fs,
+        fontweight=fw,
+    )
+
+    # Add fancy box for title
+    lw = ax.spines["left"].get_linewidth()
+    offwhite = "#F8F8FF"
+    box = patches.FancyBboxPatch(
+        (0.0, 1.0),
+        1.0,
+        0.12,
+        boxstyle="square,pad=0.0",
+        transform=ax.transAxes,
+        edgecolor="lightgray",
+        facecolor=offwhite,
+        lw=lw,
+        zorder=-10,
+    )
+    fig.patches.extend([box])
+    return ax
+
+
+def share_ax_lim(
+    type: str, axs: list[Axes], xlim: tuple | None = None, ylim: tuple | None = None
+):
+    match type:
+        case "x":
+            sharex = True
+            sharey = False
+        case "y":
+            sharex = False
+            sharey = True
+        case "both":
+            sharex = True
+            sharey = True
+        case _:
+            raise ValueError("Argument type requires 'x', 'y', or 'both'")
+
+    if sharex:
+        if xlim is None:
+            lims = np.array([ax.get_xlim() for ax in axs])
+            xlim = np.min(lims[:, 0]), np.max(lims[:, 1])
+            assert lims.shape == (len(axs), 2)
+        for ax in axs:
+            ax.set_xlim(*xlim)
+    if sharey:
+        if ylim is None:
+            lims = np.array([ax.get_ylim() for ax in axs])
+            ylim = np.min(lims[:, 0]), np.max(lims[:, 1])
+            assert lims.shape == (len(axs), 2)
+        for ax in axs:
+            ax.set_ylim(*ylim)
+
+
+def get_data(name: str, filters) -> xr.DataArray:
+    combined, model_enhancement = load_combined_data()
+
+    match name:
+        case "Origins.earth":
+            data = combined.sel(dataset="Origins.earth")
+        case "TNO":
+            data = combined.sel(dataset="TNO")
+        case "CO2":
+            data = combined.sel(dataset="CO2")
+        case "Background":
+            data = combined.sel(dataset="Background")
+        case "Model Enhancement":
+            data = model_enhancement
+        case _:
+            raise ValueError(f"Unknown dataset {name}")
+
+    for f in filters:
+        data = f(data)
+    return data
+
+
+def create_plot(station: str, plot_info: str, ax: Axes, fig: Figure) -> Axes:
+    # Parse plot info
+    parts = plot_info.split()
+
+    # Check if mask is specified
+    filters = []
+    if "filter" in parts:
+        filter_idx = parts.index("filter")
+        mask_type = parts[filter_idx + 1]
+        if mask_type == "Sunday":
+            filters.append(lambda x: x.sel(time=x.time.dt.dayofweek == 6))
+        elif mask_type == "afternoon":
+            filters.append(lambda x: x.sel(time=x.time.dt.hour.between(12, 17)))
+        else:
+            raise ValueError(f"Unknown filter type {mask_type}")
+        # Remove filter info from parts
+        parts = parts[:filter_idx]
+
+    # 2D histogram
+    if parts[0] == "hist2d":
+        assert (
+            parts[2] == "vs" and len(parts) == 4
+        ), "hist2d plot info should be in format 'hist2d <var1> vs <var2>'"
+        x_var = parts[1]
+        y_var = parts[3]
+        plot_station_hist2d(
+            get_data(x_var, filters).sel(station=station),
+            get_data(y_var, filters).sel(station=station),
+            ax,
+        )
+
+    # Groupby plot
+    elif parts[0] == "groupby":
+        assert (
+            len(parts) == 3
+        ), "groupby plot info should be in format 'groupby <time> <inventory>' where "
+        "inventory is the variable to group by"
+        groupby = parts[1]
+        inventory = parts[2]
+        plot_station_groupby(
+            co2_model=get_data(inventory, filters).sel(station=station),
+            background=get_data("Background", filters).sel(station=station),
+            co2=get_data("CO2", filters).sel(station=station),
+            groupby=groupby,
+            ax=ax,
+        )
+
+    # Groupby sector plot
+    elif parts[0] == "groupby_sector":
+        assert (
+            len(parts) == 3
+        ), "groupby_sector plot info should be in format 'groupby_sector <time> "
+        "<inventory>' where var is the variable to group by and inventory is the "
+        "inventory to plot"
+        groupby = parts[1]
+        inventory = parts[2]
+        plot_station_groupby_sector(
+            da=get_data("Model Enhancement", filters).sel(station=station),
+            background=get_data("Background", filters).sel(station=station),
+            co2=get_data("CO2", filters).sel(station=station),
+            inventory=parts[2],
+            groupby=groupby,
+            ax=ax,
+        )
+
+    # Catch
+    else:
+        raise ValueError(f"Unknown plot type {parts[0]}")
+
+    add_title(ax, fig, station)
+    return ax

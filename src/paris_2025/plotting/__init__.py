@@ -33,7 +33,7 @@ __all__ = [
 ]
 
 RC_PARAMS = {
-    "figure.figsize": (9, 5),
+    "figure.figsize": (12, 5),
     "savefig.dpi": 300,
     # "grid.alpha": 0.5,
     # "font.family": "sans-serif",

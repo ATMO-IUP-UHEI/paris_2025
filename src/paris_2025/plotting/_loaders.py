@@ -254,9 +254,8 @@ def load_sector_enhancement_data(
 
     conc_series = ggp.load("concentration_timeseries", CONFIG)
 
-    model_enhancement = (
-        conc_series.co2_timeseries.sel(loss_type=loss_type)
-        .where(measurements_available)
+    model_enhancement = conc_series.co2_timeseries.sel(loss_type=loss_type).where(
+        measurements_available
     )
     model_enhancement = model_enhancement.where(model_enhancement.loss_diff < 0.1).mean(
         "best_sim_id"
@@ -272,3 +271,48 @@ def load_sector_enhancement_data(
     background = background.where(measurements_available)
 
     return model_enhancement, co2, background
+
+
+@lru_cache(maxsize=1)
+def load_combined_data():
+    model_enhancement, co2, background = (
+        p.plotting._loaders.load_sector_enhancement_data()
+    )
+    instrument_mask = co2.instrument.str.contains("Picarro|HPP")
+
+    t = model_enhancement.type
+    mask = xr.concat(
+        [
+            t.str.contains("Origins.earth|VPRM"),
+            t.str.contains("TNO|VPRM"),
+        ],
+        dim="prior",
+    ).assign_coords({"prior": ["Origins.earth", "TNO"]})
+    co2_model = model_enhancement.where(mask).sum("type") + background
+    combined = xr.concat(
+        [
+            co2_model.sel(prior="Origins.earth"),
+            co2_model.sel(prior="TNO"),
+            co2,
+            background,
+        ],
+        dim="dataset",
+        join="inner",
+        coords="minimal",
+        compat="override",
+    )
+    combined["dataset"] = ["Origins.earth", "TNO", "CO2", "Background"]
+
+    combined = p.plotting.common._append_mean_station(combined, "Mean")
+    combined = p.plotting.common._append_mean_station(
+        combined, "Mean Picarro|HPP", instrument_mask
+    )
+    data_available = combined.notnull().any(["dataset"])
+    model_enhancement = model_enhancement.where(data_available)
+    model_enhancement = p.plotting.common._append_mean_station(
+        model_enhancement, "Mean"
+    )
+    model_enhancement = p.plotting.common._append_mean_station(
+        model_enhancement, "Mean Picarro|HPP", instrument_mask
+    )
+    return combined, model_enhancement

@@ -516,3 +516,36 @@ if __name__ == "__main__":
                 prior=prior,
                 afternoon_only=afternoon_only,
             )
+
+    #
+    station_list = [
+        ["JUS_30", "JUS_30", "Mean Picarro|HPP", "Mean Picarro|HPP"],
+        ["JUS_30", "JUS_30", "Mean Picarro|HPP", "Mean Picarro|HPP"],
+        ["JUS_30", "JUS_30", "Mean Picarro|HPP", "Mean Picarro|HPP"],
+    ]
+    plot_info_list = [
+        [
+            "hist2d Origins.earth vs CO2",
+            "groupby hour Origins.earth",
+            "groupby hour Origins.earth",
+            "groupby_sector hour Origins.earth",
+        ],
+        [
+            "hist2d Origins.earth vs CO2 filter Sunday",
+            "groupby hour Origins.earth filter Sunday",
+            "groupby hour Origins.earth filter Sunday",
+            "groupby_sector hour Origins.earth filter Sunday",
+        ],
+        [
+            "hist2d TNO vs CO2",
+            "groupby hour TNO",
+            "groupby hour TNO",
+            "groupby_sector hour TNO",
+        ],
+    ]
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "diurnal_cycle_selection.png",
+        tracer_comparison.tracer_by_axes_plot,
+        station_list=station_list,
+        plot_info_list=plot_info_list,
+    )

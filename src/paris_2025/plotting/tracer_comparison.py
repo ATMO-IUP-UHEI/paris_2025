@@ -14,7 +14,9 @@ from paris_2025.config import CONFIG
 from paris_2025.plotting._loaders import cache_data, load_sector_enhancement_data
 from paris_2025.plotting.common import (
     _append_mean_station,
+    create_plot,
     get_metadata,
+    share_ax_lim,
     station_line_plot,
     station_scatter_plot,
     station_sector_plot,
@@ -566,4 +568,45 @@ def plot_diurnal_cycle_by_weekday(
     plt.tight_layout()
 
     plt.savefig(fig_path, metadata=get_metadata(suptitle), bbox_inches="tight")
+    plt.close(fig)
+
+
+def tracer_by_axes_plot(fig_path: str | Path, station_list, plot_info_list):
+    stations = np.array(station_list)
+    plot_infos = np.array(plot_info_list)
+    assert stations.shape == plot_infos.shape
+    n_rows, n_cols = stations.shape
+
+    fig, axs = plt.subplots(n_rows, n_cols)
+    for i in range(n_rows):
+        for j in range(n_cols):
+            create_plot(
+                stations[i, j],
+                plot_infos[i, j],
+                axs[i, j],  # type: ignore
+                fig,
+            )
+
+    stations = xr.DataArray(stations, dims=["row", "col"])
+    plot_infos = xr.DataArray(plot_infos, dims=["row", "col"])
+
+    share_ax_lim(
+        "both",
+        axs[plot_infos.str.contains("hist2d")].flatten(),  # type: ignore
+        xlim=(400, 500),
+        ylim=(400, 500),
+    )
+    share_ax_lim(
+        "both", axs[plot_infos.str.contains("groupby")].flatten()  # type: ignore
+    )
+    for ax in axs.flatten():  # pyright: ignore[reportAttributeAccessIssue]
+        ax.grid()
+    for ax in axs[:-1].flatten():  # pyright: ignore[reportIndexIssue]
+        ax.tick_params(labelbottom=False)   
+    # plt.tight_layout()
+    plt.savefig(
+        fig_path,
+        metadata=get_metadata("Tracer comparison by axes."),
+        bbox_inches="tight",
+    )
     plt.close(fig)
