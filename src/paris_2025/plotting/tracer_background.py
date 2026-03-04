@@ -360,6 +360,7 @@ def plot_background_station_count(
             axis="columns",
         )
         # Drop NaN station
+        df = df[df.index != "nan"]
         df = df[df.index != ""]
         df = df.sort_index()
         df.T.plot.area(color=[color_map[i] for i in df.index], linewidth=0)
