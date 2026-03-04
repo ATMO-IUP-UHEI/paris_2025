@@ -10,6 +10,7 @@ from matplotlib import patches
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
+from paris_2025.plotting import INVENTORY_COLORS
 from paris_2025.plotting._loaders import load_combined_data
 
 
@@ -280,35 +281,11 @@ def station_scatter_plot(
         ax.set_xlim(xlims)
         ax.set_ylim(ylims)
 
-        fw = ax.xaxis.label.get_fontweight()
         station_code = co2.code.sel(station=station).values
         station_height = co2["height"].sel(station=station).values
-        ax.text(
-            0.5,
-            1.06,
-            f"{station_code} {station_height}m",
-            transform=ax.transAxes,
-            va="center",
-            ha="center",
-            fontsize=15,
-            fontweight=fw,
-        )
 
-        # Add fancy box for title
-        lw = ax.spines["left"].get_linewidth()
-        offwhite = "#F8F8FF"
-        box = patches.FancyBboxPatch(
-            (0.0, 1.0),
-            1.0,
-            0.12,
-            boxstyle="square,pad=0.0",
-            transform=ax.transAxes,
-            edgecolor="lightgray",
-            facecolor=offwhite,
-            lw=lw,
-            zorder=-10,
-        )
-        fig.patches.extend([box])
+        title = f"{station_code} {station_height}m"
+        add_title(ax, fig, title)
 
     # Set axis labels
     for r in range(n_rows):
@@ -446,7 +423,6 @@ def station_line_plot(
         ax.set_xticks(xticks)
 
         ax.set_ylim(ylims)
-        fw = ax.xaxis.label.get_fontweight()
         if "code" in model.coords:
             station_label = (
                 f"{model.code.sel(station=station).values} "
@@ -454,31 +430,7 @@ def station_line_plot(
             )
         else:
             station_label = str(station.values)
-        ax.text(
-            0.5,
-            1.06,
-            station_label,
-            transform=ax.transAxes,
-            va="center",
-            ha="center",
-            fontsize=12,
-            fontweight=fw,
-        )
-        # Linewidth of spines
-        lw = ax.spines["left"].get_linewidth()
-        offwhite = "#F8F8FF"
-        box = patches.FancyBboxPatch(
-            (0.0, 1.0),
-            1.0,
-            0.12,
-            boxstyle="square,pad=0.0",
-            transform=ax.transAxes,
-            edgecolor="lightgray",
-            facecolor=offwhite,
-            lw=lw,
-            zorder=-10,
-        )
-        fig.patches.extend([box])
+        add_title(ax, fig, station_label)
 
     # Set axis labels
     for r in range(n_rows):
@@ -787,7 +739,7 @@ def plot_station_groupby(
     groupby: str,
     ax: Axes,
 ) -> Axes:
-    for da in [co2_model, background, co2]:
+    for da in [co2_model, co2, background]:
         if groupby == "hour":
             da[groupby] = da["time"].dt.hour
             xticks = np.arange(0, 30, 6)
@@ -796,10 +748,25 @@ def plot_station_groupby(
             raise KeyError()
 
         mean = da.groupby(groupby).mean()
-
         ax.plot(mean[groupby], mean)
         ax.set_xticks(xticks)
+        ax.set_xticks(xticks)
         ax.set_xlabel(xlabel)
+
+    for da in [co2_model, co2]:
+
+        # Plot quantiles as shaded area
+        lower_q = da.groupby(groupby).quantile(0.25)
+        # lower_q = lower_q.reindex({groupby: time}, method=None)
+        upper_q = da.groupby(groupby).quantile(0.75)
+        # upper_q = upper_q.reindex({groupby: time}, method=None)
+        ax.fill_between(
+            lower_q[groupby],
+            lower_q,
+            upper_q,
+            alpha=0.2,
+            # label=f"{labels[j]} 25-75% quantile",
+        )
 
     return ax
 
@@ -840,7 +807,14 @@ def plot_station_groupby_sector(
     for col in mean.columns:
         col_vals = mean[col].values  # type: ignore
         top = cumulative + col_vals  # type: ignore[operator]
-        ax.fill_between(x, cumulative, top, alpha=0.5, label=col)  # type: ignore
+        ax.fill_between(
+            x,
+            cumulative,  # type: ignore
+            top,
+            alpha=0.5,
+            label=col,
+            color=INVENTORY_COLORS[col],
+        )
         cumulative = top
 
     ax.plot(x, top, color="k", linewidth=0.8, label="Model total")  # type: ignore
@@ -932,7 +906,7 @@ def share_ax_lim(
             ax.set_ylim(*ylim)
 
 
-def get_data(name: str, filters) -> xr.DataArray:
+def get_data(name: str, filters=[]) -> xr.DataArray:
     combined, model_enhancement = load_combined_data()
 
     match name:
@@ -954,7 +928,7 @@ def get_data(name: str, filters) -> xr.DataArray:
     return data
 
 
-def create_plot(station: str, plot_info: str, ax: Axes, fig: Figure) -> Axes:
+def create_ax_plot(station: str, plot_info: str, ax: Axes, fig: Figure) -> Axes:
     # Parse plot info
     parts = plot_info.split()
 
@@ -965,6 +939,8 @@ def create_plot(station: str, plot_info: str, ax: Axes, fig: Figure) -> Axes:
         mask_type = parts[filter_idx + 1]
         if mask_type == "Sunday":
             filters.append(lambda x: x.sel(time=x.time.dt.dayofweek == 6))
+        elif mask_type == "weekday":
+            filters.append(lambda x: x.sel(time=x.time.dt.dayofweek < 5))
         elif mask_type == "afternoon":
             filters.append(lambda x: x.sel(time=x.time.dt.hour.between(12, 17)))
         else:

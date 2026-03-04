@@ -278,7 +278,11 @@ def load_combined_data():
     model_enhancement, co2, background = (
         p.plotting._loaders.load_sector_enhancement_data()
     )
-    instrument_mask = co2.instrument.str.contains("Picarro|HPP")
+    # Drop empty types
+    model_enhancement = model_enhancement.where(
+        model_enhancement.sum(["time", "station"]) != 0, drop=True
+    )
+    instrument_mask = co2.instrument.str.contains("Picarro|HPP") & co2.in_gral_domain
 
     t = model_enhancement.type
     mask = xr.concat(

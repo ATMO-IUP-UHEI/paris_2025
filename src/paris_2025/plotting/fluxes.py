@@ -7,12 +7,12 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from matplotlib.lines import Line2D
-from matplotlib.patches import Patch, FancyBboxPatch
+from matplotlib.patches import FancyBboxPatch, Patch
 
 import paris_2025 as p
 from paris_2025.config import CONFIG
-from paris_2025.plotting.common import get_metadata
 from paris_2025.plotting._loaders import load_flux_maps_data
+from paris_2025.plotting.common import get_metadata
 
 
 def plot_flux_by_type(fig_path: str | Path):
@@ -365,20 +365,8 @@ def plot_total_flux_by_inventory(
     area_df = cadastre_emissions.sum(["x", "y"]).groupby("type").sum().to_pandas()
     point_df = point_da.groupby("type").sum().to_pandas()
 
-    xticklabels = {
-        "Origins.earth 2023 energie": "Power",
-        "Origins.earth 2023 industrie": "Industry",
-        "Origins.earth 2023 residentiel": "Combustion",
-        "Origins.earth 2023 respiration_humaine": "Human respiration",
-        "Origins.earth 2023 tertiaire": "Services",
-        "Origins.earth 2023 transport_routier": "Traffic",
-        "TNO 2018 Combustion": "Combustion",
-        "TNO 2018 Industry": "Industry",
-        "TNO 2018 Power": "Power",
-        "TNO 2018 Traffic": "Traffic",
-        "VPRM GEE": "GEE",
-        "VPRM R": "R",
-    }
+    from . import INVENTORY_SECTORS
+    xticklabels = INVENTORY_SECTORS
 
     gral_fluxes = pd.DataFrame({"area": area_df, "point": point_df})
 

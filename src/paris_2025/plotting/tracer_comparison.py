@@ -14,7 +14,7 @@ from paris_2025.config import CONFIG
 from paris_2025.plotting._loaders import cache_data, load_sector_enhancement_data
 from paris_2025.plotting.common import (
     _append_mean_station,
-    create_plot,
+    create_ax_plot,
     get_metadata,
     share_ax_lim,
     station_line_plot,
@@ -580,7 +580,7 @@ def tracer_by_axes_plot(fig_path: str | Path, station_list, plot_info_list):
     fig, axs = plt.subplots(n_rows, n_cols)
     for i in range(n_rows):
         for j in range(n_cols):
-            create_plot(
+            create_ax_plot(
                 stations[i, j],
                 plot_infos[i, j],
                 axs[i, j],  # type: ignore
@@ -603,7 +603,7 @@ def tracer_by_axes_plot(fig_path: str | Path, station_list, plot_info_list):
         ax.grid()
     for ax in axs[:-1].flatten():  # pyright: ignore[reportIndexIssue]
         ax.tick_params(labelbottom=False)   
-    # plt.tight_layout()
+    plt.tight_layout()
     plt.savefig(
         fig_path,
         metadata=get_metadata("Tracer comparison by axes."),

@@ -62,3 +62,32 @@ RC_PARAMS = {
     "legend.fontsize": 8.8,
     "legend.title_fontsize": 9.600000000000001,
 }
+
+INVENTORY_SECTORS = {
+    "Origins.earth 2023 energie": "Power",
+    "Origins.earth 2023 industrie": "Industry",
+    "Origins.earth 2023 residentiel": "Combustion",
+    "Origins.earth 2023 respiration_humaine": "Human respiration",
+    "Origins.earth 2023 tertiaire": "Services",
+    "Origins.earth 2023 transport_routier": "Traffic",
+    "TNO 2018 Combustion": "Combustion",
+    "TNO 2018 Industry": "Industry",
+    "TNO 2018 Power": "Power",
+    "TNO 2018 Traffic": "Traffic",
+    "VPRM GEE": "GEE",
+    "VPRM R": "R",
+}
+INVENTORY_COLORS = {
+    "Origins.earth 2023 energie": "tab:blue",
+    "Origins.earth 2023 industrie": "tab:orange",
+    "Origins.earth 2023 residentiel": "tab:red",
+    "Origins.earth 2023 respiration_humaine": "tab:green",
+    "Origins.earth 2023 tertiaire": "tab:cyan",
+    "Origins.earth 2023 transport_routier": "tab:purple",
+    "TNO 2018 Combustion": "tab:red",
+    "TNO 2018 Industry": "tab:orange",
+    "TNO 2018 Power": "tab:blue",
+    "TNO 2018 Traffic": "tab:purple",
+    "VPRM GEE": "black",
+    "VPRM R": "black",
+}
