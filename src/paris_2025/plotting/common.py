@@ -489,8 +489,25 @@ def station_line_plot(
     axs.flatten()[n_plots].legend(handles, labels, loc="upper left", title="Legend")
 
 
+def get_nan_value(dtype):
+    if np.issubdtype(dtype, np.floating):
+        return np.nan
+    elif np.issubdtype(dtype, np.integer):
+        return -9999
+    elif np.issubdtype(dtype, np.datetime64):
+        return np.datetime64("NaT")
+    elif np.issubdtype(dtype, str):
+        return ""
+    elif np.issubdtype(dtype, bool):
+        return False
+    else:
+        raise ValueError(f"Unsupported dtype: {dtype}")
+
+
 def _append_mean_station(
-    da: xr.DataArray, station_name: str = "Mean", add_sunday: bool = True
+    da: xr.DataArray,
+    station_name: str = "Mean",
+    mask: xr.DataArray | None = None,
 ) -> xr.DataArray:
     """Append a virtual station that is the mean across all stations.
 
@@ -500,8 +517,8 @@ def _append_mean_station(
         DataArray with a "station" dimension.
     station_name : str
         Name for the appended mean station.
-    add_sunday : bool
-        Whether to also append a mean station that only includes Sundays (dayofweek=6).
+    mask : xr.DataArray, optional
+        Boolean mask to apply before averaging. Should be broadcastable to da.
 
     Returns
     -------
@@ -509,34 +526,26 @@ def _append_mean_station(
         Original DataArray with an additional station that is the mean across all
         stations.
     """
-    mean = da.mean(dim="station").expand_dims(station=[station_name])
-    station_coords = [
-        coord
-        for coord in da.coords
-        if coord != "station" and "station" in da[coord].dims
-    ]
-    da_clean = da.drop_vars(station_coords)
-    mean_clean = mean.drop_vars(station_coords, errors="ignore")
+    if mask is None:
+        mask = xr.ones_like(da, dtype=bool)
+    mean = da.where(mask).mean(dim="station").expand_dims(station=[station_name])
+    # Convert station coordinate to same type as da.station
+    for coord in da.coords:
+        if coord not in mean.coords:
+            mean.coords[coord] = (
+                da[coord].dims,
+                np.array([get_nan_value(da[coord].dtype)]),
+            )
 
-    if add_sunday:
-        mean_clean_sunday = mean_clean.sel(
-            time=mean_clean.time.dt.dayofweek == 6
-        ).assign_coords(station=[f"{station_name} Sundays"])
-        return xr.concat(
-            [da_clean, mean_clean, mean_clean_sunday],
-            dim="station",
-            join="outer",
-            coords="different",
-            compat="equals",
-        )
-    else:
-        return xr.concat(
-            [da_clean, mean_clean],
-            dim="station",
-            join="outer",
-            coords="different",
-            compat="equals",
-        )
+    da_appended = xr.concat(
+        [da, mean],
+        dim="station",
+        join="outer",
+        coords="minimal",
+        compat="equals",
+    )
+    da_appended["station"] = da_appended["station"].astype(str)
+    return da_appended
 
 
 def station_sector_plot(

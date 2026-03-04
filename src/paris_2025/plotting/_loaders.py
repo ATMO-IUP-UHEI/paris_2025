@@ -224,7 +224,7 @@ def cache_data():
     return background, co2, co2_model
 
 
-@lru_cache()
+@lru_cache(maxsize=1)
 def load_sector_enhancement_data(
     loss_type: str = "rmse - filter: True",
 ) -> tuple[xr.DataArray, xr.DataArray, xr.DataArray]:
