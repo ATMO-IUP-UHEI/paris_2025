@@ -173,18 +173,12 @@ def load_flux_maps_data(
 
 
 @lru_cache(maxsize=1)
-def cache_data(loss_type: str | None = "rmse - filter: True"):
+def cache_data():
     """Load and cache modeled/measured CO2 data with background.
 
     Loads concentration timeseries, applies masking for Origins.earth and TNO
     priors, sums across source types, and combines with background CO2 and
     measurements. Results are cached to avoid repeated disk access.
-
-    Parameters
-    ----------
-    loss_type : str, optional
-        Loss-type filter for the concentration data. If None, all loss types
-        are included. Default: "rmse - filter: True"
 
     Returns
     -------
@@ -196,6 +190,8 @@ def cache_data(loss_type: str | None = "rmse - filter: True"):
         Modeled CO2 (background + model enhancement), dims: (time, height, station,
         prior)
     """
+    loss_type = "rmse - filter: True"
+
     conc_series = ggp.load("concentration_timeseries", CONFIG)
     t = conc_series.type
     mask = (

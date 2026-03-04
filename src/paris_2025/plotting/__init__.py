@@ -15,6 +15,7 @@ from . import (
     tracer_comparison,
     tracer_from_catalog,
     tracer_measurements,
+    _loaders,
 )
 
 __all__ = [
@@ -28,6 +29,7 @@ __all__ = [
     "common",
     "fluxes",
     "matching_methods",
+    "_loaders",
 ]
 
 RC_PARAMS = {
