@@ -10,7 +10,6 @@ from matplotlib import patches
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
-from paris_2025.plotting import INVENTORY_COLORS
 from paris_2025.plotting._loaders import load_combined_data
 
 
@@ -779,6 +778,8 @@ def plot_station_groupby_sector(
     groupby: str,
     ax: Axes,
 ) -> Axes:
+    from paris_2025.plotting import INVENTORY_COLORS
+
     if groupby == "hour":
         da[groupby] = da["time"].dt.hour
         xticks = np.arange(0, 30, 6)

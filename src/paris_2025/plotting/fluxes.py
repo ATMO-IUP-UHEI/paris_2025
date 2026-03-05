@@ -366,6 +366,7 @@ def plot_total_flux_by_inventory(
     point_df = point_da.groupby("type").sum().to_pandas()
 
     from . import INVENTORY_SECTORS
+
     xticklabels = INVENTORY_SECTORS
 
     gral_fluxes = pd.DataFrame({"area": area_df, "point": point_df})
@@ -422,6 +423,19 @@ def plot_total_flux_by_inventory(
             point_bar.set_facecolor(color)
             point_bar.set_hatch("///")
             point_bar.set_alpha(0.5)
+
+    n_sectors = len(gral_fluxes)
+    area_bars = bars[:n_sectors]
+    point_bars = bars[n_sectors:]
+    for idx, (area_bar, point_bar) in enumerate(zip(area_bars, point_bars)):
+        total = gral_fluxes.iloc[idx].sum()
+        if abs(total) < 0.5:
+            continue
+        x = area_bar.get_x() + area_bar.get_width() / 2  # type: ignore
+        # Place label just above/below the top of the stacked bar
+        y_offset = 0.3 if total >= 0 else -70
+        va = "bottom" if total >= 0 else "top"
+        ax.text(x, total + y_offset, f"{total:.1f}", ha="center", va=va, fontsize=7)
 
     ymin, ymax = ax.get_ylim()
     ax.set_ylim(ymin - 0.05 * (ymax - ymin), ymax)
