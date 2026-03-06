@@ -348,19 +348,20 @@ def plot_total_flux_by_inventory(
 
     point_da["z"] = point_da.z.astype(float)
     if point_da.z.isnull().any():
-        logging.warning(
-            "The points contain missing values in the z coordinate. All points with "
-            "missing z values will be dropped for plotting. This may lead to missing "
-            "points in the plots."
-        )
-        total_emissions = point_da.sum().item()
-        isnull = point_da.z.isnull()
-        point_da = point_da.sel(index=~isnull)
-        dropped_emissions = total_emissions - point_da.sum().item()
-        logging.warning(
-            f"Dropped {dropped_emissions:.2f} kg/year of emissions from "
-            f"{isnull.sum().item()} points."
-        )
+        # logging.warning(
+        #     "The points contain missing values in the z coordinate. All points with "
+        #     "missing z values will be dropped for plotting. This may lead to missing "
+        #     "points in the plots."
+        # )
+        # total_emissions = point_da.sum().item()
+        # isnull = point_da.z.isnull()
+        # point_da = point_da.sel(index=~isnull)
+        # dropped_emissions = total_emissions - point_da.sum().item()
+        # logging.warning(
+        #     f"Dropped {dropped_emissions:.2f} kg/year of emissions from "
+        #     f"{isnull.sum().item()} points."
+        # )
+        logging.warning("The points contain missing values in the z coordinate.")
 
     area_df = cadastre_emissions.sum(["x", "y"]).groupby("type").sum().to_pandas()
     point_df = point_da.groupby("type").sum().to_pandas()
@@ -394,7 +395,7 @@ def plot_total_flux_by_inventory(
         bar.set_alpha(0.5)
 
     ax.grid(axis="y", linestyle="--", alpha=0.5)
-    ax.set_ylabel("Emissions (kt/year)")
+    ax.set_ylabel("CO$_2$ Fluxes (kt/year)")
 
     i = 0
     groups = ["Origins.earth", "TNO", "VPRM"]
@@ -408,7 +409,7 @@ def plot_total_flux_by_inventory(
         ax.text(
             i + width / 2 - 0.5,
             ax.get_ylim()[1] * 0.95,
-            f"{group}\n{total_flux:.1f} kt/year",
+            f"{group}\n{total_flux:.0f} kt/year",
             ha="center",
             va="top",
             fontsize=10,
@@ -435,7 +436,7 @@ def plot_total_flux_by_inventory(
         # Place label just above/below the top of the stacked bar
         y_offset = 0.3 if total >= 0 else -70
         va = "bottom" if total >= 0 else "top"
-        ax.text(x, total + y_offset, f"{total:.1f}", ha="center", va=va, fontsize=7)
+        ax.text(x, total + y_offset, f"{total:.0f}", ha="center", va=va, fontsize=7)
 
     ymin, ymax = ax.get_ylim()
     ax.set_ylim(ymin - 0.05 * (ymax - ymin), ymax)
