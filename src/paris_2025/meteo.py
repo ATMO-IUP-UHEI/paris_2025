@@ -290,7 +290,8 @@ def create_meteo_measurements() -> None:
         "creator": "Robert Maiwald",
         "creator_email": "Robert.Maiwald@uni-heidelberg.de",
     }
-    meteo.to_netcdf(METEO_FILE, mode="w", unlimited_dims="time")
+    # meteo.to_netcdf(METEO_FILE, mode="w", unlimited_dims="time")
+    ggp.io.writers.save_netcdf_with_cf_check(meteo, METEO_FILE, ignore_tests=True)
 
 
 def process_meteo_measurements(source: str) -> xr.Dataset:
