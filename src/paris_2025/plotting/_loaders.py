@@ -274,9 +274,9 @@ def load_sector_enhancement_data(
 
 
 @lru_cache(maxsize=1)
-def load_combined_data():
+def load_combined_data(loss_type: str = "rmse - filter: True"):
     model_enhancement, co2, background = (
-        p.plotting._loaders.load_sector_enhancement_data()
+        p.plotting._loaders.load_sector_enhancement_data(loss_type)
     )
     # Drop empty types
     model_enhancement = model_enhancement.where(
