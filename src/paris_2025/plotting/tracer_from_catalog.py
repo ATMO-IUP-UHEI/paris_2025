@@ -2,6 +2,7 @@ from pathlib import Path
 
 import ggpymanager as ggp
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import xarray as xr
 from matplotlib import colors as mcolors
@@ -112,3 +113,71 @@ def plot_hourly_vprm_concentration(fig_path: str | Path):
         ),
     )
     plt.clf()
+
+
+def plot_ensemble_spread_night_and_day(fig_path: str | Path):
+    model_co2 = ggp.load("concentration_timeseries", config=p.CONFIG)
+    series = (
+        model_co2.sel(loss_type="rmse - filter: True")
+        .co2_timeseries.sel(
+            type=model_co2.type.str.contains("Origins.earth|VPRM"),
+        )
+        .sum("type")
+        .compute()
+    )
+    # Histogram with logarithmic x-axis
+    is_night = series.time.dt.hour.isin([0, 1, 2, 3, 4, 5, 6, 7, 8, 21, 22, 23])
+    filtered = series.where(series.loss_diff < 0.1)
+    diff = filtered.max("best_sim_id") - filtered.min("best_sim_id")
+
+    plot_data = {
+        "Night": (is_night, "#202020", "Night (21:00-08:00 UTC)"),
+        "Day": (~is_night, "#ffcf0e", "Day (09:00-20:00 UTC)"),
+    }
+
+    fig = plt.figure(figsize=(8, 5), dpi=300)
+    for name in ["Night", "Day"]:
+        mask, color, label = plot_data[name]
+        data = diff.where(mask).values.flatten()
+        plt.hist(
+            data,
+            label=label,
+            color=color,
+            bins=10 ** np.linspace(-2, np.log10(diff.max().values), 20),
+            alpha=0.5,
+        )
+        # Mean line
+        mean_value = np.nanmean(data)
+        median_value = np.nanmedian(data)
+
+        plt.axvline(mean_value, color="white", linestyle="-", lw=2)
+        plt.axvline(
+            mean_value,
+            color=color,
+            linestyle=":",
+            lw=2,
+            label=f"{name} Mean: {mean_value:.2f} ppm",
+        )
+
+        plt.axvline(median_value, color="white", linestyle="-", lw=4)
+        plt.axvline(
+            median_value,
+            color=color,
+            linestyle="-",
+            lw=2,
+            label=f"{name} Median: {median_value:.2f} ppm",
+        )
+    plt.xscale("log")
+    plt.legend()
+    plt.xlabel("Difference between max and min CO$_2$ in ensemble (ppm)")
+    plt.ylabel("Frequency")
+    plt.grid()
+    plt.savefig(
+        fig_path,
+        metadata=get_metadata(
+            "Histogram of ensemble spread (max-min CO2) split by day and night."
+        ),
+        bbox_inches="tight",
+    )
+    plt.close(fig)
+    
