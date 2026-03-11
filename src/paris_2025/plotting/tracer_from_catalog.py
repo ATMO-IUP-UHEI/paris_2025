@@ -180,4 +180,3 @@ def plot_ensemble_spread_night_and_day(fig_path: str | Path):
         bbox_inches="tight",
     )
     plt.close(fig)
-    
