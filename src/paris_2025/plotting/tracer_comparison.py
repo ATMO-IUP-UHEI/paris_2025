@@ -602,7 +602,7 @@ def tracer_by_axes_plot(fig_path: str | Path, station_list, plot_info_list):
     for ax in axs.flatten():  # pyright: ignore[reportAttributeAccessIssue]
         ax.grid()
     for ax in axs[:-1].flatten():  # pyright: ignore[reportIndexIssue]
-        ax.tick_params(labelbottom=False)   
+        ax.tick_params(labelbottom=False)
     plt.tight_layout()
     plt.savefig(
         fig_path,
