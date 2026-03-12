@@ -98,6 +98,10 @@ if __name__ == "__main__":
         FIGURE_PATH / DIR / "ensemble_spread_cycles.png",
         tracer_from_catalog.plot_ensemble_spread_cycles,
     )
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "ensemble_spread_vs_mismatch.png",
+        tracer_comparison.plot_ensemble_spread_vs_mismatch,
+    )
 
     # Wind measurements
     DIR = "meteo_measurements"

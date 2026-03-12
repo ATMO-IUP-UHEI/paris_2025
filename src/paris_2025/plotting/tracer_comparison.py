@@ -5,10 +5,12 @@ from pathlib import Path
 from typing import Literal
 
 import ggpymanager as ggp
+import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns  # Remove for colormap "flare" # noqa: F401
 import xarray as xr
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from paris_2025.config import CONFIG
 from paris_2025.plotting._loaders import cache_data, load_sector_enhancement_data
@@ -607,6 +609,64 @@ def tracer_by_axes_plot(fig_path: str | Path, station_list, plot_info_list):
     plt.savefig(
         fig_path,
         metadata=get_metadata("Tracer comparison by axes."),
+        bbox_inches="tight",
+    )
+    plt.close(fig)
+
+
+def plot_ensemble_spread_vs_mismatch(fig_path: str | Path) -> None:
+    """Plot 2D histogram of ensemble spread vs. model-measurement mismatch.
+
+    X-axis: ensemble spread (max − min across best simulations).
+    Y-axis: mismatch (measurement − background − model mean).
+    A marginal distribution of the mismatch is shown on the right.
+    """
+    model_co2 = ggp.load("concentration_timeseries", config=CONFIG)
+    series = (
+        model_co2.sel(loss_type="rmse - filter: True")
+        .co2_timeseries.sel(
+            type=model_co2.type.str.contains("Origins.earth|VPRM"),
+        )
+        .sum("type")
+        .compute()
+    )
+    filtered = series.where(series.loss_diff < 0.1)
+    diff = filtered.max("best_sim_id") - filtered.min("best_sim_id")
+    co2 = ggp.load("co2_measurements", config=CONFIG).sel(station=model_co2.station)
+    background = ggp.load("background_co2", config=CONFIG).binned_background
+    diff_co2 = (co2.co2 - background - filtered.mean("best_sim_id")).compute()
+
+    not_nan = diff.notnull() & diff_co2.notnull()
+    x_data = diff.values[not_nan]
+    y_data = diff_co2.values[not_nan]
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    h = ax.hist2d(x_data, y_data, bins=50, norm=mcolors.LogNorm(), cmap="rainbow")
+
+    ax.axhline(0, color="k", lw=1, linestyle="--")
+    ax.set_xlabel("Ensemble spread: max \u2212 min CO$_2$ (ppm)")
+    ax.set_ylabel("Mismatch: measurement \u2212 model (ppm)")
+    ax.grid(False)
+
+    divider = make_axes_locatable(ax)
+    ax_marg = divider.append_axes("right", size="20%", pad=0.2)
+    ax_cbar = divider.append_axes("right", size="5%", pad=0.2)
+
+    fig.colorbar(h[3], cax=ax_cbar, label="Count")
+
+    ax_marg.hist(
+        y_data, bins=80, orientation="horizontal", color="steelblue", alpha=0.8
+    )
+    ax_marg.axhline(0, color="k", lw=1, linestyle="--")
+    ax_marg.set_ylim(ax.get_ylim())
+    ax_marg.tick_params(labelleft=False)
+    ax_marg.set_xlabel("Count")
+
+    plt.savefig(
+        fig_path,
+        metadata=get_metadata(
+            "2D histogram of ensemble spread (x) vs. model-measurement mismatch (y)."
+        ),
         bbox_inches="tight",
     )
     plt.close(fig)
