@@ -94,6 +94,10 @@ if __name__ == "__main__":
         FIGURE_PATH / DIR / "ensemble_spread_night_and_day_Origins_earth.png",
         tracer_from_catalog.plot_ensemble_spread_night_and_day,
     )
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "ensemble_spread_cycles.png",
+        tracer_from_catalog.plot_ensemble_spread_cycles,
+    )
 
     # Wind measurements
     DIR = "meteo_measurements"

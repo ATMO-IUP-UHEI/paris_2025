@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from matplotlib import colors as mcolors
+from matplotlib import patches
+from matplotlib.lines import Line2D
 
 import paris_2025 as p
 from paris_2025.config import CONFIG
@@ -176,6 +178,91 @@ def plot_ensemble_spread_night_and_day(fig_path: str | Path):
         fig_path,
         metadata=get_metadata(
             "Histogram of ensemble spread (max-min CO2) split by day and night."
+        ),
+        bbox_inches="tight",
+    )
+    plt.close(fig)
+
+
+def plot_ensemble_spread_cycles(fig_path: str | Path):
+    model_co2 = ggp.load("concentration_timeseries", config=p.CONFIG)
+    series = (
+        model_co2.sel(loss_type="rmse - filter: True")
+        .co2_timeseries.sel(
+            type=model_co2.type.str.contains("Origins.earth|VPRM"),
+        )
+        .sum("type")
+        .compute()
+    )
+    filtered = series.where(series.loss_diff < 0.1)
+    diff = (filtered.max("best_sim_id") - filtered.min("best_sim_id")).mean("station")
+
+    bin_edges = range(0, 25, 4)
+    bin_labels = [f"{s:02d}\u2013{e:02d}" for s, e in zip(bin_edges, bin_edges[1:])]
+    data_by_bin = [
+        diff.isel(
+            time=((diff.time.dt.hour >= s) & (diff.time.dt.hour < e)).values
+        ).values.flatten()
+        for s, e in zip(bin_edges, bin_edges[1:])
+    ]
+    data_by_bin = [d[~np.isnan(d)] for d in data_by_bin]
+
+    seasons = {
+        "DJF": [12, 1, 2],
+        "MAM": [3, 4, 5],
+        "JJA": [6, 7, 8],
+        "SON": [9, 10, 11],
+    }
+    data_by_season = [
+        diff.isel(time=diff.time.dt.month.isin(months).values).values.flatten()
+        for months in seasons.values()
+    ]
+    data_by_season = [d[~np.isnan(d)] for d in data_by_season]
+
+    BOX_COLOR = "steelblue"
+    MEDIAN_COLOR = "firebrick"
+    MEAN_COLOR = "darkorange"
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5), dpi=300, sharey=True)
+
+    legend_handles = [
+        patches.Patch(
+            facecolor=BOX_COLOR, alpha=0.7, edgecolor="black", label="IQR (25\u201375%)"
+        ),
+        Line2D([0], [0], color=MEDIAN_COLOR, linewidth=2, label="Median"),
+        Line2D([0], [0], color=MEAN_COLOR, marker="o", label="Mean"),
+    ]
+
+    for ax, data, labels, xlabel in [
+        (ax1, data_by_bin, bin_labels, "Hour (UTC)"),
+        (ax2, data_by_season, list(seasons.keys()), "Season"),
+    ]:
+        positions = list(range(len(labels)))
+        bp = ax.boxplot(data, positions=positions, showfliers=False, patch_artist=True)
+        for patch in bp["boxes"]:
+            patch.set_facecolor(BOX_COLOR)
+            patch.set_alpha(0.7)
+        for median in bp["medians"]:
+            median.set_color(MEDIAN_COLOR)
+            median.set_linewidth(2)
+        ax.plot(positions, [d.mean() for d in data], "o-", color=MEAN_COLOR)
+        ax.set_xlabel(xlabel)
+        ax.set_xticks(positions, labels)
+        ax.grid(axis="y")
+
+    ax1.set_ylabel("Max \u2212 Min CO$_2$ in ensemble (ppm)")
+    ax2.tick_params(labelleft=False)
+    ax2.legend(
+        handles=legend_handles,
+        loc="center left",
+        bbox_to_anchor=(1.02, 0.5),
+        borderaxespad=0,
+    )
+    plt.savefig(
+        fig_path,
+        metadata=get_metadata(
+            "Boxplots of ensemble spread (max-min CO2) grouped by time of day and "
+            "season."
         ),
         bbox_inches="tight",
     )
