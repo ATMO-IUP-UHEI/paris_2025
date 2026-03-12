@@ -195,7 +195,7 @@ def plot_ensemble_spread_cycles(fig_path: str | Path):
         .compute()
     )
     filtered = series.where(series.loss_diff < 0.1)
-    diff = (filtered.max("best_sim_id") - filtered.min("best_sim_id")).mean("station")
+    diff = filtered.max("best_sim_id") - filtered.min("best_sim_id")
 
     bin_edges = range(0, 25, 4)
     bin_labels = [f"{s:02d}\u2013{e:02d}" for s, e in zip(bin_edges, bin_edges[1:])]
