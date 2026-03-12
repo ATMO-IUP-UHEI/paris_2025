@@ -614,7 +614,9 @@ def tracer_by_axes_plot(fig_path: str | Path, station_list, plot_info_list):
     plt.close(fig)
 
 
-def plot_ensemble_spread_vs_mismatch(fig_path: str | Path) -> None:
+def plot_ensemble_spread_vs_mismatch(
+    fig_path: str | Path, absolute: bool = False
+) -> None:
     """Plot 2D histogram of ensemble spread vs. model-measurement mismatch.
 
     X-axis: ensemble spread (max − min across best simulations).
@@ -635,6 +637,8 @@ def plot_ensemble_spread_vs_mismatch(fig_path: str | Path) -> None:
     co2 = ggp.load("co2_measurements", config=CONFIG).sel(station=model_co2.station)
     background = ggp.load("background_co2", config=CONFIG).binned_background
     diff_co2 = (co2.co2 - background - filtered.mean("best_sim_id")).compute()
+    if absolute:
+        diff_co2 = abs(diff_co2)
 
     not_nan = diff.notnull() & diff_co2.notnull()
     x_data = diff.values[not_nan]
