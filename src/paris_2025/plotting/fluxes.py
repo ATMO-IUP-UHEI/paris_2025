@@ -70,6 +70,8 @@ def plot_temporal_scaling_factor_cycles(fig_path: str | Path):
     fig_path : str | Path
         Destination path for the saved figure.
     """
+    from paris_2025.plotting import INVENTORY_COLORS, INVENTORY_SECTORS
+
     temporal_factor = xr.open_dataset(
         p.model_input.fluxes.TEMPORAL_PROFILES_NETCDF_PATH
     )["temporal"].sortby("type")
@@ -108,11 +110,10 @@ def plot_temporal_scaling_factor_cycles(fig_path: str | Path):
     fig, axs = plt.subplots(
         n_rows,
         n_cols,
-        figsize=(14, 4 * n_rows),
+        # figsize=(14, 4 * n_rows),
         sharey="row",
         gridspec_kw={"hspace": 0.35, "wspace": 0.15},
     )
-    fig.suptitle("Temporal scaling factors by sector", fontsize=16)
 
     offwhite = "#F8F8FF"
 
@@ -126,8 +127,17 @@ def plot_temporal_scaling_factor_cycles(fig_path: str | Path):
             dim = cfg["dim"]
 
             for t in grouped.type.values:
-                label = str(t).replace(inventory, "").strip()
-                ax.plot(grouped.coords[dim], grouped.sel(type=t), label=label)
+                if t not in INVENTORY_SECTORS:
+                    logging.warning(
+                        f"Type '{t}' not found in INVENTORY_SECTORS. Skipping this "
+                        f"type for plotting."
+                    )
+                    continue
+                label = INVENTORY_SECTORS[str(t)]
+                color = INVENTORY_COLORS[str(t)]
+                ax.plot(
+                    grouped.coords[dim], grouped.sel(type=t), label=label, color=color
+                )
 
             ax.set_xlabel(cfg["xlabel"])
             ax.grid(alpha=0.3)
