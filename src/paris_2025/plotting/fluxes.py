@@ -2,6 +2,7 @@ import calendar
 import logging
 from pathlib import Path
 
+import ggpymanager as ggp
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -53,6 +54,52 @@ def plot_temporal_scaling_factors(fig_path: str | Path):
     plt.savefig(
         fig_path,
         metadata=get_metadata("Temporal scaling factors over time by type."),
+        bbox_inches="tight",
+    )
+    plt.close()
+
+
+def plot_temporal_scaling_vprm(fig_path: str | Path):
+    from paris_2025.plotting import INVENTORY_COLORS
+
+    # VPRM temporal profiles
+    temporal_profiles = ggp.load("temporal_profiles", p.CONFIG)
+    for t in ["VPRM R", "VPRM GEE"]:
+        profile = temporal_profiles.sel(
+            type=temporal_profiles.type.str.contains(t.replace(" ", ".*"))
+        ).temporal
+        color = INVENTORY_COLORS[t]
+        profile.plot(hue="type", color=color, alpha=0.5, add_legend=False)
+        profile.resample(time="1D").mean().plot(
+            hue="type",
+            color=color,
+            add_legend=False,
+            linewidth=2,
+        )
+
+    # Create a custom legend
+    # labels = ["R hourly", "R daily mean", "GEE hourly", "GEE daily mean"]
+    handles = [
+        Line2D([0], [0], linewidth=lw, color=c, alpha=alpha, label=l)
+        for lw, c, alpha, l in zip(
+            [1, 2, 1, 2],
+            [
+                INVENTORY_COLORS["VPRM R"],
+                INVENTORY_COLORS["VPRM R"],
+                INVENTORY_COLORS["VPRM GEE"],
+                INVENTORY_COLORS["VPRM GEE"],
+            ],
+            [0.5, 1, 0.5, 1],
+            ["R hourly", "R daily mean", "GEE hourly", "GEE daily mean"],
+        )
+    ]
+    plt.legend(handles=handles, title="VPRM Temporal Profiles", loc="lower right")
+
+    plt.savefig(
+        fig_path,
+        metadata=get_metadata(
+            "VPRM temporal scaling profiles (hourly and daily mean)."
+        ),
         bbox_inches="tight",
     )
     plt.close()

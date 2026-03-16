@@ -88,6 +88,6 @@ INVENTORY_COLORS = {
     "TNO 2018 Industry": "tab:orange",
     "TNO 2018 Power": "tab:blue",
     "TNO 2018 Traffic": "tab:purple",
-    "VPRM GEE": "black",
-    "VPRM R": "black",
+    "VPRM GEE": "#4c9121",
+    "VPRM R": "#c41a7c",
 }
