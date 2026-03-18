@@ -399,6 +399,10 @@ if __name__ == "__main__":
         FIGURE_PATH / DIR / "temperature_anomaly_with_co2.png",
         misc.plot_temperature_anomaly_with_co2,
     )
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "terrain_elevation_maps.png",
+        misc.plot_terrain_elevation_maps,
+    )
 
     # Tracer model comparison
     DIR = "tracer_model_comparison"
