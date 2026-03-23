@@ -141,7 +141,7 @@ def plot_terrain_elevation_maps(
     light = mcolors.LightSource(azdeg=315, altdeg=45)
 
     # Create figure
-    fig, axs = plt.subplots(2, 2, figsize=(12, 8), dpi=300)
+    fig, axs = plt.subplots(2, 2, figsize=(12, 8))
 
     # GRAMM terrain
     axs[0, 0].set_title("GRAMM Terrain", loc="center")
@@ -175,21 +175,22 @@ def plot_terrain_elevation_maps(
 
     # GRAL building height
     axs[1, 1].set_title("GRAL Building Height", loc="center")
-    building_shaded = light.shade(
-        building_height.fillna(0.0).values,
-        cmap=plt.get_cmap("inferno"),
-        blend_mode="hsv",
-        dx=10,
-        dy=10,
-        vert_exag=vert_exag,
-    )
-    axs[1, 1].imshow(building_shaded, origin="lower")
-    add_custom_cbar(
-        axs[1, 1],
-        building_height.fillna(0.0).values,
-        cmap=plt.get_cmap("inferno"),
-        label="Building Height (m)",
-    )
+    # building_shaded = light.shade(
+    #     building_height.fillna(0.0).values,
+    #     cmap=plt.get_cmap("inferno"),
+    #     blend_mode="hsv",
+    #     dx=10,
+    #     dy=10,
+    #     vert_exag=vert_exag,
+    # )
+    # axs[1, 1].imshow(building_shaded, origin="lower")
+    # add_custom_cbar(
+    #     axs[1, 1],
+    #     building_height.fillna(0.0).values,
+    #     cmap=plt.get_cmap("inferno"),
+    #     label="Building Height (m)",
+    # )
+    building_height.plot(cmap="inferno", ax=axs[1, 1])
 
     # Format subplots
     for ax, index in zip(axs.flatten(), "abcd"):
