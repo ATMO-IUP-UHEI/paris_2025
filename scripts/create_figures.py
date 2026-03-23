@@ -432,7 +432,7 @@ if __name__ == "__main__":
     )
     # Custom grid plots
     create_figures_if_missing(
-        FIGURE_PATH / DIR / "tracer_custom_grid_groupby_Origins_earth.png",
+        FIGURE_PATH / DIR / "diurnal_cycle_Origins_earth_weekday_and_sunday.png",
         tracer_comparison.plot_tracer_custom_grid,
         station_list=[
             ["JUS_30", "ROV_103", "Mean"],
@@ -453,7 +453,7 @@ if __name__ == "__main__":
     )
     # Custom grid plots
     create_figures_if_missing(
-        FIGURE_PATH / DIR / "tracer_custom_grid_groupby_TNO.png",
+        FIGURE_PATH / DIR / "diurnal_cycle_TNO_weekday_and_sunday.png",
         tracer_comparison.plot_tracer_custom_grid,
         station_list=[
             ["JUS_30", "ROV_103", "Mean"],
@@ -474,7 +474,7 @@ if __name__ == "__main__":
     )
     # Custom grid plots with sector legends
     create_figures_if_missing(
-        FIGURE_PATH / DIR / "tracer_custom_grid_sector.png",
+        FIGURE_PATH / DIR / "diurnal_cycle_sector_Origins_earth_TNO.png",
         tracer_comparison.plot_tracer_custom_grid_with_sector_legends,
         station_list=[
             ["JUS_30", "ROV_103", "Mean"],
