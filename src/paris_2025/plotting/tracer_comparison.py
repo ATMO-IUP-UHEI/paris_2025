@@ -10,6 +10,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns  # Remove for colormap "flare" # noqa: F401
 import xarray as xr
+from matplotlib import patches
+from matplotlib.lines import Line2D
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from paris_2025.config import CONFIG
@@ -17,6 +19,7 @@ from paris_2025.plotting._loaders import cache_data, load_sector_enhancement_dat
 from paris_2025.plotting.common import (
     _append_mean_station,
     create_ax_plot,
+    get_data,
     get_metadata,
     share_ax_lim,
     station_line_plot,
@@ -671,6 +674,226 @@ def plot_ensemble_spread_vs_mismatch(
         metadata=get_metadata(
             "2D histogram of ensemble spread (x) vs. model-measurement mismatch (y)."
         ),
+        bbox_inches="tight",
+    )
+    plt.close(fig)
+
+
+def plot_tracer_custom_grid(
+    fig_path: str | Path,
+    station_list: list,
+    plot_info_list: list,
+    figsize: tuple = (8, 6),
+    ylabel_row0: str = "CO$_2$ on weekdays (ppm)",
+    ylabel_row1: str = "CO$_2$ on Sundays (ppm)",
+) -> None:
+    """Plot a custom grid of tracer comparisons with configurable stations and plot
+    types.
+
+    Parameters
+    ----------
+    fig_path : str or Path
+        Path to save the figure.
+    station_list : list of list of str
+        2D list of station names, one per subplot.
+    plot_info_list : list of list of str
+        2D list of plot info strings corresponding to stations.
+    figsize : tuple, optional
+        Figure size (width, height). Default is (8, 6).
+    ylabel_row0 : str, optional
+        Y-axis label for first row of subplots.
+    ylabel_row1 : str, optional
+        Y-axis label for second row of subplots.
+    """
+    stations = np.array(station_list)
+    plot_infos = np.array(plot_info_list)
+    assert (
+        stations.shape == plot_infos.shape
+    ), "station_list and plot_info_list must have same shape"
+    n_rows, n_cols = stations.shape
+
+    fig, axs = plt.subplots(n_rows, n_cols, figsize=figsize)
+    for i in range(n_rows):
+        for j in range(n_cols):
+            create_ax_plot(
+                stations[i, j],
+                plot_infos[i, j],
+                axs[i, j],  # type: ignore
+                fig,
+            )
+
+    # stations_da = xr.DataArray(stations, dims=["row", "col"])
+    plot_infos_da = xr.DataArray(plot_infos, dims=["row", "col"])
+
+    share_ax_lim(
+        "both",
+        axs[plot_infos_da.str.contains("hist2d")].flatten(),  # type: ignore
+        xlim=(400, 500),
+        ylim=(400, 500),
+    )
+    share_ax_lim(
+        "both", axs[plot_infos_da.str.contains("groupby")].flatten()  # type: ignore
+    )
+
+    for id, ax in zip("abcdefgh", axs.flatten()):  # type: ignore
+        ax.set_title(f" ({id})", loc="left")
+        ax.grid()
+
+    for ax in axs[:-1].flatten():  # pyright: ignore[reportIndexIssue]
+        ax.tick_params(tick1On=False, labelbottom=False, which="both", axis="x")
+        ax.set_xlabel("")
+
+    for ax in axs[:, 1:].flatten():  # pyright: ignore[reportIndexIssue]
+        ax.tick_params(tick1On=False, labelleft=False, which="both", axis="y")
+        ax.set_ylabel("")
+
+    if n_rows >= 1:
+        axs[0, 0].set_ylabel(ylabel_row0)  # type: ignore
+    if n_rows >= 2:
+        axs[1, 0].set_ylabel(ylabel_row1)  # type: ignore
+
+    fig.subplots_adjust(wspace=0.05)
+
+    # Create legend
+    labels = [
+        "Simulation",
+        "25% to 75% quantiles",
+        "Observation",
+        "25% to 75% quantiles",
+        "Background",
+    ]
+    handles = [
+        Line2D([0], [0], color="tab:blue"),
+        patches.Patch(color="tab:blue", alpha=0.3),
+        Line2D([0], [0], color="tab:orange"),
+        patches.Patch(color="tab:orange", alpha=0.3),
+        Line2D([0], [0], color="tab:green"),
+    ]
+    fig.legend(handles, labels, loc="center left", ncol=1, bbox_to_anchor=(0.9, 0.5))
+
+    plt.savefig(
+        fig_path,
+        metadata=get_metadata("Custom grid of tracer comparisons."),
+        bbox_inches="tight",
+    )
+    plt.close(fig)
+
+
+def plot_tracer_custom_grid_with_sector_legends(
+    fig_path: str | Path,
+    station_list: list,
+    plot_info_list: list,
+    inventories: list | None = None,
+    legend_positions: list | None = None,
+    figsize: tuple = (8, 6),
+    ylabel_row0: str = "CO$_2$ (ppm)",
+    ylabel_row1: str = "CO$_2$ (ppm)",
+) -> None:
+    """Plot a custom grid with sector-based legends for different inventories.
+
+    Parameters
+    ----------
+    fig_path : str or Path
+        Path to save the figure.
+    station_list : list of list of str
+        2D list of station names, one per subplot.
+    plot_info_list : list of list of str
+        2D list of plot info strings corresponding to stations.
+    inventories : list, optional
+        List of inventory names. Default is ["Origins.earth", "TNO"].
+    legend_positions : list, optional
+        List of (x, y) bbox anchor positions for each inventory legend.
+        Default is [(0.9, 0.7), (0.9, 0.3)].
+    figsize : tuple, optional
+        Figure size (width, height). Default is (8, 6).
+    ylabel_row0 : str, optional
+        Y-axis label for first row of subplots.
+    ylabel_row1 : str, optional
+        Y-axis label for second row of subplots.
+    """
+    from paris_2025.plotting import INVENTORY_COLORS, INVENTORY_SECTORS
+
+    if inventories is None:
+        inventories = ["Origins.earth", "TNO"]
+    if legend_positions is None:
+        legend_positions = [(0.9, 0.7), (0.9, 0.3)]
+
+    stations = np.array(station_list)
+    plot_infos = np.array(plot_info_list)
+    assert (
+        stations.shape == plot_infos.shape
+    ), "station_list and plot_info_list must have same shape"
+    n_rows, n_cols = stations.shape
+
+    fig, axs = plt.subplots(n_rows, n_cols, figsize=figsize)
+    for i in range(n_rows):
+        for j in range(n_cols):
+            create_ax_plot(
+                stations[i, j],
+                plot_infos[i, j],
+                axs[i, j],  # type: ignore
+                fig,
+            )
+
+    # stations_da = xr.DataArray(stations, dims=["row", "col"])
+    plot_infos_da = xr.DataArray(plot_infos, dims=["row", "col"])
+
+    share_ax_lim(
+        "both",
+        axs[plot_infos_da.str.contains("hist2d")].flatten(),  # type: ignore
+        xlim=(400, 500),
+        ylim=(400, 500),
+    )
+    share_ax_lim(
+        "both", axs[plot_infos_da.str.contains("groupby")].flatten()  # type: ignore
+    )
+
+    for id, ax in zip("abcdefgh", axs.flatten()):  # type: ignore
+        ax.set_title(f" ({id})", loc="left")
+        ax.grid()
+
+    for ax in axs[:-1].flatten():  # pyright: ignore[reportIndexIssue]
+        ax.tick_params(tick1On=False, labelbottom=False, which="both", axis="x")
+        ax.set_xlabel("")
+
+    for ax in axs[:, 1:].flatten():  # pyright: ignore[reportIndexIssue]
+        ax.tick_params(tick1On=False, labelleft=False, which="both", axis="y")
+        ax.set_ylabel("")
+
+    if n_rows >= 1:
+        axs[0, 0].set_ylabel(ylabel_row0)  # type: ignore
+    if n_rows >= 2:
+        axs[1, 0].set_ylabel(ylabel_row1)  # type: ignore
+
+    fig.subplots_adjust(wspace=0.05)
+
+    # Create sector-based legends for each inventory
+    model_enhancement = get_data("Model Enhancement")
+
+    for inventory, bbox in zip(inventories, legend_positions):
+        labels = model_enhancement.type.sel(
+            type=model_enhancement.type.str.contains(inventory)
+        ).values.tolist()
+        if inventory == "Origins.earth":
+            labels = np.array(labels)[
+                [2, 1, 0, 5, 4, 3]
+            ].tolist()  # reorder to match plot
+        handles = [
+            patches.Patch(color=INVENTORY_COLORS[label], alpha=0.3) for label in labels
+        ]
+        labels = [INVENTORY_SECTORS[label] for label in labels]
+        fig.legend(
+            handles,
+            labels,
+            title=inventory,
+            loc="center left",
+            ncol=1,
+            bbox_to_anchor=bbox,
+        )
+
+    plt.savefig(
+        fig_path,
+        metadata=get_metadata("Custom grid of tracer comparisons with sector legends."),
         bbox_inches="tight",
     )
     plt.close(fig)

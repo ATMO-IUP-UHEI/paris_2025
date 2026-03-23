@@ -430,6 +430,69 @@ if __name__ == "__main__":
         },
         tracer_comparison.plot_bias_rmse_by_location,
     )
+    # Custom grid plots
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "tracer_custom_grid_groupby_Origins_earth.png",
+        tracer_comparison.plot_tracer_custom_grid,
+        station_list=[
+            ["JUS_30", "ROV_103", "Mean"],
+            ["JUS_30", "ROV_103", "Mean"],
+        ],
+        plot_info_list=[
+            [
+                "groupby hour Origins.earth filter weekday",
+                "groupby hour Origins.earth filter weekday",
+                "groupby hour Origins.earth filter weekday",
+            ],
+            [
+                "groupby hour Origins.earth filter Sunday",
+                "groupby hour Origins.earth filter Sunday",
+                "groupby hour Origins.earth filter Sunday",
+            ],
+        ],
+    )
+    # Custom grid plots
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "tracer_custom_grid_groupby_TNO.png",
+        tracer_comparison.plot_tracer_custom_grid,
+        station_list=[
+            ["JUS_30", "ROV_103", "Mean"],
+            ["JUS_30", "ROV_103", "Mean"],
+        ],
+        plot_info_list=[
+            [
+                "groupby hour TNO filter weekday",
+                "groupby hour TNO filter weekday",
+                "groupby hour TNO filter weekday",
+            ],
+            [
+                "groupby hour TNO filter Sunday",
+                "groupby hour TNO filter Sunday",
+                "groupby hour TNO filter Sunday",
+            ],
+        ],
+    )
+    # Custom grid plots with sector legends
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "tracer_custom_grid_sector.png",
+        tracer_comparison.plot_tracer_custom_grid_with_sector_legends,
+        station_list=[
+            ["JUS_30", "ROV_103", "Mean"],
+            ["JUS_30", "ROV_103", "Mean"],
+        ],
+        plot_info_list=[
+            [
+                "groupby_sector hour Origins.earth",
+                "groupby_sector hour Origins.earth",
+                "groupby_sector hour Origins.earth",
+            ],
+            [
+                "groupby_sector hour TNO",
+                "groupby_sector hour TNO",
+                "groupby_sector hour TNO",
+            ],
+        ],
+    )
     # Time series comparison
     for season in ["summer", "fall", "winter"]:
         if season == "summer":
