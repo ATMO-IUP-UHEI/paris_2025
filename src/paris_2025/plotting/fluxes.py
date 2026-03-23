@@ -509,7 +509,7 @@ def plot_total_flux_by_inventory(
     ax.legend(
         handles=[area_patch, point_patch],
         title="Source type",
-        bbox_to_anchor=(1.05, 1),
+        # bbox_to_anchor=(1.05, 1),
         loc="upper left",
     )
 
