@@ -203,10 +203,18 @@ def plot_co2_and_meteo_stations_map(fig_path: str | Path):
         "Picarro": "maroon",
     }
     markers = {
-        "Picarro": "o",
         "K96": "o",
         "HPP": "o",
         "Meteo": "o",
+        "Picarro": "o",
+    }
+    r = 300  # Offset radius in meters
+    r_c = r / 1.414  # Diagonal distance for corner offsets
+    offset = {
+        "Picarro": (0, r),
+        "K96": (-r_c, -r_c),
+        "HPP": (-r_c, -r_c),
+        "Meteo": (r_c, -r_c),
     }
 
     # Define legend labels
@@ -222,49 +230,41 @@ def plot_co2_and_meteo_stations_map(fig_path: str | Path):
     # Plot each instrument type
     for instrument in colors.keys():
         if instrument == "Meteo":
-            meteo.plot.scatter(
-                x="x",
-                y="y",
-                s=100,
-                c=colors["Meteo"],
-                edgecolor="k",
-                marker=markers["Meteo"],
-                ax=ax,
-                zorder=3,
-            )
+            scatter_data = meteo
         else:
-            co2.sel(station=co2.instrument == instrument).plot.scatter(
-                x="x",
-                y="y",
-                s=100,
-                c=colors[instrument],
-                edgecolor="k",
-                marker=markers[instrument],
-                ax=ax,
-                zorder=3,
-            )
-            # Add labels for Picarro stations
-            if instrument == "Picarro":
-                stations = co2.sel(station=co2.instrument == instrument).station
-                station_list = [s.split("_")[0] for s in stations.values]
-                station_coords = {
-                    s: (x, y)
-                    for s, x, y in zip(
-                        station_list, stations.x.values, stations.y.values
-                    )
-                }
-                for s in station_coords:
-                    ax.text(
-                        station_coords[s][0] + 1000,
-                        station_coords[s][1],
-                        s,
-                        fontsize=9,
-                        ha="left",
-                        va="center",
-                        bbox=dict(
-                            boxstyle="round,pad=0.3", facecolor="white", alpha=0.7
-                        ),
-                    )
+            scatter_data = co2.sel(station=co2.instrument == instrument)
+
+        scatter_data["x"] += offset[instrument][0]
+        scatter_data["y"] += offset[instrument][1]
+        scatter_data.plot.scatter(
+            x="x",
+            y="y",
+            s=100,
+            c=colors[instrument],
+            edgecolor="k",
+            marker=markers[instrument],
+            ax=ax,
+            zorder=3,
+        )
+
+        # Add labels for Picarro stations
+        if instrument == "Picarro":
+            stations = co2.sel(station=co2.instrument == instrument).station
+            station_list = [s.split("_")[0] for s in stations.values]
+            station_coords = {
+                s: (x, y)
+                for s, x, y in zip(station_list, stations.x.values, stations.y.values)
+            }
+            for s in station_coords:
+                ax.text(
+                    station_coords[s][0] + 1000,
+                    station_coords[s][1],
+                    s,
+                    fontsize=9,
+                    ha="left",
+                    va="center",
+                    bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.7),
+                )
 
     # Add map features
     p.domain.add_domain(ax, legend=True)
@@ -287,7 +287,6 @@ def plot_co2_and_meteo_stations_map(fig_path: str | Path):
         for instrument, (color, marker) in legends.items()
     ]
     ax.legend(handles=handles, title="Measurement Type", loc="upper right")
-
     plt.savefig(
         fig_path,
         metadata=get_metadata(
