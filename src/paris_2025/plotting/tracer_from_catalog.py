@@ -258,6 +258,9 @@ def plot_ensemble_spread_cycles(fig_path: str | Path):
         bbox_to_anchor=(1.02, 0.5),
         borderaxespad=0,
     )
+    ax1.set_title(" (a)", loc="left")
+    ax2.set_title(" (b)", loc="left")
+
     plt.savefig(
         fig_path,
         metadata=get_metadata(
