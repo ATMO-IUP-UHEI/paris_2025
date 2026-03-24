@@ -2,10 +2,12 @@ from pathlib import Path
 
 import ggpymanager as ggp
 import matplotlib.patches as mpatches
+import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import xarray as xr
+from matplotlib import colors as mcolors
 from tqdm import tqdm
 
 from paris_2025.config import CONFIG
@@ -1074,6 +1076,93 @@ def plot_stability_class_vs_max_concentration_difference(
         fig_path,
         metadata=get_metadata(
             "Hexbin plot of stability class vs max concentration difference."
+        ),
+        bbox_inches="tight",
+    )
+    plt.close(fig)
+
+
+def plot_loss_vs_co2_spread_distribution(
+    fig_path: str | Path,
+):
+
+    model_co2 = ggp.load("concentration_timeseries", config=CONFIG)
+    da = (
+        model_co2.sel(
+            loss_type="rmse - filter: True",
+            type=model_co2.type.str.contains("Origins.earth|VPRM"),
+        )
+        .co2_timeseries.sum("type")
+        .compute()
+    )
+    co2_spread = abs(da.isel(best_sim_id=range(1, 5)) - da.isel(best_sim_id=0)).max(
+        "best_sim_id"
+    )
+    loss_spread = (
+        da.loss_diff.isel(best_sim_id=range(1, 5)) - da.loss_diff.isel(best_sim_id=0)
+    ).max("best_sim_id")
+    loss_spread_aligned = loss_spread.broadcast_like(co2_spread)
+
+    fig = plt.figure()
+    gs = fig.add_gridspec(1, 2, width_ratios=[1, 8], wspace=0.02)
+    ax_hist = fig.add_subplot(gs[0])
+    ax_2d = fig.add_subplot(gs[1], sharey=ax_hist)
+
+    threshold_color = "#565656"
+
+    # Histogram for RMSE spread < 0.1
+    mask = loss_spread_aligned.values.flatten() < 0.1
+    ax_hist.hist(
+        co2_spread.values.flatten()[mask],
+        bins=100,
+        orientation="horizontal",
+        color=threshold_color,
+        edgecolor="none",
+        alpha=1.0,
+        label="Only for RMSE diff < 0.1 m/s",
+    )
+    ax_hist.set_ylabel("CO$_2$ spread [ppm]")
+    ax_hist.set_xlabel("Count")
+    ax_hist.invert_xaxis()
+    ax_hist.legend(loc="upper left", bbox_to_anchor=(-0.5, 1.1), frameon=False)
+
+    h = ax_2d.hist2d(
+        loss_spread_aligned.values.flatten(),
+        co2_spread.values.flatten(),
+        bins=100,
+        norm=mcolors.LogNorm(),
+        cmap="flare",
+    )
+    plt.colorbar(h[3], ax=ax_2d, label="Density")
+
+    # Box around the region < 0.1
+    # Use double linewidth and clipping to ensure the border is drawn inside the box
+    rect = patches.Rectangle(
+        (0, 0),
+        0.1,
+        100,
+        linewidth=5,
+        # linestyle=":",
+        edgecolor=threshold_color,
+        facecolor="none",
+        zorder=10,
+        label="RMSE difference threshold",
+    )
+    ax_2d.add_patch(rect)
+
+    # Clip the rectangle to its own shape to create an inner border
+    clip_rect = patches.Rectangle((0, 0), 0.1, 100, transform=ax_2d.transData)
+    rect.set_clip_path(clip_rect)
+
+    ax_2d.set_ylim(0, 100)
+    ax_2d.set_xlabel("RMSE difference in wind vector [m/s]")
+    ax_2d.tick_params(axis="y", left=False, labelleft=False)
+
+    plt.savefig(
+        fig_path,
+        metadata=get_metadata(
+            "2D histogram of RMSE loss difference vs CO2 concentration spread for the "
+            "best 5 entries."
         ),
         bbox_inches="tight",
     )

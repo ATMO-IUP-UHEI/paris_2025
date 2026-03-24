@@ -272,6 +272,10 @@ if __name__ == "__main__":
         FIGURE_PATH / DIR / "stability_class_vs_max_concentration_difference.png",
         matching_methods.plot_stability_class_vs_max_concentration_difference,
     )
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "loss_vs_co2_spread_distribution.png",
+        matching_methods.plot_loss_vs_co2_spread_distribution,
+    )
 
     # CO2 measurements
     DIR = "co2_measurements"
