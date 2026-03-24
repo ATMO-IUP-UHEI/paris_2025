@@ -7,6 +7,7 @@ from typing import Literal
 import ggpymanager as ggp
 import matplotlib.colors as mcolors
 import matplotlib.dates as mdates
+from matplotlib.lines import Line2D
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns  # Remove for colormap "flare" # noqa: F401
@@ -580,7 +581,6 @@ def plot_diurnal_cycle_by_weekday(
             axs[i].set_xlabel("Hour of Day")
             axs[i].set_ylim(ylim)
             axs[i].set_title(day_name)
-            axs[i].grid()
 
     axs[-1].legend(
         ["Model + Background", "CO$_2$", "Background"],
@@ -619,8 +619,6 @@ def tracer_by_axes_plot(fig_path: str | Path, station_list, plot_info_list):
     share_ax_lim(
         "both", axs[plot_infos.str.contains("groupby")].flatten()  # type: ignore
     )
-    for ax in axs.flatten():  # pyright: ignore[reportAttributeAccessIssue]
-        ax.grid()
     for ax in axs[:-1].flatten():  # pyright: ignore[reportIndexIssue]
         ax.tick_params(labelbottom=False)
     plt.savefig(
@@ -851,7 +849,6 @@ def plot_tracer_custom_grid_with_sector_legends(
 
     for id, ax in zip("abcdefgh", axs.flatten()):  # type: ignore
         ax.set_title(f" ({id})", loc="left")
-        ax.grid()
 
     for ax in axs[:-1].flatten():  # pyright: ignore[reportIndexIssue]
         ax.tick_params(tick1On=False, labelbottom=False, which="both", axis="x")
@@ -883,6 +880,13 @@ def plot_tracer_custom_grid_with_sector_legends(
             patches.Patch(color=INVENTORY_COLORS[label], alpha=0.3) for label in labels
         ]
         labels = [INVENTORY_SECTORS[label] for label in labels]
+
+        # Add background and measurement to legend
+        handles += [
+            Line2D([0], [0], color="gray", linewidth=1.2, linestyle="--"),
+            Line2D([0], [0], color="k", linewidth=1.5),
+        ]
+        labels += ["Background", "Measurement"]
         fig.legend(
             handles,
             labels,
