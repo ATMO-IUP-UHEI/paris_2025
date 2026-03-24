@@ -452,6 +452,7 @@ def plot_total_flux_by_inventory(
         bar.set_alpha(0.5)
 
     ax.grid(axis="y", linestyle="--", alpha=0.5)
+    ax.grid(False, axis="x")
     ax.set_ylabel("CO$_2$ Fluxes (kt/year)")
 
     i = 0
@@ -501,6 +502,7 @@ def plot_total_flux_by_inventory(
     ax.set_xticklabels(
         [xticklabels[label] for label in gral_fluxes.index], rotation=70, ha="right"
     )
+    ax.set_xlabel("")
 
     area_patch = Patch(facecolor="grey", edgecolor="k", label="Area sources")
     point_patch = Patch(
