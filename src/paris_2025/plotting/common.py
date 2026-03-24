@@ -191,7 +191,7 @@ def station_scatter_plot(
         gridspec_kw={"hspace": 0.2, "wspace": 0.2},
     )
 
-    fig.suptitle(suptitle, fontsize=16)
+    # fig.suptitle(suptitle, fontsize=16)
 
     im = None  # Initialize for type checking
     for i in range(len(data_x)):
@@ -282,10 +282,10 @@ def station_scatter_plot(
         ax.set_xlim(xlims)
         ax.set_ylim(ylims)
 
-        station_code = co2.code.sel(station=station).values
-        station_height = co2["height"].sel(station=station).values
+        # station_code = co2.code.sel(station=station).values
+        # station_height = co2["height"].sel(station=station).values
 
-        title = f"{station_code} {station_height}m"
+        title = str(station.values)
         add_title(ax, fig, title)
 
     # Set axis labels
@@ -302,7 +302,7 @@ def station_scatter_plot(
     if im is None:
         raise ValueError("No valid data was plotted")
 
-    x0, y0, dx, dy = axs[-1, -2].get_position().bounds
+    x0, y0, dx, dy = axs[-1, -3].get_position().bounds
     new_ax = fig.add_axes((x0 + dx + 0.04, y0, 0.02, dy))
     label = "Log density" if norm == "log" else "Density"
     cbar = fig.colorbar(im, cax=new_ax, label=label)
