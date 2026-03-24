@@ -12,7 +12,6 @@ import numpy as np
 import seaborn as sns  # Remove for colormap "flare" # noqa: F401
 import xarray as xr
 from matplotlib import patches
-from matplotlib.lines import Line2D
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from paris_2025.config import CONFIG
@@ -752,7 +751,7 @@ def plot_tracer_custom_grid(
 
     for id, ax in zip("abcdefgh", axs.flatten()):  # type: ignore
         ax.set_title(f" ({id})", loc="left")
-        ax.grid()
+        # ax.grid()
 
     for ax in axs[:-1].flatten():  # pyright: ignore[reportIndexIssue]
         ax.tick_params(tick1On=False, labelbottom=False, which="both", axis="x")
@@ -770,20 +769,7 @@ def plot_tracer_custom_grid(
     fig.subplots_adjust(wspace=0.05)
 
     # Create legend
-    labels = [
-        "Simulation",
-        "25% to 75% quantiles",
-        "Observation",
-        "25% to 75% quantiles",
-        "Background",
-    ]
-    handles = [
-        Line2D([0], [0], color="tab:blue"),
-        patches.Patch(color="tab:blue", alpha=0.3),
-        Line2D([0], [0], color="tab:orange"),
-        patches.Patch(color="tab:orange", alpha=0.3),
-        Line2D([0], [0], color="tab:green"),
-    ]
+    handles, labels = axs[0, 0].get_legend_handles_labels()  # type: ignore
     fig.legend(handles, labels, loc="center left", ncol=1, bbox_to_anchor=(0.9, 0.5))
 
     plt.savefig(

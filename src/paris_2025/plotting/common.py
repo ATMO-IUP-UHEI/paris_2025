@@ -431,13 +431,14 @@ def station_line_plot(
         # Minor ticks every 10 units
         ax.yaxis.set_minor_locator(MultipleLocator(10))
         ax.grid(True, which="both")
-        if "code" in model.coords:
-            station_label = (
-                f"{model.code.sel(station=station).values} "
-                f"{model['height'].sel(station=station).values}m"
-            )
-        else:
-            station_label = str(station.values)
+
+        # if "code" in model.coords:
+        #     station_label = (
+        #         f"{model.code.sel(station=station).values} "
+        #         f"{model['height'].sel(station=station).values}m"
+        #     )
+        # else:
+        station_label = str(station.values)
         add_title(ax, fig, station_label)
 
     # Set axis labels
@@ -576,7 +577,7 @@ def station_sector_plot(
         groupby_key = "time.hour"
         time_vals = np.arange(0, 24)
         xticks = np.arange(0, 25, 6)
-        xlabel = "Time of day [h]"
+        xlabel = "Hour [UTC]"
     elif groupby == "day":
         groupby_key = "time.dayofweek"
         time_vals = np.arange(0, 7)
@@ -762,34 +763,38 @@ def plot_station_groupby(
     groupby: str,
     ax: Axes,
 ) -> Axes:
-    for da in [co2_model, co2, background]:
+    for label, da in zip(
+        ["background", "measurement", "model"],
+        [background, co2, co2_model],
+    ):
         if groupby == "hour":
             da[groupby] = da["time"].dt.hour
             xticks = np.arange(0, 30, 6)
-            xlabel = "Time of day [h]"
+            xlabel = "Hour [UTC]"
         else:
             raise KeyError()
 
         mean = da.groupby(groupby).mean()
-        ax.plot(mean[groupby], mean)
+        ax.plot(mean[groupby], mean, label=label.capitalize(), color=DATA_COLORS[label])
         ax.set_xticks(xticks)
         ax.set_xticks(xticks)
         ax.set_xlabel(xlabel)
 
-    for da in [co2_model, co2]:
-
-        # Plot quantiles as shaded area
-        lower_q = da.groupby(groupby).quantile(0.25)
-        # lower_q = lower_q.reindex({groupby: time}, method=None)
-        upper_q = da.groupby(groupby).quantile(0.75)
-        # upper_q = upper_q.reindex({groupby: time}, method=None)
-        ax.fill_between(
-            lower_q[groupby],
-            lower_q,
-            upper_q,
-            alpha=0.2,
-            # label=f"{labels[j]} 25-75% quantile",
-        )
+        if label != "background":
+            # Plot quantiles as shaded area
+            lower_q = da.groupby(groupby).quantile(0.25)
+            # lower_q = lower_q.reindex({groupby: time}, method=None)
+            upper_q = da.groupby(groupby).quantile(0.75)
+            # upper_q = upper_q.reindex({groupby: time}, method=None)
+            ax.fill_between(
+                lower_q[groupby],
+                lower_q,
+                upper_q,
+                alpha=0.2,
+                label=f"{label.capitalize()} 25-75% quantile",
+                color=DATA_COLORS[label],
+                # label=f"{labels[j]} 25-75% quantile",
+            )
 
     return ax
 
@@ -808,7 +813,7 @@ def plot_station_groupby_sector(
         da[groupby] = da["time"].dt.hour
         xticks = np.arange(0, 30, 6)
         time_vals = np.arange(0, 24)
-        xlabel = "Time of day [h]"
+        xlabel = "Hour [UTC]"
     else:
         raise KeyError()
     mean = (
