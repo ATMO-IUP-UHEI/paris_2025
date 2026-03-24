@@ -394,6 +394,8 @@ def plot_cycles_per_station(
 def plot_full_timeseries_daily_mean(
     fig_path: str | Path, loss_type: str, prior: str, afternoon_only: bool = True
 ):
+    from . import RC_PARAMS, DATA_COLORS
+
     background, co2, co2_model = cache_data(loss_type=loss_type)
     afternoon_start_hour = 12
     afternoon_end_hour = 16
@@ -404,19 +406,28 @@ def plot_full_timeseries_daily_mean(
         afternoon_mask = xr.ones_like(co2.time, dtype=bool)
 
     for station in co2_model.station.values:
-        plt.figure(figsize=(18, 6))
-        (co2_model.sel(prior=prior)).sel(station=station, time=afternoon_mask).resample(
-            time="1D"
-        ).mean().plot(add_legend=False)
-        co2.sel(station=station, time=afternoon_mask).resample(time="1D").mean().plot(
-            add_legend=False
-        )
+        width = RC_PARAMS["figure.figsize"][0]
+        plt.figure(figsize=(width, 3))
         background.sel(station=station, time=afternoon_mask).resample(
             time="1D"
         ).mean().plot(
-            add_legend=False
+            add_legend=False,
+            color=DATA_COLORS["background"],
+            label="Background",
         )  # type: ignore
-        plt.legend(["Modeled", "Measured", "Background"])
+        co2.sel(station=station, time=afternoon_mask).resample(time="1D").mean().plot(
+            add_legend=False,
+            color=DATA_COLORS["measurement"],
+            label="Measurement",
+        )
+        co2_model.sel(prior=prior).sel(station=station, time=afternoon_mask).resample(
+            time="1D"
+        ).mean().plot(
+            add_legend=False,
+            color=DATA_COLORS["model"],
+            label="Model",
+        )
+        plt.legend()
         if afternoon_only:
             title = (
                 f"Daily mean afternoon ({afternoon_start_hour}-{afternoon_end_hour} h) "
@@ -424,7 +435,8 @@ def plot_full_timeseries_daily_mean(
             )
         else:
             title = f"Daily mean CO$_2$ at station {station} ({prior}, {loss_type})"
-        plt.title(title)
+        plt.title("")
+        plt.ylabel("CO$_2$ [ppm]")
         from_template = str(fig_path).format(
             station=station,
         )

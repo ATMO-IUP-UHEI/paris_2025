@@ -91,3 +91,8 @@ INVENTORY_COLORS = {
     "VPRM GEE": "#4c9121",
     "VPRM R": "#c41a7c",
 }
+DATA_COLORS = {
+    "measurement": "#eba009",
+    "model": "#0B6183",
+    "background": "#9A9A9A",
+}
