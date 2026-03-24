@@ -368,13 +368,13 @@ def plot_cycles_per_station(
         background.where(season_mask[season]).sel(time=time_slice, station=s)
         for s in stations
     ]
-    labels = ["Model", "Measurement", "Background"]
+    labels = ["Background", "Measurement", "Model"]
 
     ylabel = "CO2 [ppm]"
-    ylims = (410, 460)
+    ylims = (412, 465)
     suptitle = f"CO2 vs. {groupby} ({prior}, {loss_type}) {time_str} {season}"
 
-    col_wrap = 10
+    col_wrap = 8
     station_line_plot(
         model=co2_model.sel(station=stations),
         model_data=model_data,

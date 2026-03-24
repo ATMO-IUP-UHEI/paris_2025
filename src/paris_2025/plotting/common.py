@@ -9,7 +9,9 @@ import xarray as xr
 from matplotlib import patches
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
+from matplotlib.ticker import MultipleLocator
 
+from paris_2025.plotting import DATA_COLORS, RC_PARAMS
 from paris_2025.plotting._loaders import load_combined_data
 
 
@@ -328,16 +330,18 @@ def station_line_plot(
 ):
     n_plots = len(model_data)
     n_rows = int(np.ceil(n_plots / col_wrap))
+
+    width = RC_PARAMS["figure.figsize"][0]
     fig, axs = plt.subplots(
         n_rows,
         col_wrap,
-        figsize=(4.5 * col_wrap, 4 * n_rows),
+        figsize=(width, 2 * n_rows),
         sharex=True,
         sharey=True,
         gridspec_kw={"hspace": 0.2, "wspace": 0.1},
     )
 
-    fig.suptitle(suptitle, fontsize=16)
+    # fig.suptitle(suptitle, fontsize=16)
 
     for i, station in enumerate(model.station):
         ax = axs.flatten()[i]
@@ -364,8 +368,8 @@ def station_line_plot(
                 dims=["hour"],
                 coords={"hour": np.arange(0, 24)},
             )
-            xticks = np.arange(0, 30, 6)
-            xlabel = "Time of day [h]"
+            xticks = np.arange(0, 24, 6)
+            xlabel = "Hour [UTC]"
         elif groupby == "day":
             ds[groupby] = ds["time"].dt.dayofweek
             time = xr.DataArray(
@@ -397,7 +401,7 @@ def station_line_plot(
             raise ValueError(f"Unknown groupby: {groupby}")
 
         ds = ds.set_coords(groupby)
-        for j, var in enumerate(["model", "measurement", "background"]):
+        for j, var in enumerate(["background", "measurement", "model"]):
             # data = ds.groupby(groupby).median()[var]
             data = ds.groupby(groupby).mean()[var]
             # Set missing times to nan but confirm to time
@@ -406,6 +410,7 @@ def station_line_plot(
                 time,
                 data,
                 label=labels[j],
+                color=DATA_COLORS[var],
             )
             if not var == "background":
                 lower_q = ds.groupby(groupby).quantile(0.25)[var]
@@ -418,10 +423,14 @@ def station_line_plot(
                     upper_q,
                     alpha=0.2,
                     label=f"{labels[j]} 25-75% quantile",
+                    color=DATA_COLORS[var],
                 )
         ax.set_xticks(xticks)
 
         ax.set_ylim(ylims)
+        # Minor ticks every 10 units
+        ax.yaxis.set_minor_locator(MultipleLocator(10))
+        ax.grid(True, which="both")
         if "code" in model.coords:
             station_label = (
                 f"{model.code.sel(station=station).values} "
@@ -434,14 +443,29 @@ def station_line_plot(
     # Set axis labels
     for r in range(n_rows):
         axs[r, 0].set_ylabel(ylabel)
-    for c in range(col_wrap):
-        axs[-1, c].set_xlabel(xlabel)  # type: ignore
+        for c in range(1, col_wrap):
+            axs[r, c].tick_params(left=False, which="both")
+
+    for ax in axs.flatten()[n_plots - col_wrap : n_plots]:
+        # ax.set_xticklabels(xticks)  # type: ignore
+        ax.tick_params(labelbottom=True)
+        ax.set_xlabel(xlabel)  # type: ignore
+
+    for ax in axs.flatten()[: n_plots - col_wrap]:
+        ax.tick_params(bottom=False)
+
     # Delete splines of empty plots
     for i in range(n_plots, len(axs.flatten())):
         axs.flatten()[i].axis("off")
     # One legend for all plots
     handles, labels = axs[0, 0].get_legend_handles_labels()
-    axs.flatten()[n_plots].legend(handles, labels, loc="upper left", title="Legend")
+    axs.flatten()[n_plots].legend(
+        handles,
+        labels,
+        title="Legend",
+        bbox_to_anchor=(0.0, -0.1),
+        loc="lower left",
+    )
 
 
 def get_nan_value(dtype):
@@ -843,12 +867,12 @@ def plot_station_groupby_sector(
 
 def add_title(ax: Axes, fig, title):
     # Get font size and weight from axes
-    fs = ax.title.get_fontsize()
+    fs = RC_PARAMS["legend.fontsize"]
     fw = ax.xaxis.label.get_fontweight()
     # Add title as text to allow for better positioning
     ax.text(
         0.5,
-        1.06,
+        1.055,
         title,
         transform=ax.transAxes,
         va="center",
