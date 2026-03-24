@@ -4,34 +4,6 @@ For conventions (function signatures, data-loading helpers, saving, path
 sourcing, and registration in create_figures.py) see CLAUDE.md at the repo root.
 """
 
-from . import (
-    common,
-    fluxes,
-    gradient_for_matching,
-    matching_methods,
-    meteo_from_catalog,
-    meteo_measurements,
-    tracer_background,
-    tracer_comparison,
-    tracer_from_catalog,
-    tracer_measurements,
-    _loaders,
-)
-
-__all__ = [
-    "tracer_from_catalog",
-    "tracer_background",
-    "gradient_for_matching",
-    "tracer_comparison",
-    "meteo_measurements",
-    "meteo_from_catalog",
-    "tracer_measurements",
-    "common",
-    "fluxes",
-    "matching_methods",
-    "_loaders",
-]
-
 RC_PARAMS = {
     "figure.figsize": (12, 5),
     "savefig.dpi": 300,
@@ -96,3 +68,31 @@ DATA_COLORS = {
     "model": "#0B6183",
     "background": "#9A9A9A",
 }
+
+from . import (  # noqa: E402
+    _loaders,
+    common,
+    fluxes,
+    gradient_for_matching,
+    matching_methods,
+    meteo_from_catalog,
+    meteo_measurements,
+    tracer_background,
+    tracer_comparison,
+    tracer_from_catalog,
+    tracer_measurements,
+)
+
+__all__ = [
+    "tracer_from_catalog",
+    "tracer_background",
+    "gradient_for_matching",
+    "tracer_comparison",
+    "meteo_measurements",
+    "meteo_from_catalog",
+    "tracer_measurements",
+    "common",
+    "fluxes",
+    "matching_methods",
+    "_loaders",
+]

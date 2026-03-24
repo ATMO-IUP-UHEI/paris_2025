@@ -16,6 +16,7 @@ from matplotlib.lines import Line2D
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from paris_2025.config import CONFIG
+from paris_2025.plotting import DATA_COLORS, RC_PARAMS
 from paris_2025.plotting._loaders import cache_data, load_sector_enhancement_data
 from paris_2025.plotting.common import (
     _append_mean_station,
@@ -27,6 +28,8 @@ from paris_2025.plotting.common import (
     station_scatter_plot,
     station_sector_plot,
 )
+
+plt.rcParams.update(RC_PARAMS)
 
 
 def get_plot_data(name, afternoon_only=False, main_wind_direction_only=False):
@@ -395,7 +398,6 @@ def plot_cycles_per_station(
 def plot_full_timeseries_daily_mean(
     fig_path: str | Path, loss_type: str, prior: str, afternoon_only: bool = True
 ):
-    from . import RC_PARAMS, DATA_COLORS
 
     background, co2, co2_model = cache_data(loss_type=loss_type)
     afternoon_start_hour = 12
@@ -408,18 +410,20 @@ def plot_full_timeseries_daily_mean(
 
     for station in co2_model.station.values:
         width = RC_PARAMS["figure.figsize"][0]
-        plt.figure(figsize=(width, 3))
+        fig, ax = plt.subplots(figsize=(width, 3))
         background.sel(station=station, time=afternoon_mask).resample(
             time="1D"
         ).mean().plot(
             add_legend=False,
             color=DATA_COLORS["background"],
             label="Background",
+            ax=ax,
         )  # type: ignore
         co2.sel(station=station, time=afternoon_mask).resample(time="1D").mean().plot(
             add_legend=False,
             color=DATA_COLORS["measurement"],
             label="Measurement",
+            ax=ax,
         )
         co2_model.sel(prior=prior).sel(station=station, time=afternoon_mask).resample(
             time="1D"
@@ -427,8 +431,9 @@ def plot_full_timeseries_daily_mean(
             add_legend=False,
             color=DATA_COLORS["model"],
             label="Model",
+            ax=ax,
         )
-        plt.legend()
+        ax.legend()
         if afternoon_only:
             title = (
                 f"Daily mean afternoon ({afternoon_start_hour}-{afternoon_end_hour} h) "
@@ -436,17 +441,17 @@ def plot_full_timeseries_daily_mean(
             )
         else:
             title = f"Daily mean CO$_2$ at station {station} ({prior}, {loss_type})"
-        plt.title("")
-        plt.ylabel("CO$_2$ [ppm]")
+        ax.set_title("")
+        ax.set_ylabel("CO$_2$ [ppm]")
         from_template = str(fig_path).format(
             station=station,
         )
-        plt.savefig(
+        fig.savefig(
             from_template,
             metadata=get_metadata(title),
             bbox_inches="tight",
         )
-        plt.close()
+        plt.close(fig)
 
 
 def plot_sector_cycles_per_station(
@@ -583,8 +588,6 @@ def plot_diurnal_cycle_by_weekday(
         bbox_to_anchor=(1.05, 1),
         loc="upper left",
     )
-    plt.tight_layout()
-
     plt.savefig(fig_path, metadata=get_metadata(suptitle), bbox_inches="tight")
     plt.close(fig)
 
@@ -621,7 +624,6 @@ def tracer_by_axes_plot(fig_path: str | Path, station_list, plot_info_list):
         ax.grid()
     for ax in axs[:-1].flatten():  # pyright: ignore[reportIndexIssue]
         ax.tick_params(labelbottom=False)
-    plt.tight_layout()
     plt.savefig(
         fig_path,
         metadata=get_metadata("Tracer comparison by axes."),
@@ -937,7 +939,6 @@ def plot_timeseries_with_quantile_bands(
     n_quantiles : int, optional
         Number of quantiles for uncertainty bands. Default is 21.
     """
-    from paris_2025.plotting import DATA_COLORS
 
     # Load data
     model_co2 = ggp.load("concentration_timeseries", config=CONFIG)
@@ -971,7 +972,8 @@ def plot_timeseries_with_quantile_bands(
     cmap = plt.get_cmap(cmap_name)
     time = qda.time.values
 
-    fig, ax = plt.subplots(figsize=(10, 4), dpi=300)
+    width = RC_PARAMS["figure.figsize"][0]
+    fig, ax = plt.subplots(figsize=(width, 4))
 
     # Plot quantile bands
     for i in range(len(quantiles) - 1):
@@ -1015,10 +1017,8 @@ def plot_timeseries_with_quantile_bands(
     # Add daily gridlines
     ax.xaxis.set_minor_locator(mdates.DayLocator())
     ax.grid(True, which="both")
-    ax.set_xlabel("Time")
+    ax.set_xlabel("Time [UTC]")
     ax.set_ylabel("CO$_2$ [ppm]")
-
-    fig.tight_layout()
 
     plt.savefig(
         fig_path,
