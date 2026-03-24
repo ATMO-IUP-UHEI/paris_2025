@@ -605,6 +605,29 @@ if __name__ == "__main__":
                 afternoon_only=afternoon_only,
             )
 
+    # Interactive time series with quantile bands
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "timeseries_quantile_bands_jus30_winter.png",
+        tracer_comparison.plot_timeseries_with_quantile_bands,
+        start_date="2024-01-09",
+        end_date="2024-01-22",
+        station="JUS_30",
+    )
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "timeseries_quantile_bands_jus30_winter_2.png",
+        tracer_comparison.plot_timeseries_with_quantile_bands,
+        start_date="2023-02-01",
+        end_date="2023-02-14",
+        station="JUS_30",
+    )
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "timeseries_quantile_bands_jus30_spring.png",
+        tracer_comparison.plot_timeseries_with_quantile_bands,
+        start_date="2023-05-16",
+        end_date="2023-05-29",
+        station="JUS_30",
+    )
+
     #
     station_list = [
         ["JUS_30", "JUS_30", "Mean Picarro|HPP", "Mean Picarro|HPP"],

@@ -6,6 +6,7 @@ from typing import Literal
 
 import ggpymanager as ggp
 import matplotlib.colors as mcolors
+import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns  # Remove for colormap "flare" # noqa: F401
@@ -906,6 +907,122 @@ def plot_tracer_custom_grid_with_sector_legends(
     plt.savefig(
         fig_path,
         metadata=get_metadata("Custom grid of tracer comparisons with sector legends."),
+        bbox_inches="tight",
+    )
+    plt.close(fig)
+
+
+def plot_timeseries_with_quantile_bands(
+    fig_path: str | Path,
+    start_date: str,
+    end_date: str,
+    station: str = "JUS_30",
+    cmap_name: str = "crest",
+    n_quantiles: int = 21,
+) -> None:
+    """Plot time series with quantile bands and daily gridlines.
+
+    Parameters
+    ----------
+    fig_path : str or Path
+        Path to save the figure.
+    start_date : str
+        Start date as string (e.g., "2023-01-15").
+    end_date : str
+        End date as string (e.g., "2023-02-15").
+    station : str, optional
+        Station name. Default is "JUS_30".
+    cmap_name : str, optional
+        Colormap name for quantile bands. Default is "crest".
+    n_quantiles : int, optional
+        Number of quantiles for uncertainty bands. Default is 21.
+    """
+    from paris_2025.plotting import DATA_COLORS
+
+    # Load data
+    model_co2 = ggp.load("concentration_timeseries", config=CONFIG)
+    co2 = ggp.load("co2_measurements", CONFIG)
+    background = ggp.load("background_co2", config=CONFIG).binned_background
+
+    # Prepare series data
+    series = (
+        model_co2.sel(loss_type="rmse - filter: True", station=station)
+        .co2_timeseries.sel(
+            type=model_co2.type.str.contains("Origins.earth|VPRM"),
+        )
+        .sum("type")
+        .compute()
+    )
+    series = series + background.sel(station=station)
+
+    time_period = slice(start_date, end_date)
+    quantiles = np.linspace(0, 1, n_quantiles)
+
+    mean_plot = (
+        series.where(series.loss_diff < 0.1).mean("best_sim_id").sel(time=time_period)
+    )
+    qda = (
+        series.where(series.loss_diff < 0.1)
+        .dropna("best_sim_id", how="all")
+        .quantile(quantiles, dim="best_sim_id")
+        .sel(time=time_period)
+    )
+
+    cmap = plt.get_cmap(cmap_name)
+    time = qda.time.values
+
+    fig, ax = plt.subplots(figsize=(10, 4), dpi=300)
+
+    # Plot quantile bands
+    for i in range(len(quantiles) - 1):
+        q_lo, q_hi = quantiles[i], quantiles[i + 1]
+        y_lo = qda.sel(quantile=q_lo).values
+        y_hi = qda.sel(quantile=q_hi).values
+        band_center = (q_lo + q_hi) / 2
+        color_val = 1 - abs(band_center - 0.5) * 2
+        ax.fill_between(time, y_lo, y_hi, color=cmap(color_val), alpha=1, linewidth=0)
+
+    # Plot data lines
+    bg_sel = background.sel(station=station).sel(time=time_period)
+    meas_sel = co2.co2.sel(station=station).sel(time=time_period)
+
+    ax.plot(
+        time,
+        mean_plot.values,
+        color=DATA_COLORS["model"],
+        label="Model",
+    )
+    ax.plot(
+        bg_sel.time.values,
+        bg_sel.values,
+        color=DATA_COLORS["background"],
+        label="Background",
+    )
+    ax.plot(
+        meas_sel.time.values,
+        meas_sel.values,
+        color=DATA_COLORS["measurement"],
+        label="Measurement",
+    )
+
+    # Reorder legend
+    handles, labels = ax.get_legend_handles_labels()
+    order = [1, 2, 0]  # Background, Measurement, Model
+    handles = [handles[i] for i in order]
+    labels = [labels[i] for i in order]
+    ax.legend(handles=handles, labels=labels, loc="upper left")
+
+    # Add daily gridlines
+    ax.xaxis.set_minor_locator(mdates.DayLocator())
+    ax.grid(True, which="both")
+    ax.set_xlabel("Time")
+    ax.set_ylabel("CO$_2$ [ppm]")
+
+    fig.tight_layout()
+
+    plt.savefig(
+        fig_path,
+        metadata=get_metadata(f"Time series from {start_date} to {end_date}"),
         bbox_inches="tight",
     )
     plt.close(fig)

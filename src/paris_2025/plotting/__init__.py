@@ -38,7 +38,7 @@ RC_PARAMS = {
     # "grid.alpha": 0.5,
     # "font.family": "sans-serif",
     # "font.sans-serif": "Arial",
-    # "axes.grid": True,
+    "axes.grid": True,
     # "axes.spines.right": False,
     # "axes.spines.top": False,
     "axes.linewidth": 1.0,
