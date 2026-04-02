@@ -174,7 +174,7 @@ def plot_terrain_elevation_maps(
     add_custom_cbar(axs[1, 0], gral_terrain.values, cmap=plt.get_cmap("cet_CET_L10"))
 
     # GRAL building height
-    axs[1, 1].set_title("GRAL Building Height", loc="center")
+
     # building_shaded = light.shade(
     #     building_height.fillna(0.0).values,
     #     cmap=plt.get_cmap("inferno"),
@@ -190,7 +190,8 @@ def plot_terrain_elevation_maps(
     #     cmap=plt.get_cmap("inferno"),
     #     label="Building Height (m)",
     # )
-    building_height.plot(cmap="inferno", ax=axs[1, 1])
+    building_height.plot(cmap="inferno", vmax=50, ax=axs[1, 1])
+    axs[1, 1].set_title("GRAL Building Height", loc="center")
 
     # Format subplots
     for ax, index in zip(axs.flatten(), "abcd"):
