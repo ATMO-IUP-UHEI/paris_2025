@@ -7,6 +7,7 @@ import ggpymanager as ggp
 
 import paris_2025 as p
 from paris_2025.config import CONFIG
+from paris_2025.plotting import INSTRUMENT_COLORS, INSTRUMENT_MARKERS
 from paris_2025.plotting.common import get_metadata
 
 
@@ -195,19 +196,6 @@ def plot_co2_and_meteo_stations_map(fig_path: str | Path):
     meteo = p.meteo.get_meteo_measurements()
     meteo = meteo.sel(station=list(CONFIG["matching"]["stations"].keys()))
 
-    # Define colors and markers for different instrument types
-    colors = {
-        "K96": "orange",
-        "HPP": "orange",
-        "Meteo": "DodgerBlue",
-        "Picarro": "maroon",
-    }
-    markers = {
-        "K96": "o",
-        "HPP": "o",
-        "Meteo": "o",
-        "Picarro": "o",
-    }
     r = 300  # Offset radius in meters
     r_c = r / 1.414  # Diagonal distance for corner offsets
     offset = {
@@ -219,16 +207,16 @@ def plot_co2_and_meteo_stations_map(fig_path: str | Path):
 
     # Define legend labels
     legends = {
-        "CRDS CO$_2$": (colors["Picarro"], markers["Picarro"]),
-        "NDIR CO$_2$": (colors["K96"], markers["K96"]),
-        "Wind Measurements": (colors["Meteo"], markers["Meteo"]),
+        "CRDS CO$_2$": (INSTRUMENT_COLORS["Picarro"], INSTRUMENT_MARKERS["Picarro"]),
+        "NDIR CO$_2$": (INSTRUMENT_COLORS["K96"], INSTRUMENT_MARKERS["K96"]),
+        "Wind Measurements": (INSTRUMENT_COLORS["Meteo"], INSTRUMENT_MARKERS["Meteo"]),
     }
 
     # Create figure
     fig, ax = plt.subplots(figsize=(12, 8))
 
     # Plot each instrument type
-    for instrument in colors.keys():
+    for instrument in INSTRUMENT_COLORS.keys():
         if instrument == "Meteo":
             scatter_data = meteo
         else:
@@ -240,9 +228,9 @@ def plot_co2_and_meteo_stations_map(fig_path: str | Path):
             x="x",
             y="y",
             s=100,
-            c=colors[instrument],
+            c=INSTRUMENT_COLORS[instrument],
             edgecolor="k",
-            marker=markers[instrument],
+            marker=INSTRUMENT_MARKERS[instrument],
             ax=ax,
             zorder=3,
         )

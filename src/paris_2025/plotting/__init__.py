@@ -68,7 +68,19 @@ DATA_COLORS = {
     "model": "#0B6183",
     "background": "#9A9A9A",
 }
-
+# Define colors and markers for different instrument types
+INSTRUMENT_COLORS = {
+    "K96": "orange",
+    "HPP": "orange",
+    "Meteo": "DodgerBlue",
+    "Picarro": "maroon",
+}
+INSTRUMENT_MARKERS = {
+    "K96": "o",
+    "HPP": "o",
+    "Meteo": "o",
+    "Picarro": "o",
+}
 from . import (  # noqa: E402
     _loaders,
     common,
