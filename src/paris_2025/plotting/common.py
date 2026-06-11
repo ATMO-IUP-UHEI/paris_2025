@@ -9,9 +9,15 @@ import xarray as xr
 from matplotlib import patches
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
+from matplotlib.lines import Line2D
 from matplotlib.ticker import MultipleLocator
 
-from paris_2025.plotting import DATA_COLORS, RC_PARAMS
+from paris_2025.plotting import (
+    DATA_COLORS,
+    INSTRUMENT_COLORS,
+    INSTRUMENT_MARKERS,
+    RC_PARAMS,
+)
 from paris_2025.plotting._loaders import load_combined_data
 
 
@@ -194,7 +200,7 @@ def station_scatter_plot(
     # fig.suptitle(suptitle, fontsize=16)
 
     im = None  # Initialize for type checking
-    for i in range(len(data_x)):
+    for i, _ in enumerate(data_x):
         ax = axs.flatten()[i]
         ds = xr.Dataset({"x_plot": data_x[i], "y_plot": data_y[i]})
         ds = ds.dropna(dim="time")
@@ -286,7 +292,8 @@ def station_scatter_plot(
         # station_height = co2["height"].sel(station=station).values
 
         title = str(station.values)
-        add_title(ax, fig, title)
+        instrument = str(co2.sel(station=station).instrument.values)
+        add_title(ax, fig, title, instrument)
 
     # Set axis labels
     for r in range(n_rows):
@@ -307,6 +314,9 @@ def station_scatter_plot(
     label = "Log density" if norm == "log" else "Density"
     cbar = fig.colorbar(im, cax=new_ax, label=label)
     cbar.set_ticks([])
+
+    # Instrument legend on top of figure
+    add_instrument_legend(fig)
 
     plt.savefig(
         fig_path,
@@ -439,7 +449,8 @@ def station_line_plot(
         #     )
         # else:
         station_label = str(station.values)
-        add_title(ax, fig, station_label)
+        instrument = str(ds.instrument.values)
+        add_title(ax, fig, station_label, instrument)
 
     # Set axis labels
     for r in range(n_rows):
@@ -467,21 +478,45 @@ def station_line_plot(
         bbox_to_anchor=(0.0, -0.1),
         loc="lower left",
     )
+    # Instrument legend on top of figure
+    add_instrument_legend(fig)
+
+def add_instrument_legend(fig):
+    # Define legend labels
+    legends = {
+        "CRDS CO$_2$": (INSTRUMENT_COLORS["Picarro"], INSTRUMENT_MARKERS["Picarro"]),
+        "NDIR CO$_2$": (INSTRUMENT_COLORS["K96"], INSTRUMENT_MARKERS["K96"]),
+    }
+    # Create custom legend
+    handles = [
+        Line2D(
+            [0],
+            [0],
+            marker=marker,
+            color="none",
+            linestyle="none",
+            markerfacecolor=color,
+            markeredgecolor="k",
+            markersize=8,
+            label=instrument,
+        )
+        for instrument, (color, marker) in legends.items()
+    ]
+    fig.legend(handles=handles, bbox_to_anchor=(0.5, 0.9), loc="lower center", ncol=2)
 
 
 def get_nan_value(dtype):
     if np.issubdtype(dtype, np.floating):
         return np.nan
-    elif np.issubdtype(dtype, np.integer):
+    if np.issubdtype(dtype, np.integer):
         return -9999
-    elif np.issubdtype(dtype, np.datetime64):
+    if np.issubdtype(dtype, np.datetime64):
         return np.datetime64("NaT")
-    elif np.issubdtype(dtype, str):
+    if np.issubdtype(dtype, str):
         return ""
-    elif np.issubdtype(dtype, bool):
         return False
-    else:
-        raise ValueError(f"Unsupported dtype: {dtype}")
+
+    raise ValueError(f"Unsupported dtype: {dtype}")
 
 
 def _append_mean_station(
@@ -870,7 +905,7 @@ def plot_station_groupby_sector(
     return ax
 
 
-def add_title(ax: Axes, fig, title):
+def add_title(ax: Axes, fig, title, instrument=None) -> Axes:
     # Get font size and weight from axes
     fs = RC_PARAMS["legend.fontsize"]
     fw = ax.xaxis.label.get_fontweight()
@@ -901,6 +936,19 @@ def add_title(ax: Axes, fig, title):
         zorder=-10,
     )
     fig.patches.extend([box])
+    if instrument is not None:
+        print(f"Adding instrument marker for {instrument}")
+        ax.plot(
+            0.9,
+            1.06,
+            marker=INSTRUMENT_MARKERS[instrument],
+            color=INSTRUMENT_COLORS[instrument],
+            markeredgecolor="k",
+            markersize=8,
+            transform=ax.transAxes,
+            clip_on=False,
+            zorder=10,
+        )
     return ax
 
 

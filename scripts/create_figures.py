@@ -625,6 +625,13 @@ if __name__ == "__main__":
         station="JUS_30",
     )
     create_figures_if_missing(
+        FIGURE_PATH / DIR / "timeseries_quantile_bands_jus30_winter_2_short.png",
+        tracer_comparison.plot_timeseries_with_quantile_bands,
+        start_date="2023-02-07",
+        end_date="2023-02-14",
+        station="JUS_30",
+    )
+    create_figures_if_missing(
         FIGURE_PATH / DIR / "timeseries_quantile_bands_jus30_spring.png",
         tracer_comparison.plot_timeseries_with_quantile_bands,
         start_date="2023-05-16",
