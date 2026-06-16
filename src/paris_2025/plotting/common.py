@@ -519,6 +519,7 @@ def get_nan_value(dtype):
         return np.datetime64("NaT")
     if np.issubdtype(dtype, str):
         return ""
+    if np.issubdtype(dtype, bool):
         return False
 
     raise ValueError(f"Unsupported dtype: {dtype}")
