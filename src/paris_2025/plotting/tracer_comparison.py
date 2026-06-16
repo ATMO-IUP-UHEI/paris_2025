@@ -34,7 +34,6 @@ plt.rcParams.update(RC_PARAMS)
 
 def get_plot_data(name, afternoon_only=False, main_wind_direction_only=False):
     background, co2, co2_model = cache_data()
-    co2_model = co2_model
     if name == "background":
         data = [background.sel(station=s) for s in co2_model.station.values]
         title = "Background CO2"
@@ -87,9 +86,9 @@ def plot_tracer_model_scatter_plots(fig_path: str | Path):
         ("modeled_Origins.earth", "modeled_TNO"),
     ]
 
-    xlims = (400, 500)
-    ylims = (400, 500)
-    col_wrap = 4
+    xlims = (400, 520)
+    ylims = (400, 520)
+    col_wrap = 5
     co2 = cache_data()[1]
 
     for afternoon_only in [True, False]:

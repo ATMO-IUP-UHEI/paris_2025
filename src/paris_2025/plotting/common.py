@@ -140,7 +140,7 @@ def station_scatter_plot(
     ylims,
     bins=(50, 50),
     cmap="flare",
-    col_wrap=4,
+    col_wrap=5,
     plot_one_to_one=True,
     plot_mean_std=False,
     show_infos=True,
@@ -188,13 +188,15 @@ def station_scatter_plot(
     """
     n_plots = len(data_x)
     n_rows = int(np.ceil(n_plots / col_wrap))
+    width = RC_PARAMS["figure.figsize"][0]
+    subplot_height = (width / col_wrap) * 1.1
     fig, axs = plt.subplots(
         n_rows,
         col_wrap,
-        figsize=(18, 4 * n_rows),
+        figsize=(width, subplot_height * n_rows),
         sharex=True,
         sharey=True,
-        gridspec_kw={"hspace": 0.2, "wspace": 0.2},
+        gridspec_kw={"hspace": 0.2, "wspace": 0.1},
     )
 
     # fig.suptitle(suptitle, fontsize=16)
@@ -272,6 +274,7 @@ def station_scatter_plot(
             corr = np.corrcoef(ds["x_plot"], ds["y_plot"])[0, 1]
 
             # Add RMSE and correlation to plot
+            fs = RC_PARAMS["legend.fontsize"]
             ax.text(
                 0.05,
                 0.95,
@@ -279,8 +282,8 @@ def station_scatter_plot(
                 transform=ax.transAxes,
                 verticalalignment="top",
                 horizontalalignment="left",
-                fontsize=12,
-                bbox=dict(facecolor="white", alpha=1.0, edgecolor="lightgray"),
+                fontsize=fs,
+                bbox=dict(facecolor="white", alpha=0.7, edgecolor="lightgray"),
             )
 
         if aspect_equal:
@@ -309,7 +312,8 @@ def station_scatter_plot(
     if im is None:
         raise ValueError("No valid data was plotted")
 
-    x0, y0, dx, dy = axs[-1, -3].get_position().bounds
+    ax_location = n_plots % col_wrap - 1
+    x0, y0, dx, dy = axs[-1, ax_location].get_position().bounds
     new_ax = fig.add_axes((x0 + dx + 0.04, y0, 0.02, dy))
     label = "Log density" if norm == "log" else "Density"
     cbar = fig.colorbar(im, cax=new_ax, label=label)
@@ -480,6 +484,7 @@ def station_line_plot(
     )
     # Instrument legend on top of figure
     add_instrument_legend(fig)
+
 
 def add_instrument_legend(fig):
     # Define legend labels
@@ -937,7 +942,6 @@ def add_title(ax: Axes, fig, title, instrument=None) -> Axes:
     )
     fig.patches.extend([box])
     if instrument is not None:
-        print(f"Adding instrument marker for {instrument}")
         ax.plot(
             0.9,
             1.06,
