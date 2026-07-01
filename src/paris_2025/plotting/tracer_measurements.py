@@ -7,7 +7,7 @@ import ggpymanager as ggp
 
 import paris_2025 as p
 from paris_2025.config import CONFIG
-from paris_2025.plotting import INSTRUMENT_COLORS, INSTRUMENT_MARKERS
+from paris_2025.plotting import INSTRUMENT_COLORS, INSTRUMENT_MARKERS, RC_PARAMS
 from paris_2025.plotting.common import get_metadata
 
 
@@ -15,9 +15,10 @@ def plot_co2_concentration_heatmap(fig_path: str | Path):
     """Plot CO2 concentration availability as a heatmap."""
     co2 = ggp.load("co2_measurements", CONFIG)
 
-    fig, ax = plt.subplots(figsize=(12, 6))
+    co2.co2.attrs["long_name"] = "CO$_2$ mixing ratio"
+    fig, ax = plt.subplots(figsize=RC_PARAMS["figure.figsize"])
     co2.co2.plot.imshow(ax=ax)
-    ax.set_title("CO2 Concentration available in Paris")
+    ax.set_title("")
     plt.xticks(rotation=90)
     plt.tight_layout()
     plt.savefig(
