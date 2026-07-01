@@ -369,7 +369,7 @@ def plot_cycles_per_station(
     ]
     labels = ["Background", "Measurement", "Model"]
 
-    ylabel = "CO2 [ppm]"
+    ylabel = "CO$_2$ [ppm]"
     ylims = (412, 465)
     suptitle = f"CO2 vs. {groupby} ({prior}, {loss_type}) {time_str} {season}"
 
