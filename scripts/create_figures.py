@@ -497,6 +497,26 @@ if __name__ == "__main__":
             ],
         ],
     )
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "diurnal_cycle_sector_Origins_earth_TNO_CDS_comparison.png",
+        tracer_comparison.plot_tracer_custom_grid_with_sector_legends,
+        station_list=[
+            ["CDS_34", "CDS_34_K96", "Mean"],
+            ["CDS_34", "CDS_34_K96", "Mean"],
+        ],
+        plot_info_list=[
+            [
+                "groupby_sector hour Origins.earth",
+                "groupby_sector hour Origins.earth",
+                "groupby_sector hour Origins.earth",
+            ],
+            [
+                "groupby_sector hour TNO",
+                "groupby_sector hour TNO",
+                "groupby_sector hour TNO",
+            ],
+        ],
+    )
     # Time series comparison
     for season in ["summer", "fall", "winter"]:
         if season == "summer":
