@@ -860,6 +860,15 @@ def plot_station_groupby_sector(
     mean = (
         da.sel(type=da.type.str.contains(inventory)).groupby(groupby).mean().to_pandas()
     )
+    # Sort columns by INVENTORY_COLORS order in reverse, so that the first column is plotted on top
+    print(mean)
+    if inventory == "TNO":
+        mean = mean[mean.columns.to_list()[::-1]]
+    elif inventory == "Origins.earth":
+        mean = mean[mean.columns[[2, 1, 0, 5, 4, 3][::-1]]]
+    else:
+        raise ValueError(f"Unknown inventory {inventory}")
+    print(mean)
     vprm = (
         da.sel(type=da.type.str.contains("VPRM"))
         .sum("type")
