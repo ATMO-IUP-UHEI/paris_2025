@@ -68,6 +68,11 @@ DATA_COLORS = {
     "model": "#0B6183",
     "background": "#9A9A9A",
 }
+DOMAIN_COLORS = {
+    "GRAMM": "#989898",
+    "GRAL": "#37373D",
+}
+
 # Define colors and markers for different instrument types
 INSTRUMENT_COLORS = {
     "K96": "orange",

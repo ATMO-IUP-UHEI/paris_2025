@@ -1,7 +1,8 @@
-import geopandas as gpd
-import shapely
 import contextily as ctx
+import geopandas as gpd
 import matplotlib.pyplot as plt
+import shapely
+
 from paris_2025.config import CONFIG
 
 
@@ -120,23 +121,15 @@ def add_domain(ax: plt.Axes, legend=False) -> None:  # type: ignore
     """
     Adds the domain bounding boxes and labels to the given axes.
     """
+    from paris_2025.plotting import DOMAIN_COLORS
     gdf = get_domain_as_geopandas()
-    colors = ["midnightblue", "royalblue"]
     textbuffer = 500
     # Get the fontsize for the axes labels
     fontsize = ax.xaxis.get_ticklabels()[0].get_fontsize()
     # Plot GRAL and GRAMM boxes separately for different colors
-    for idx, color in zip([0, 1], colors):
-        # gdf.iloc[[idx]].plot(
-        #     column="label",
-        #     legend=False,
-        #     facecolor="none",
-        #     linestyle="-",
-        #     linewidth=3,
-        #     edgecolor=color,
-        #     ax=ax,
-        #     categorical=True,
-        # )
+    for idx in [0, 1]:
+        row = gdf.iloc[idx]
+        color = DOMAIN_COLORS[row.label.split()[0]]
         x0, y0, x1, y1 = gdf.geometry.iloc[idx].bounds  # type: ignore
         ax.plot(
             [x0, x1, x1, x0, x0],
@@ -146,7 +139,6 @@ def add_domain(ax: plt.Axes, legend=False) -> None:  # type: ignore
         )
         if not legend:
             # Add label to geometries in same color
-            row = gdf.iloc[idx]
             ax.text(
                 row.geometry.bounds[0] + textbuffer,
                 row.geometry.bounds[1] + textbuffer,
@@ -166,8 +158,8 @@ def add_domain(ax: plt.Axes, legend=False) -> None:  # type: ignore
     if legend:
         # Create a legend for the domain boxes
         handles = [
-            plt.Line2D([0], [0], color=colors[1], lw=2, label="GRAMM"),  # type: ignore
-            plt.Line2D([0], [0], color=colors[0], lw=2, label="GRAL"),  # type: ignore
+            plt.Line2D([0], [0], color=DOMAIN_COLORS["GRAMM"], lw=2, label="GRAMM"),  # type: ignore
+            plt.Line2D([0], [0], color=DOMAIN_COLORS["GRAL"], lw=2, label="GRAL"),  # type: ignore
         ]
         legend = plt.legend(
             handles=handles,
