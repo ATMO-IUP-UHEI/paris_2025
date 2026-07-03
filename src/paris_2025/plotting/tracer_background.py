@@ -500,3 +500,48 @@ def plot_co2_diff_vs_wind_direction(fig_path: str | Path, year: str = "2023"):
         bbox_inches="tight",
     )
     plt.close(fig)
+
+
+def biospheric_contribution_to_background(fig_path: str | Path) -> None:
+    bg = ggp.load("background_co2", CONFIG)
+    enh = ggp.load("concentration_timeseries", CONFIG).sel(loss_type="rmse - filter: True")
+    co2_enh_mean = enh.where(enh.loss_diff < 0.1).mean(dim="best_sim_id")
+    series = co2_enh_mean.sel(type=co2_enh_mean.type.str.contains("VPRM")).sum("type").compute()
+    col_wrap = 5
+    rows = int(np.ceil(len(series.station.values) / col_wrap))
+    fig, axs = plt.subplots(
+        rows,
+        col_wrap,
+        figsize=(col_wrap * 2, rows * 2),
+        constrained_layout=True,
+        sharex=True,
+        sharey=True,
+    )
+    for i, station in enumerate(series.station.values):
+        # Filter out times when the station is not a background station
+        mask = bg.binned_background_station.str.contains(station).any(dim="height_bins")
+
+        ax = axs.flatten()[i]
+        ax.hist(
+            series.co2_timeseries.sel(station=station, time=mask).values,
+            bins=20,
+            alpha=0.5,
+            density=True,
+            label=station,
+        )
+        ax.set_title(station)
+
+        # Add text with min, mean, median
+        min_val = np.min(series.co2_timeseries.sel(station=station).values)
+        mean_val = np.mean(series.co2_timeseries.sel(station=station).values)
+        median_val = np.median(series.co2_timeseries.sel(station=station).values)
+        textstr = f"min: {min_val:.2f}\nmean: {mean_val:.2f}\nmedian: {median_val:.2f}"
+        ax.text(0.95, 0.95, textstr, transform=ax.transAxes, fontsize=8, verticalalignment="top", horizontalalignment="right")
+
+    # Save the figure
+    plt.savefig(
+        fig_path,
+        metadata=get_metadata("Biospheric contribution to background CO2"),
+        bbox_inches="tight",
+    )
+    plt.close(fig)

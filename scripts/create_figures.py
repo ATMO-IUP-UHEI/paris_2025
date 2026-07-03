@@ -367,6 +367,10 @@ if __name__ == "__main__":
                 background_type=background_type,
                 grouper_type=grouper_type,
             )
+    create_figures_if_missing(
+        FIGURE_PATH / DIR / "biospheric_contribution_to_background.png",
+        tracer_background.biospheric_contribution_to_background,
+    )
 
     # Fluxes
     DIR = "fluxes"
