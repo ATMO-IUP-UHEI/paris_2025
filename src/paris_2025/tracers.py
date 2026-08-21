@@ -1,4 +1,5 @@
 # import os
+import re
 import warnings
 from pathlib import Path
 
@@ -22,6 +23,13 @@ from paris_2025.config import CONFIG
 TRACER_PATH = Path(CONFIG["data_path"]) / "6_measurements/6_2_tracers/"
 print(f"Using tracer path: {TRACER_PATH}")
 TRACER_CO2_FILE = TRACER_PATH / "co2.nc"
+HIGH_COST_PATH = TRACER_PATH / "6_2_1_high-cost"
+HIGH_COST_VERSION = "ICOS-CITIES-Paris-Tower-L2-2024"
+MID_COST_PATH = TRACER_PATH / "6_2_2_mid-cost"
+# Delivery of the PAUL / ICOS Cities mid-cost dataset to read. The 2026 version
+# covers 2023-01-01 .. 2025-12-04 with 27 stations; see the notes in
+# process_mid_cost() and read_header() for what changed against "2025_version".
+MID_COST_VERSION = "2026_version"
 
 
 def get_co2_measurements() -> xr.Dataset:
@@ -134,7 +142,9 @@ def create_co2_measurements() -> None:
             "m asl",
             "Altitude",
             "altitude",
-            "Altitude of the station above sea level in meters.",
+            "Altitude of the station above sea level in meters. For high-cost "
+            "stations this is the ground elevation plus the sampling height, for "
+            "mid-cost stations it is taken from the ALTITUDE header field.",
         ],
         "height": [
             "m agl",
@@ -227,9 +237,14 @@ def create_co2_measurements() -> None:
         "title": "CO2 Measurements for Paris",
         "description": (
             "This dataset contains CO2 measurements from high-cost and mid-cost "
-            "stations in Paris."
+            "stations in Paris. The full record of each delivery is kept, so the "
+            "time axis extends beyond the end of the high-cost measurements."
         ),
         "source": "High-cost and mid-cost CO2 measurement stations",
+        "high_cost_version": HIGH_COST_VERSION,
+        "mid_cost_version": MID_COST_VERSION,
+        "time_coverage_start": str(co2.time.min().values),
+        "time_coverage_end": str(co2.time.max().values),
         "date_created": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S"),
         "creator": "Robert Maiwald",
         "creator_email": "Robert.Maiwald@uni-heidelberg.de",
@@ -237,11 +252,13 @@ def create_co2_measurements() -> None:
     co2.to_netcdf(TRACER_CO2_FILE, mode="w", unlimited_dims="time")
 
 
-def process_high_cost() -> xr.Dataset:
+def process_high_cost(
+    data_path: str | Path = HIGH_COST_PATH / HIGH_COST_VERSION,
+) -> xr.Dataset:
     """
     Process high-cost CO2 measurement files and return as a single xarray.Dataset.
     """
-    data_path = TRACER_PATH / "6_2_1_high-cost/ICOS-CITIES-Paris-Tower-L2-2024/"
+    data_path = Path(data_path)
     if not data_path.exists():
         raise FileNotFoundError(
             f"High-cost CO2 measurement data path does not exist: {data_path}"
@@ -257,8 +274,13 @@ def process_high_cost() -> xr.Dataset:
     return high_cost
 
 
-def process_mid_cost() -> xr.Dataset:
-    data_path = TRACER_PATH / "6_2_2_mid-cost/2025_version/"
+def process_mid_cost(
+    data_path: str | Path = MID_COST_PATH / MID_COST_VERSION,
+) -> xr.Dataset:
+    """
+    Process mid-cost CO2 measurement files and return as a single xarray.Dataset.
+    """
+    data_path = Path(data_path)
     if not data_path.exists():
         raise FileNotFoundError(
             f"Mid-cost CO2 measurement data path does not exist: {data_path}"
@@ -328,7 +350,11 @@ def process_files(data_path: Path, measurement_type: str, read_function) -> xr.D
     if measurement_type == "high-cost":
         file_list = data_path.glob("*.CO2")
     elif measurement_type == "mid-cost":
-        file_list = data_path.glob("*_co2.csv")
+        # Since the 2026 delivery every station ships a raw and a spike-filtered
+        # file ("*_spike_filtering_co2.csv"); only the raw series is read here.
+        file_list = (
+            f for f in data_path.glob("*_co2.csv") if "spike_filtering" not in f.name
+        )
     else:
         raise ValueError(f"Unknown measurement type: {measurement_type}")
     file_list = sorted(file_list)
@@ -370,6 +396,27 @@ def process_files(data_path: Path, measurement_type: str, read_function) -> xr.D
     return xr.concat(xds_list, dim="station", join="outer")
 
 
+def read_first_float(value: str) -> float | None:
+    """
+    Read the first number from a header value, ignoring any unit suffix.
+
+    The 2025 delivery separated value and unit with a space ("50 m agl"), the
+    2026 delivery does not ("50m agl"), so the number is matched explicitly.
+
+    Parameters
+    ----------
+    value : str
+        Header value, e.g. " 101m asl".
+
+    Returns
+    -------
+    float | None
+        The first number found, or None if the value contains no number.
+    """
+    match = re.search(r"[-+]?\d+(?:\.\d+)?", value)
+    return float(match.group()) if match else None
+
+
 def read_header(path: Path, measurement_type: str) -> pd.Series:
     """
     Read the location and metadata from the header of a measurement file.
@@ -394,28 +441,29 @@ def read_header(path: Path, measurement_type: str) -> pd.Series:
         elif param == "# STATION NAME":
             name = line.split(":")[1].strip()
         elif param == "# LATITUDE":
-            lat = float(line.split(":")[1].split()[0])
+            lat = read_first_float(line.split(":")[1])
         elif param == "# LONGITUDE":
-            lon = float(line.split(":")[1].split()[0])
+            lon = read_first_float(line.split(":")[1])
         elif param == "# ALTITUDE":
-            elevation = float(line.split(":")[1].split()[0])
+            elevation = read_first_float(line.split(":")[1])
         elif param == "# SAMPLING HEIGHTS":
-            height = float(line.split(":")[1].split()[0])
+            height = read_first_float(line.split(":")[1])
     if None in (code, name, lat, lon, elevation, height):
         raise ValueError(
             "Could not read all required parameters from the file header. "
             "Please check the file format."
         )
     if measurement_type == "mid-cost":
-        # For mid-cost measurements, the altitude is not given, so we set it to NaN
-        elevation = np.nan
+        # Since the 2026 delivery ALTITUDE is the sensor height above sea level
+        # (ground elevation + sampling height) and is used as is. In the 2025
+        # delivery it repeated the sampling height above ground instead.
+        alt = elevation
     elif measurement_type == "high-cost":
         # For high-cost measurements, the altitude is given as elevation + height
         # and height is the sampling height above ground level.
-        pass
+        alt = elevation + height  # type: ignore
     else:
         raise ValueError(f"Unknown measurement type: {measurement_type}")
-    alt = elevation + height  # type: ignore
     return pd.Series(
         {
             "code": code,

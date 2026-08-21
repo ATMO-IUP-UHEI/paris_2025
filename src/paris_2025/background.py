@@ -125,7 +125,9 @@ def get_minimum_background_co2() -> xr.DataArray:
         Minimum background CO2 levels across all stations in the GRAL domain.
     """
 
-    co2 = ggp.load("co2_measurements", CONFIG)
+    # Loaded eagerly: reading the string variables lazily crashes the netCDF4
+    # library once several lazy datasets of the same file are alive.
+    co2 = ggp.load("co2_measurements", CONFIG).load()
     co2 = co2.where(co2.instrument == "Picarro")
     # co2 = co2.sel(station=co2.in_gral_domain)
     background_min = co2.co2.min("station")
@@ -151,7 +153,9 @@ def get_binned_background_co2(
         Background CO2 levels corresponding to measurement heights.
     """
 
-    co2 = ggp.load("co2_measurements", CONFIG)
+    # Loaded eagerly: the binning below groups by and interpolates along
+    # coordinates that xarray cannot handle as chunked arrays.
+    co2 = ggp.load("co2_measurements", CONFIG).load()
     co2_height_bins = (
         co2.co2.where(co2.instrument == "Picarro")
         .groupby_bins("height", bins=bins)
