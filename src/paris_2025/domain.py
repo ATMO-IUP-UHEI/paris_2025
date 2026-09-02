@@ -1,6 +1,9 @@
+from os import environ
+
 import contextily as ctx
 import geopandas as gpd
 import matplotlib.pyplot as plt
+import numpy as np
 import shapely
 
 from paris_2025.config import CONFIG
@@ -101,7 +104,18 @@ def add_basemap(ax, zoom=12, provider=None):
     if provider is None:
         provider = ctx.providers.Esri.WorldImagery  # type: ignore
     elif provider == "CartoDB":
-        provider = ctx.providers.CartoDB.PositronNoLabels  # type: ignore
+        try:
+            # Check if the environment variable is set
+            cartodb_api_key = environ["CARTODB_API_KEY"]
+            provider = ctx.providers.CartoDB.PositronNoLabels(
+                api_key=cartodb_api_key
+            )  # type: ignore
+            provider["url"] = provider["url"] + "?key={api_key}"
+        except KeyError as e:
+            raise ValueError(
+                "CARTODB_API_KEY environment variable is not set. Please set it to use "
+                "CartoDB provider."
+            ) from e
     elif provider == "OpenStreetMap":
         provider = ctx.providers.OpenStreetMap.Mapnik  # type: ignore
     else:
@@ -112,9 +126,146 @@ def add_basemap(ax, zoom=12, provider=None):
         source=provider,
         zoom=zoom,  # type: ignore
     )
-    ax.set_axis_off()
+    # ax.set_axis_off()
     ax.set_aspect("equal", adjustable="box")
     return ax
+
+
+def _format_degrees(value: float, positive: str, negative: str, step: float) -> str:
+    """Format a degree value with a hemisphere suffix and step-appropriate precision.
+
+    The precision is the smallest that still resolves the tick spacing, so a
+    0.25\u00b0 step is labelled "2.25\u00b0E" and a 1\u00b0 step "2\u00b0E".
+    """
+    decimals = 0
+    while decimals < 6 and abs(round(step, decimals) - step) > 1e-9:
+        decimals += 1
+    suffix = positive if value >= 0 else negative
+    return f"{abs(value):.{decimals}f}\u00b0{suffix}"
+
+
+def add_latlon_ticks(
+    ax: plt.Axes,  # type: ignore
+    crs: str = CONFIG["domain"]["crs"],
+    n_ticks: int = 4,
+    grid: bool = False,
+    grid_kwargs: dict | None = None,
+) -> None:
+    """
+    Label the axes of a projected map with geographic (lat/lon) ticks.
+
+    The axes stay in the projected CRS (metres), so this can be called after
+    ``add_basemap``, ``add_domain`` or any GeoDataFrame plot without changing
+    the data coordinates. Meridians and parallels are not exactly axis-parallel
+    in a projected CRS, so each tick is placed where its graticule line crosses
+    the axis it is labelled on: longitudes at the bottom spine, latitudes at
+    the left spine.
+
+    Call this *after* all data has been plotted and the limits are final — the
+    ticks are computed from the current ``xlim``/``ylim``.
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+        The axes to label, with data in ``crs`` coordinates.
+    crs : str, optional
+        The projected CRS of the axes, by default the domain CRS from CONFIG.
+    n_ticks : int, optional
+        Approximate number of ticks per axis, by default 4.
+    grid : bool, optional
+        If True, draw the graticule (curved in the projected CRS) and switch
+        off the axes' own grid, by default False. Matplotlib's grid draws
+        straight lines through the tick positions, which would show up as a
+        second, rectangular grid next to the curved graticule.
+    grid_kwargs : dict, optional
+        Extra keyword arguments for the graticule lines, e.g.
+        ``dict(color="white", linewidth=0.5)``.
+
+    Notes
+    -----
+    The axis labels are cleared: they usually name the projected coordinate
+    (metres), which no longer describes the ticks. Set your own labels after
+    this call if you want them.
+    """
+    from matplotlib.ticker import MaxNLocator
+    from pyproj import Transformer
+
+    to_lonlat = Transformer.from_crs(crs, "EPSG:4326", always_xy=True)
+    to_proj = Transformer.from_crs("EPSG:4326", crs, always_xy=True)
+
+    xlim = ax.get_xlim()
+    ylim = ax.get_ylim()
+
+    # Sample the whole frame, not just the corners: the lon/lat range of a
+    # rotated projected frame is wider than its corner values suggest.
+    edge = np.linspace(0, 1, 20)
+    frame_x = np.concatenate(
+        [
+            xlim[0] + edge * (xlim[1] - xlim[0]),
+            xlim[0] + edge * (xlim[1] - xlim[0]),
+            np.full(edge.size, xlim[0]),
+            np.full(edge.size, xlim[1]),
+        ]
+    )
+    frame_y = np.concatenate(
+        [
+            np.full(edge.size, ylim[0]),
+            np.full(edge.size, ylim[1]),
+            ylim[0] + edge * (ylim[1] - ylim[0]),
+            ylim[0] + edge * (ylim[1] - ylim[0]),
+        ]
+    )
+    frame_lon, frame_lat = to_lonlat.transform(frame_x, frame_y)
+
+    locator = MaxNLocator(nbins=n_ticks, steps=[1, 2, 2.5, 5, 10])
+    lon_ticks = locator.tick_values(frame_lon.min(), frame_lon.max())
+    lat_ticks = locator.tick_values(frame_lat.min(), frame_lat.max())
+    lon_step = lon_ticks[1] - lon_ticks[0]
+    lat_step = lat_ticks[1] - lat_ticks[0]
+
+    # Densified graticule lines spanning the visible lon/lat range.
+    lon_line = np.linspace(frame_lon.min(), frame_lon.max(), 100)
+    lat_line = np.linspace(frame_lat.min(), frame_lat.max(), 100)
+
+    grid_style = {"color": "grey", "linewidth": 0.5, "alpha": 0.5, "zorder": 2}
+    grid_style.update(grid_kwargs or {})
+    if grid:
+        # Matplotlib's own grid would draw straight lines through the same
+        # ticks, doubling the graticule with a rectangular one.
+        ax.grid(False)
+
+    xticks, xlabels = [], []
+    for lon in lon_ticks:
+        # Where does this meridian cross the bottom spine?
+        mx, my = to_proj.transform(np.full(lat_line.size, lon), lat_line)
+        x = np.interp(ylim[0], my, mx)
+        if xlim[0] <= x <= xlim[1]:
+            xticks.append(x)
+            xlabels.append(_format_degrees(lon, "E", "W", lon_step))
+        if grid:
+            ax.plot(mx, my, **grid_style)
+
+    yticks, ylabels = [], []
+    for lat in lat_ticks:
+        # Where does this parallel cross the left spine?
+        px, py = to_proj.transform(lon_line, np.full(lon_line.size, lat))
+        y = np.interp(xlim[0], px, py)
+        if ylim[0] <= y <= ylim[1]:
+            yticks.append(y)
+            ylabels.append(_format_degrees(lat, "N", "S", lat_step))
+        if grid:
+            ax.plot(px, py, **grid_style)
+
+    ax.set_xticks(xticks)
+    ax.set_xticklabels(xlabels)
+    ax.set_yticks(yticks)
+    ax.set_yticklabels(ylabels)
+    # The axis labels describe projected metres, which the ticks no longer show.
+    ax.set_xlabel("")
+    ax.set_ylabel("")
+    # Graticule lines extend beyond the frame; keep the original extent.
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
 
 
 def add_domain(ax: plt.Axes, legend=False) -> None:  # type: ignore
@@ -122,6 +273,7 @@ def add_domain(ax: plt.Axes, legend=False) -> None:  # type: ignore
     Adds the domain bounding boxes and labels to the given axes.
     """
     from paris_2025.plotting import DOMAIN_COLORS
+
     gdf = get_domain_as_geopandas()
     textbuffer = 500
     # Get the fontsize for the axes labels

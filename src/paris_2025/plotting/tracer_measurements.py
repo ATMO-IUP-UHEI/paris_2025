@@ -259,6 +259,7 @@ def plot_co2_and_meteo_stations_map(fig_path: str | Path):
     p.domain.add_domain(ax, legend=True)
     p.domain.add_basemap(ax=ax, provider="CartoDB")
     p.domain.add_size_bar(ax)
+    p.domain.add_latlon_ticks(ax, n_ticks=4, grid=True)
 
     # Create custom legend
     handles = [
