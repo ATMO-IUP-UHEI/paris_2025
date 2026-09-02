@@ -136,11 +136,65 @@ def get_minimum_background_co2() -> xr.DataArray:
     return background_min
 
 
+def _fill_nearest_height_bin(
+    values: xr.DataArray, stations: xr.DataArray
+) -> tuple[xr.DataArray, xr.DataArray]:
+    """Fill empty height bins from the nearest bin that has data.
+
+    ``interpolate_na`` cannot be applied to the string station names, so
+    interpolating the values alone would leave ``background_station`` empty for
+    every filled bin. Instead the *source bin index* is interpolated (nearest,
+    with extrapolation at both ends, exactly as before) and then used to gather
+    both the CO2 values and the station names, so the reported station always
+    is the one holding the reported value.
+
+    Parameters
+    ----------
+    values : xarray.DataArray
+        Binned CO2 values with a ``height_bins`` dimension.
+    stations : xarray.DataArray
+        Station names of the selected minimum, same shape as ``values``.
+
+    Returns
+    -------
+    filled_values, filled_stations : xarray.DataArray
+        Both arrays gap-filled along ``height_bins``. Timesteps without any
+        data in any bin stay NaN in both.
+    """
+    positions = xr.DataArray(
+        np.arange(values.sizes["height_bins"]),
+        dims="height_bins",
+        coords={"height_bins": values.height_bins},
+    )
+    source_index = positions.where(values.notnull()).interpolate_na(
+        dim="height_bins",
+        method="nearest",
+        use_coordinate=False,
+        fill_value="extrapolate",
+    )
+    # Drop height_bins from the indexer: it conflicts with the dimension
+    # coordinate of the arrays being indexed. Restored after gathering.
+    valid = source_index.notnull().drop_vars("height_bins")
+    gather = source_index.fillna(0).astype(int).drop_vars("height_bins")
+
+    filled = tuple(
+        da.isel(height_bins=gather)
+        .where(valid)
+        .assign_coords(height_bins=values.height_bins)
+        for da in (values, stations)
+    )
+    return filled  # type: ignore[return-value]
+
+
 def get_binned_background_co2(
     bins: int | list[int] = [0, 40, 80, 120, 200]
 ) -> xr.DataArray:
     """
     Get background CO2 levels binned by height.
+
+    Empty height bins are filled from the nearest bin that has data; the
+    ``background_station`` coordinate is filled from the same bin, so it always
+    names the station the CO2 value comes from.
 
     Parameters
     ----------
@@ -150,27 +204,20 @@ def get_binned_background_co2(
     Returns
     -------
     background_levels : xarray.DataArray
-        Background CO2 levels corresponding to measurement heights.
+        Background CO2 levels corresponding to measurement heights, carrying a
+        ``background_station`` coordinate with the selected station names.
     """
 
     # Loaded eagerly: the binning below groups by and interpolates along
     # coordinates that xarray cannot handle as chunked arrays.
     co2 = ggp.load("co2_measurements", CONFIG).load()
-    co2_height_bins = (
-        co2.co2.where(co2.instrument == "Picarro")
-        .groupby_bins("height", bins=bins)
-        .min()
+    picarro_co2 = co2.co2.where(co2.instrument == "Picarro")
+    co2_height_bins = picarro_co2.groupby_bins("height", bins=bins).min()
+    selected_stations = picarro_co2.groupby_bins("height", bins=bins).map(
+        lambda x: x.idxmin("station")
     )
-    co2_height_bins = co2_height_bins.interpolate_na(
-        dim="height_bins",
-        method="nearest",
-        use_coordinate=False,
-        fill_value="extrapolate",
-    )
-    selected_stations = (
-        co2.co2.where(co2.instrument == "Picarro")
-        .groupby_bins("height", bins=bins)
-        .map(lambda x: x.idxmin("station"))
+    co2_height_bins, selected_stations = _fill_nearest_height_bin(
+        co2_height_bins, selected_stations
     )
     co2_height_bins = co2_height_bins.assign_coords(
         background_station=selected_stations
@@ -211,7 +258,10 @@ def create_background_co2() -> None:
       ``height_bin_center`` as non-dimension coordinates.
 
     Each variable has a companion ``*_station`` string variable recording which
-    station was selected (empty string when no station is available).
+    station was selected (empty string when no station is available). The
+    companion shares the dimensions of its parent variable, i.e.
+    ``binned_background_station`` is (time, station) and
+    ``binned_background_by_label_station`` is (time, height_bins).
 
     This function is idempotent: if the output file already exists it returns
     immediately without recomputing. Delete the file to force a recompute.
@@ -291,8 +341,26 @@ def create_background_co2() -> None:
     # ------------------------------------------------------------------
     dynamic_station_str = _stations_to_str(dynamic.coords["background_station"].values)
     minimum_station_str = _stations_to_str(minimum.coords["background_station"].values)
-    binned_station_str = _stations_to_str(
-        binned.coords["background_station"].assign_coords(height_bins=bin_labels).values
+
+    # Label-indexed station names, dims (time, height_bins) — companion of
+    # binned_background_by_label.
+    binned_station_raw = binned.coords["background_station"]
+    binned_station_by_label = xr.DataArray(
+        _stations_to_str(binned_station_raw.values),
+        dims=binned_station_raw.dims,
+        coords={"time": binned.time, "height_bins": bin_labels},
+    ).transpose("time", "height_bins")
+
+    # Station-matched station names, dims (time, station) — companion of
+    # binned_background, selected with the same nearest-bin rule.
+    binned_station_by_station = (
+        binned_station_by_label.assign_coords(
+            height_bin_center=("height_bins", [iv.mid for iv in intervals])
+        )
+        .swap_dims({"height_bins": "height_bin_center"})
+        .drop_vars("height_bins")
+        .sel(height_bin_center=co2_stations.height, method="nearest")
+        .rename({"height_bin_center": "matched_height_bin_center"})
     )
 
     # ------------------------------------------------------------------
@@ -310,11 +378,8 @@ def create_background_co2() -> None:
             "minimum_background_station": xr.DataArray(
                 minimum_station_str, dims=["time"], coords=time_coord
             ),
-            "binned_background_station": xr.DataArray(
-                binned_station_str,
-                dims=["time", "height_bins"],
-                coords={"time": dynamic.time, "height_bins": bin_labels},
-            ),
+            "binned_background_station": binned_station_by_station,
+            "binned_background_by_label_station": binned_station_by_label,
         }
     )
 
@@ -370,9 +435,18 @@ def create_background_co2() -> None:
         "description": "Station with the minimum CO2 at each timestep.",
     }
     ds["binned_background_station"].attrs = {
-        "long_name": "Height-binned background station",
+        "long_name": "Height-binned background station (station-matched)",
         "description": (
-            "Station with the minimum CO2 for each height bin and timestep."
+            "Station with the minimum CO2 in the height bin closest to each "
+            "station's measurement height, at each timestep. "
+            "Dimensions: (time, station), matching binned_background."
+        ),
+    }
+    ds["binned_background_by_label_station"].attrs = {
+        "long_name": "Height-binned background station (label-indexed)",
+        "description": (
+            "Station with the minimum CO2 for each height bin and timestep. "
+            "Dimensions: (time, height_bins), matching binned_background_by_label."
         ),
     }
     ds["binned_background"].coords["matched_height_bin_center"].attrs = {

@@ -165,6 +165,7 @@ def create_area_partitioning():
     gral_grid = xr.open_dataset(AREA_ID_NETCDF_PATH)
 
     if not FIGURE_PATHS["area_id"].exists():
+        logging.info(f"Creating area_id overview figure at {FIGURE_PATHS['area_id']}")
         minx, maxx = gral_grid.x.values[[0, -1]]
         miny, maxy = gral_grid.y.values[[0, -1]]
         plt.hlines(gral_grid["ybins"], minx, maxx, label="Bins")
@@ -174,7 +175,7 @@ def create_area_partitioning():
         plt.xlabel("X (m)")
         plt.ylabel("Y (m)")
         plt.legend(loc="upper right")
-        plt.savefig(FIGURE_PATHS)
+        plt.savefig(FIGURE_PATHS["area_id"])
 
 
 def convert_vprm_units(vprm):

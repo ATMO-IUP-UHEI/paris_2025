@@ -302,7 +302,7 @@ def plot_background_station_count(
         case "minimum":
             background_station = background_ds["minimum_background_station"]
         case "binned":
-            background_station = background_ds["binned_background_station"]
+            background_station = background_ds["binned_background_by_label_station"]
             height_bins = background_ds["binned_background_by_label"].height_bins
         case _:
             raise ValueError(f"Unsupported background type: {background_type}")
@@ -519,7 +519,9 @@ def biospheric_contribution_to_background(fig_path: str | Path) -> None:
     )
     for i, station in enumerate(series.station.values):
         # Filter out times when the station is not a background station
-        mask = bg.binned_background_station.str.contains(station).any(dim="height_bins")
+        mask = bg.binned_background_by_label_station.str.contains(station).any(
+            dim="height_bins"
+        )
 
         ax = axs.flatten()[i]
         ax.hist(
